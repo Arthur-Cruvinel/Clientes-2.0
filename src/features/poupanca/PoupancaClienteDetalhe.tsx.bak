@@ -1,0 +1,164 @@
+// --- Detalhe por cliente (CDI acumulado, toggle visão, edição inline) ---
+
+import { useMemo, useEffect, useState, useCallback } from 'react';
+import { X, Loader2, Target } from 'lucide-react';
+import type { RegistroPoupanca } from '../../types';
+import { buscarCDIMensal } from '../../services/cdi';
+import { DetalheGrafico } from './DetalheGrafico';
+import { DetalheTabela } from './DetalheTabela';
+import { DetalheMetaLote } from './DetalheMetaLote';
+import type { Visao } from './PoupancaTabela';
+
+interface Props { registros: RegistroPoupanca[]; onFechar: () => void; }
+
+export interface LinhaDetalhe {
+  periodo: string; r: RegistroPoupanca; idx: number; ganhoCambial: number | null;
+}
+
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+export function PoupancaClienteDetalhe({ registros: registrosIniciais, onFechar }: Props) {
+  const [registrosLocal, setRegistrosLocal] = useState(registrosIniciais);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [cdiPorMes, setCdiPorMes] = useState<Record<string, number | null>>({});
+  const [cdiLoading, setCdiLoading] = useState(false);
+  const [visao, setVisao] = useState<Visao>('consolidado');
+  const [mostrarMetaLote, setMostrarMetaLote] = useState(false);
+  const aberto = registrosLocal.length > 0;
+  const nome = aberto ? registrosLocal[0].nome_cliente : '';
+  const temOffshore = registrosLocal.some(r => (r.pl_offshore ?? 0) > 0);
+
+  useEffect(() => { setRegistrosLocal(registrosIniciais); setEditIdx(null); setVisao('consolidado'); }, [registrosIniciais]);
+  useEffect(() => {
+    if (aberto) { document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = ''; }; }
+  }, [aberto]);
+
+  useEffect(() => {
+    if (!aberto) return;
+    let cancelado = false;
+    setCdiLoading(true);
+    const meses = [...new Set(registrosLocal.map(r => `${r.ano}-${String(r.mes).padStart(2, '0')}`))];
+    Promise.allSettled(
+      meses.map(async chave => {
+        const [a, m] = chave.split('-').map(Number);
+        return { chave, val: await buscarCDIMensal(a, m) };
+      }),
+    ).then(results => {
+      if (cancelado) return;
+      const mapa: Record<string, number | null> = {};
+      for (const r of results) if (r.status === 'fulfilled') mapa[r.value.chave] = r.value.val;
+      setCdiPorMes(mapa);
+    }).finally(() => { if (!cancelado) setCdiLoading(false); });
+    return () => { cancelado = true; };
+  }, [registrosLocal, aberto]);
+
+  const sortedAsc = useMemo(() =>
+    [...registrosLocal].sort((a, b) => (a.ano * 12 + a.mes) - (b.ano * 12 + b.mes)),
+  [registrosLocal]);
+
+  const linhas = useMemo<LinhaDetalhe[]>(() =>
+    sortedAsc.map((r, i) => {
+      const periodo = `${MESES[r.mes - 1]}/${String(r.ano).slice(2)}`;
+      const prev = i > 0 ? sortedAsc[i - 1] : null;
+      const gc = (r.ptax_fechamento && prev?.ptax_fechamento && prev?.pl_offshore_usd != null)
+        ? prev.pl_offshore_usd * (r.ptax_fechamento - prev.ptax_fechamento) : null;
+      return { periodo, r, idx: i, ganhoCambial: gc };
+    }),
+  [sortedAsc]);
+
+  // Info do período
+  const periodoInfo = useMemo(() => {
+    if (sortedAsc.length === 0) return '';
+    const p = sortedAsc[0], u = sortedAsc[sortedAsc.length - 1];
+    return `${MESES[p.mes - 1]}/${p.ano} — ${MESES[u.mes - 1]}/${u.ano} • ${sortedAsc.length} meses`;
+  }, [sortedAsc]);
+
+  const handleMetaLote = useCallback((atualizados: RegistroPoupanca[]) => {
+    setRegistrosLocal(prev => prev.map(r => {
+      const upd = atualizados.find(u => u.ano === r.ano && u.mes === r.mes);
+      return upd ? { ...r, meta_poupanca_mensal: upd.meta_poupanca_mensal } : r;
+    }));
+    setMostrarMetaLote(false);
+    setToast(`Meta aplicada em ${atualizados.length} meses`);
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  const handleSalvo = useCallback((_idx: number, atualizado: RegistroPoupanca) => {
+    setRegistrosLocal(prev => prev.map(r =>
+      r.ano === atualizado.ano && r.mes === atualizado.mes && r.nome_cliente === atualizado.nome_cliente
+        ? atualizado : r));
+    setEditIdx(null);
+    setToast('Registro atualizado');
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  if (!aberto) return null;
+
+  const TABS: { id: Visao; label: string; show: boolean }[] = [
+    { id: 'consolidado', label: 'Consolidado', show: true },
+    { id: 'onshore', label: 'Onshore', show: true },
+    { id: 'offshore', label: 'Offshore', show: temOffshore },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onFechar} />
+      <div className="relative bg-white shadow-2xl ring-1 ring-black/5 w-[96vw] max-w-[1500px] mx-4 max-h-[92vh] flex flex-col"
+        style={{ borderRadius: 16 }}>
+        {/* HEADER — dark brand */}
+        <div className="flex items-center justify-between shrink-0" style={{ backgroundColor: '#160F41', borderRadius: '16px 16px 0 0', padding: '20px 28px' }}>
+          <div>
+            <h2 className="text-white" style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>{nome}</h2>
+            <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{periodoInfo}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Toggle visão */}
+            <div className="flex rounded-full p-1" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+              {TABS.filter(t => t.show).map(t => (
+                <button key={t.id} onClick={() => setVisao(t.id)}
+                  className="px-3.5 py-1 rounded-full text-xs transition-all"
+                  style={visao === t.id
+                    ? { backgroundColor: '#fff', color: '#160F41', fontWeight: 600 }
+                    : { color: 'rgba(255,255,255,0.7)' }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setMostrarMetaLote(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              style={{ border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }}>
+              <Target size={13} /> Metas
+            </button>
+            {cdiLoading && <Loader2 size={14} className="animate-spin" style={{ color: '#94a3b8' }} />}
+            {toast && <span className="text-xs font-medium" style={{ color: toast.startsWith('Erro') ? '#fca5a5' : '#86efac' }}>{toast}</span>}
+            <button onClick={onFechar} className="rounded-lg p-1 transition-colors hover:bg-white/10">
+              <X size={20} style={{ color: '#fff' }} />
+            </button>
+          </div>
+        </div>
+
+        {/* BODY — scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          {mostrarMetaLote && (
+            <div className="px-6 pt-4">
+              <DetalheMetaLote registros={registrosLocal}
+                onAplicado={handleMetaLote} onFechar={() => setMostrarMetaLote(false)} />
+            </div>
+          )}
+          <div className="mx-6 mt-5 mb-2 rounded-xl p-4" style={{ backgroundColor: '#f8fafc' }}>
+            <div className="mb-2">
+              <span className="text-sm font-semibold" style={{ color: '#160F41' }}>Performance Acumulada </span>
+              <span className="text-xs" style={{ color: '#6b6b8a' }}>vs CDI</span>
+            </div>
+            <DetalheGrafico linhas={linhas} cdiPorMes={cdiPorMes} visao={visao} />
+          </div>
+          <div className="mx-6 mb-6">
+            <DetalheTabela linhas={linhas} cdiPorMes={cdiPorMes} visao={visao}
+              editIdx={editIdx} onEditIdx={setEditIdx} onSalvo={handleSalvo} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

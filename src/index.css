@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #f5f5f7;
+  --color-sidebar: #160F41;
+  --color-card: #ffffff;
+  --color-border: #e2e2e8;
+  --color-blue: #0065FF;
+  --color-pink: #D000BB;
+  --color-gray: #8A9298;
+  --color-text: #160F41;
+  --color-text-muted: #6b6b8a;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Gradient da marca — usado via classe utilitária */
+.bg-gradient-brand {
+  background: linear-gradient(135deg, #0065FF 0%, #D000BB 100%);
+}
+
+/* Borda esquerda com gradiente (sidebar ativo) */
+.border-l-gradient {
+  border-left: 3px solid transparent;
+  border-image: linear-gradient(to bottom, #0065FF, #D000BB) 1;
+}
+
+/* Scrollbar personalizada para o tema escuro */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Select customizado */
+select.select-dark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6b8a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 30px;
+}
