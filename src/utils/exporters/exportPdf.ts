@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { DadosCliente, RegistroPoupanca } from '../../types';
 import type { MM6Cliente } from '../../features/poupanca/usePoupanca';
+import { nnmReal } from '../financials';
 
 // ============================================================
 // Constantes visuais
@@ -272,7 +273,8 @@ export function exportAumPdf(
     return [
       String(r.nome_cliente ?? r.cliente ?? ''),
       brl(Number(r.aum_inicial ?? r.pl_inicial_total ?? 0)),
-      brl(Number(r.nnm ?? r.aporte_mes_total ?? 0)),
+      // Sem fallback bruto: o consumidor preenche r.nnm. Vazio → 0 (não bruto).
+      brl(Number(r.nnm ?? 0)),
       brl(Number(r.tombamento ?? r.nnm_tombamento ?? 0)),
       brl(Number(r.nnm_liquido ?? 0)),
       brl(Number(r.rent_rs ?? r.rentabilidade_total ?? 0)),
@@ -378,7 +380,7 @@ export function exportClienteAumPdf(
   const body = registros.map((r) => [
     `${meses[r.mes] ?? r.mes}/${r.ano}`,
     brl(r.pl_inicial_total ?? 0),
-    brl(r.aporte_mes_total),
+    brl(nnmReal(r)),  // NNM Real (desconta transferência interna)
     brl(r.nnm_tombamento ?? 0),
     brl(r.rentabilidade_total ?? 0),
     pct(r.rentabilidade_pct ?? 0, 2),

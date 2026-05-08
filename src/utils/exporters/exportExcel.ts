@@ -5,6 +5,7 @@
 import * as XLSX from 'xlsx';
 import type { DadosCliente, RegistroPoupanca } from '../../types';
 import type { MM6Cliente } from '../../features/poupanca/usePoupanca';
+import { nnmReal } from '../financials';
 
 // ============================================================
 // Helpers
@@ -160,7 +161,9 @@ export function exportAumExcel(
     rows.push([
       String(r.nome_cliente ?? r.cliente ?? ''),
       Number(r.aum_inicial ?? r.pl_inicial_total ?? 0),
-      Number(r.nnm ?? r.aporte_mes_total ?? 0),
+      // Sem fallback bruto: o consumidor (PoupancaTabela) deve preencher r.nnm.
+      // Se vier vazio, melhor exibir 0 do que silenciosamente usar bruto.
+      Number(r.nnm ?? 0),
       Number(r.tombamento ?? r.nnm_tombamento ?? 0),
       Number(r.nnm_liquido ?? 0),
       Number(r.rent_rs ?? r.rentabilidade_total ?? 0),
@@ -218,7 +221,7 @@ export function exportClienteAumExcel(
     rows.push([
       `${meses[r.mes] ?? r.mes}/${r.ano}`,
       r.pl_inicial_total ?? 0,
-      r.aporte_mes_total,
+      nnmReal(r),  // NNM Real (desconta transferência interna)
       r.nnm_tombamento ?? 0,
       r.rentabilidade_total ?? 0,
       (r.rentabilidade_pct ?? 0) * 100 / 100,  // já é decimal → manter pra Excel %
@@ -237,7 +240,7 @@ export function exportClienteAumExcel(
   rows.push([
     'TOTAL',
     null,
-    somaNum('aporte_mes_total'),
+    registros.reduce((acc, r) => acc + nnmReal(r), 0),
     somaNum('nnm_tombamento'),
     somaNum('rentabilidade_total'),
     null, null, null, null,
