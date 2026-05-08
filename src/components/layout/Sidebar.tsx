@@ -93,7 +93,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col min-h-screen"
+      className="flex flex-col h-screen"
       style={{ width: 220, backgroundColor: '#160F41' }}
     >
       {/* Logo */}
@@ -105,8 +105,11 @@ export function Sidebar() {
         />
       </div>
 
-      {/* Navegação */}
-      <nav className="flex-1 py-2 space-y-0.5">
+      {/* Navegação — scroll em telas pequenas */}
+      <nav
+        className="flex-1 overflow-y-auto py-2 space-y-0.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}
+      >
         {ABAS.map((aba) => (
           <NavLink
             key={aba.path}
@@ -139,9 +142,9 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Rodapé — perfil do usuário */}
+      {/* Rodapé — perfil do usuário (fixo na parte inferior) */}
       <div
-        className="px-4 py-4"
+        className="px-4 py-4 flex-shrink-0"
         style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}
       >
         <div className="flex items-center gap-3">

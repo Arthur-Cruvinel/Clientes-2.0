@@ -3,7 +3,10 @@
 
 import { useMemo, useState, useCallback } from 'react';
 import { useApp } from '../../state/AppContext';
-import type { DadosCliente } from '../../types';
+import { mesclarTodos, type DadosClienteComPoupanca } from '../../utils/dadosClienteAdapter';
+
+// PL é injetado no merge a partir do RegistroPoupanca do período (CLAUDE.md).
+type DadosCliente = DadosClienteComPoupanca;
 
 interface ModalState {
   tipo: 'custo_direto' | 'custo_indireto' | 'impostos';
@@ -13,14 +16,27 @@ interface ModalState {
 export function useVisaoGeral() {
   const { dadosPeriodo, loading, regime } = useApp();
 
-  const clientes = dadosPeriodo?.dados ?? [];
+  // Tabela e modais consomem cadastro + DRE + PL — mescla via adapter.
+  const clientes = useMemo<DadosCliente[]>(() =>
+    dadosPeriodo
+      ? mesclarTodos(
+          dadosPeriodo.clientes,
+          dadosPeriodo.resultados,
+          dadosPeriodo.registrosPoupanca,
+        )
+      : [],
+    [dadosPeriodo],
+  );
   const totais = dadosPeriodo?.totais ?? null;
   const colaboradores = dadosPeriodo?.colaboradores ?? [];
   const custosIndiretos = dadosPeriodo?.custosIndiretos ?? [];
 
   const clientesAtivos = useMemo(() =>
-    clientes.filter(c =>
-      c.receita_fee > 0 || c.pl_onshore > 0 || (c.pl_offshore ?? 0) > 0
+    clientes.filter((c: DadosCliente) =>
+      c.receita_fee > 0
+      || (c.pl_onshore ?? 0) > 0
+      || (c.pl_offshore ?? 0) > 0
+      || c.receita_rebate > 0
     ).length,
     [clientes],
   );

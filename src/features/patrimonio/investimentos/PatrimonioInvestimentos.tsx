@@ -1,8 +1,9 @@
 // --- Aba Investimentos — listagem + CRUD ---
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Briefcase, Loader2, ArrowRight } from 'lucide-react';
+import { buscarCotacaoMoeda } from '../../../services/cotacaoMoeda';
 import { Modal } from '../../../components/ui/Modal';
 import { formatCurrency } from '../../../utils/formatters';
 import type { InvestimentoExterno, CustodiaExterna, TipoInvestimento } from '../../../types';
@@ -23,7 +24,7 @@ const COR_CUST: Record<string, { bg: string; cor: string }> = {
 };
 const CUSTODIAS: CustodiaExterna[] = ['morgan_stanley', 'xp', 'btg', 'bradesco', 'outro'];
 const TIPOS: TipoInvestimento[] = ['renda_fixa', 'renda_variavel', 'fundo', 'previdencia', 'outro'];
-const MOEDAS = ['BRL', 'USD', 'EUR'] as const;
+const MOEDAS = ['BRL', 'USD', 'EUR', 'GBP'] as const;
 const LABEL_TIPO: Record<string, string> = { renda_fixa: 'Renda Fixa', renda_variavel: 'Renda Variável', fundo: 'Fundos', previdencia: 'Previdência', outro: 'Outros' };
 
 const INP = 'rounded-lg px-3 py-2 text-sm w-full';
@@ -39,7 +40,28 @@ export function PatrimonioInvestimentos({ items, onSalvar, onExcluir, loading, c
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<InvestimentoExterno>(vazio());
   const [salvando, setSalvando] = useState(false);
+  const [ptaxRef, setPtaxRef] = useState<number | null>(null);
+  const [ptaxLoading, setPtaxLoading] = useState(false);
   const set = (k: string, v: unknown) => setForm(p => ({ ...p, [k]: v }));
+
+  // Buscar cotação da moeda na data de referência
+  useEffect(() => {
+    if (form.moeda === 'BRL' || !modal || !form.data_referencia) { setPtaxRef(null); return; }
+    const [ano, mes] = form.data_referencia.split('-').map(Number);
+    if (!ano || !mes) return;
+    setPtaxLoading(true);
+    buscarCotacaoMoeda(form.moeda, ano, mes)
+      .then(r => setPtaxRef(r.cotacao))
+      .catch(() => setPtaxRef(null))
+      .finally(() => setPtaxLoading(false));
+  }, [form.moeda, form.data_referencia, modal]);
+
+  // Auto-preencher valor_brl quando ptax da data de referência chega
+  useEffect(() => {
+    if (form.moeda !== 'BRL' && ptaxRef && form.valor > 0) {
+      setForm(p => ({ ...p, valor_brl: Math.round(p.valor * ptaxRef * 100) / 100 }));
+    }
+  }, [ptaxRef]);
 
   const abrir = (item?: InvestimentoExterno) => { setForm(item ? { ...item } : vazio()); setModal(true); };
   const salvar = async () => { setSalvando(true); await onSalvar(form); setSalvando(false); setModal(false); };
@@ -92,9 +114,12 @@ export function PatrimonioInvestimentos({ items, onSalvar, onExcluir, loading, c
             <div key={i.id} className="rounded-lg border p-4 hover:shadow-md transition-shadow" style={{ borderColor: '#e2e2e8' }}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ backgroundColor: cc.bg, color: cc.cor }}>{i.custodia}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100" style={{ color: '#6b6b8a' }}>{LABEL_TIPO[i.tipo] ?? i.tipo}</span>
+                    {i.gestao_galaticos && (
+                      <span className="text-[10px] px-2 py-0.5 rounded font-bold text-white" style={{ background: 'linear-gradient(90deg, #0065FF, #D000BB)' }}>Gestao Galaticos</span>
+                    )}
                   </div>
                   <p className="text-xs font-medium truncate" style={{ color: '#160F41' }}>{i.descricao}</p>
                   <p className="text-lg font-bold" style={{ color: '#16a34a' }}>{formatCurrency(i.valor_brl ?? i.valor)}</p>
@@ -119,12 +144,28 @@ export function PatrimonioInvestimentos({ items, onSalvar, onExcluir, loading, c
             <div><p className={LBL} style={{ color: '#6b6b8a' }}>Descrição</p><input value={form.descricao} onChange={e => set('descricao', e.target.value)} className={INP} style={BRD} /></div>
             <div><p className={LBL} style={{ color: '#6b6b8a' }}>Tipo</p><select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={INP} style={BRD}>{TIPOS.map(t => <option key={t} value={t}>{LABEL_TIPO[t]}</option>)}</select></div>
             <div className="grid grid-cols-3 gap-2">
-              <div><p className={LBL} style={{ color: '#6b6b8a' }}>Valor</p><input type="number" value={form.valor} onChange={e => set('valor', Number(e.target.value))} className={INP} style={BRD} /></div>
+              <div><p className={LBL} style={{ color: '#6b6b8a' }}>Valor</p><input type="number" value={form.valor} onChange={e => {
+                const v = Number(e.target.value); set('valor', v);
+                if (form.moeda !== 'BRL' && ptaxRef && v > 0) set('valor_brl', Math.round(v * ptaxRef * 100) / 100);
+              }} className={INP} style={BRD} /></div>
               <div><p className={LBL} style={{ color: '#6b6b8a' }}>Moeda</p><select value={form.moeda} onChange={e => set('moeda', e.target.value)} className={INP} style={BRD}>{MOEDAS.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-              {form.moeda !== 'BRL' && <div><p className={LBL} style={{ color: '#6b6b8a' }}>Valor BRL</p><input type="number" value={form.valor_brl ?? ''} onChange={e => set('valor_brl', Number(e.target.value))} className={INP} style={BRD} /></div>}
+              {form.moeda !== 'BRL' && (
+                <div>
+                  <p className={LBL} style={{ color: '#6b6b8a' }}>Valor BRL
+                    {ptaxLoading && <span className="text-[10px] ml-1" style={{ color: '#6b6b8a' }}>buscando...</span>}
+                    {ptaxRef && <span className="text-[10px] font-normal ml-1" style={{ color: '#16a34a' }}>({form.moeda}/BRL {ptaxRef.toFixed(4)} ref. {form.data_referencia?.substring(0, 7)})</span>}
+                  </p>
+                  <input type="number" value={form.valor_brl ?? ''} onChange={e => set('valor_brl', Number(e.target.value))} className={INP} style={BRD} />
+                </div>
+              )}
             </div>
             <div><p className={LBL} style={{ color: '#6b6b8a' }}>Data referência</p><input type="date" value={form.data_referencia} onChange={e => set('data_referencia', e.target.value)} className={INP} style={BRD} /></div>
             <div><p className={LBL} style={{ color: '#6b6b8a' }}>Rentabilidade anual %</p><input type="number" step="0.01" value={form.rentabilidade_anual ?? ''} onChange={e => set('rentabilidade_anual', Number(e.target.value))} className={INP} style={BRD} /></div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.gestao_galaticos ?? false} onChange={e => set('gestao_galaticos', e.target.checked)} className="rounded" />
+              <span className="text-xs font-medium" style={{ color: '#160F41' }}>Gestao Galaticos</span>
+              <span className="text-[10px]" style={{ color: '#6b6b8a' }}>(compoe AUM sob Gestao)</span>
+            </label>
             <div><p className={LBL} style={{ color: '#6b6b8a' }}>Notas</p><textarea value={form.notas ?? ''} onChange={e => set('notas', e.target.value)} className={INP} style={BRD} rows={2} /></div>
           </div>
           <div className="flex gap-3 justify-end mt-4 pt-4 border-t" style={{ borderColor: '#e2e2e8' }}>

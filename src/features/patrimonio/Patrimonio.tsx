@@ -1,7 +1,8 @@
 // --- Módulo Patrimônio — wrapper com seletor de cliente + abas ---
 
-import { useState } from 'react';
-import { Search, BarChart2, Briefcase, Home, Car, Gem, TrendingDown, Users } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, BarChart2, Briefcase, Home, Car, Gem, TrendingDown, Users, ChevronUp, ChevronDown } from 'lucide-react';
+import type { Cliente } from '../../types';
 import { usePatrimonio } from './usePatrimonio';
 import { usePatrimonioCrud } from './usePatrimonioCrud';
 import { PatrimonioVisaoGeral } from './visao-geral/PatrimonioVisaoGeral';
@@ -22,9 +23,26 @@ const ABAS = [
 type AbaId = (typeof ABAS)[number]['id'];
 
 export function Patrimonio() {
-  const { clientes, clienteSelecionado, selecionar, busca, setBusca, modoConsolidado, irParaConsolidado, loading } = usePatrimonio();
+  const { clientes, clienteSelecionado, selecionar, busca, setBusca, modoConsolidado, irParaConsolidado, navegarCliente, loading } = usePatrimonio();
   const [aba, setAba] = useState<AbaId>('visao');
   const c = clienteSelecionado;
+  const itemRef = useRef<HTMLButtonElement>(null);
+
+  // Teclado: ArrowUp/ArrowDown para navegar clientes
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'ArrowUp') { e.preventDefault(); navegarCliente('anterior'); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); navegarCliente('proximo'); }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navegarCliente]);
+
+  // Scroll para o cliente selecionado
+  useEffect(() => {
+    itemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [c?.nome_cliente]);
   const nome = modoConsolidado ? 'Consolidado — Todos os Clientes' : c?.nome_cliente ?? '';
   const slug = c?.nome_cliente
     ? c.nome_cliente.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
@@ -45,13 +63,17 @@ export function Patrimonio() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y" style={{ borderColor: '#e2e2e8' }}>
-          {clientes.map(cli => (
-            <button key={cli.id ?? cli.nome_cliente} onClick={() => selecionar(cli)}
-              className={`w-full text-left px-3 py-2.5 text-xs transition-colors ${c?.id === cli.id && !modoConsolidado ? 'bg-blue-50 border-l-2 border-blue-500' : 'hover:bg-gray-50'}`}
-              style={{ color: '#160F41' }}>
-              {cli.nome_cliente}
-            </button>
-          ))}
+          {clientes.map((cli: Cliente) => {
+            const ativo = c?.nome_cliente === cli.nome_cliente && !modoConsolidado;
+            return (
+              <button key={cli.nome_cliente} onClick={() => selecionar(cli)}
+                ref={ativo ? itemRef : undefined}
+                className={`w-full text-left px-3 py-2.5 text-xs transition-colors ${ativo ? 'bg-blue-50 border-l-2 border-blue-500' : 'hover:bg-gray-50'}`}
+                style={{ color: '#160F41' }}>
+                {cli.nome_cliente}
+              </button>
+            );
+          })}
           {clientes.length === 0 && <p className="p-4 text-sm text-center" style={{ color: '#6b6b8a' }}>Nenhum cliente</p>}
         </div>
         <div className="p-3 border-t" style={{ borderColor: '#e2e2e8' }}>
@@ -72,8 +94,23 @@ export function Patrimonio() {
         ) : (
           <>
             {/* Header */}
-            <div className="mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-bold" style={{ color: '#160F41' }}>{nome}</h3>
+              {!modoConsolidado && clientes.length > 1 && (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs" style={{ color: '#6b6b8a' }}>
+                    {clientes.findIndex((cli: Cliente) => cli.nome_cliente === c?.nome_cliente) + 1}/{clientes.length}
+                  </span>
+                  <button onClick={() => navegarCliente('anterior')} title="Cliente anterior (↑)"
+                    className="p-1 rounded hover:bg-gray-100" style={{ color: '#6b6b8a' }}>
+                    <ChevronUp size={16} />
+                  </button>
+                  <button onClick={() => navegarCliente('proximo')} title="Proximo cliente (↓)"
+                    className="p-1 rounded hover:bg-gray-100" style={{ color: '#6b6b8a' }}>
+                    <ChevronDown size={16} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Abas */}

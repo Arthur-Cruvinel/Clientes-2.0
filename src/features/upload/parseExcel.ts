@@ -1,7 +1,11 @@
-// --- Parsing de abas do template Excel v22 ---
+// --- Parsing de abas do template Excel v23 ---
 // SheetJS com { header: 1 } lê linha a linha.
 // Cabeçalho sempre na linha índice 2 (linha 3 do Excel).
 // Reutiliza parseNumericValue de services/parsers.ts.
+//
+// Template v23:
+//   - pl_onshore/pl_offshore removidos da aba clientes (PL vem de poupanca/)
+//   - fator_* removidos (modelo antigo); pct_* é o modelo atual de alocação
 
 import * as XLSX from 'xlsx';
 import { parseNumericValue } from '../../services/parsers';
@@ -81,21 +85,30 @@ export function parseColaboradores(wb: XLSX.WorkBook): Colaborador[] {
     const nome = str(row['nome_colaborador']);
     if (!nome || nome.startsWith('DEPRECATED')) continue;
 
+    // localidade vem da coluna 'localidade' do template; default 'SP' se vazia.
+    const localRaw = str(row['localidade']).toUpperCase().trim();
+    const localidade: 'SP' | 'RJ' = localRaw === 'RJ' ? 'RJ' : 'SP';
+
     resultado.push({
       nome_colaborador: nome,
       cargo: str(row['cargo']),
+      localidade,
       funcao_principal: str(row['funcao_principal']),
       alocavel: parseBool(row['alocavel']),
       percentual_alocavel: num(row['percentual_alocavel']),
       percentual_institucional: num(row['percentual_institucional']),
       salario_base: num(row['salario_base']),
+      // liquido_acordado/qtd_dependentes: novos inputs do modelo de folha CLT
+      // (substitui diferenca_teto e decimo_terceiro_ferias_plr — agora derivados).
+      liquido_acordado: num(row['liquido_acordado']),
+      qtd_dependentes: num(row['qtd_dependentes']),
       beneficios_fixos: num(row['beneficios_fixos']),
-      encargos_patronais: num(row['encargos_patronais']),
-      decimo_terceiro_ferias: num(row['decimo_terceiro_ferias']),
+      // custo_total_mensal/custo_hora vêm da planilha mas o motor sempre
+      // recalcula a partir dos inputs — a coluna existe só por compatibilidade
+      // com auditorias antigas.
       custo_total_mensal: num(row['custo_total_mensal']),
       custo_hora: num(row['custo_hora']),
       salario_teto_cargo: num(row['salario_teto_cargo']),
-      diferenca_teto: num(row['diferenca_teto']),
     });
   }
   return resultado;
@@ -116,11 +129,10 @@ export function parseClientes(wb: XLSX.WorkBook): Cliente[] {
       nome_cliente: nome,
       empresario: strOpt(row['empresario']),
       receita_fee: num(row['receita_fee']),
-      pl_onshore: num(row['pl_onshore']),
+      // pl_onshore, pl_offshore, pl_offshore_usd, ptax_fechamento removidos
+      // da aba clientes no template v23 — PL é gerenciado exclusivamente
+      // pela aba poupanca (CLAUDE.md, decisão arquitetural).
       percentual_rebate_anual_onshore: num(row['percentual_rebate_anual_onshore']),
-      pl_offshore: num(row['pl_offshore']),
-      pl_offshore_usd: num(row['pl_offshore_usd']),
-      ptax_fechamento: num(row['ptax_fechamento']),
       percentual_rebate_anual_offshore: num(row['percentual_rebate_anual_offshore']),
       aliquota_impostos_rebate: num(row['aliquota_impostos_rebate']),
       custo_contabilidade_dedicado: num(row['custo_contabilidade_dedicado']),
@@ -129,28 +141,26 @@ export function parseClientes(wb: XLSX.WorkBook): Cliente[] {
       utiliza_servico_juridico: parseBool(row['utiliza_servico_juridico']),
       utiliza_conciliacao: parseBool(row['utiliza_conciliacao']),
       pacote_servico: (() => {
+        // pl_onshore/pl_offshore removidos da aba clientes em v23 — auto-classify
+        // depende exclusivamente do valor declarado em pacote_servico.
         const raw = str(row['pacote_servico']).toLowerCase();
         if (['full', 'advanced', 'light', 'future', 'asset_only'].includes(raw)) return raw;
-        // Auto-classify: sem fee mas com patrimônio → asset_only
-        const fee = num(row['receita_fee']);
-        const plOn = num(row['pl_onshore']);
-        const plOff = num(row['pl_offshore']);
-        if (fee === 0 && (plOn > 0 || plOff > 0) && (!raw || raw === 'future')) return 'asset_only';
-        return raw || 'light';
+        return 'light';  // default seguro quando ausente/inválido
       })() as Cliente['pacote_servico'],
+      // fator_* removido — modelo antigo substituído por pct_*
+      // Ver CLAUDE.md seção "Pipeline de Processamento — Custo Direto"
       consultoria_gestao: strOpt(row['consultoria_gestao']),
-      fator_consultoria_gestao: num(row['fator_consultoria_gestao']),
       consultoria_planejamento: strOpt(row['consultoria_planejamento']),
-      fator_consultoria_planejamento: num(row['fator_consultoria_planejamento']),
       consultoria_financeira: strOpt(row['consultoria_financeira']),
-      fator_consultoria_financeira: num(row['fator_consultoria_financeira']),
       operacional_financeiro: opFin,
-      fator_operacional_financeiro: num(row['fator_operacional_financeiro']),
       serv_adm: strOpt(row['serv_adm']),
-      fator_serv_adm: num(row['fator_serv_adm']),
       serv_aux_adm: strOpt(row['serv_aux_adm']),
-      fator_serv_aux_adm: num(row['fator_serv_aux_adm']),
-      horas_reativas_mes: num(row['horas_reativas_mes']),
+      pct_consultoria_gestao: num(row['pct_consultoria_gestao']),
+      pct_consultoria_planejamento: num(row['pct_consultoria_planejamento']),
+      pct_consultoria_financeira: num(row['pct_consultoria_financeira']),
+      pct_operacional_financeiro: num(row['pct_operacional_financeiro']),
+      pct_serv_adm: num(row['pct_serv_adm']),
+      pct_serv_aux_adm: num(row['pct_serv_aux_adm']),
       peso_juridico: num(row['peso_juridico']) || 1.0,
       volume_movimentos_mes: num(row['volume_movimentos_mes']) || 0,
     });

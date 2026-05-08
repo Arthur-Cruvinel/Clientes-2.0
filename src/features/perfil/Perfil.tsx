@@ -1,14 +1,19 @@
 // --- Aba Perfil — visualização e edição de clientes ---
 
 import { useState, useMemo } from 'react';
-import { Search, Pencil } from 'lucide-react';
-import { formatCurrency, formatPercent } from '../../utils/formatters';
+import { Search, Pencil, UserPlus } from 'lucide-react';
+import { formatCurrency, formatPercent, encontrarPoupanca } from '../../utils/formatters';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
+import { calcularFatoresEscopo } from '../../utils/financials';
+import { useApp } from '../../state/AppContext';
+import { useAuth } from '../../state/AuthContext';
 import { usePerfil } from './usePerfil';
 import { ClienteCard } from './ClienteCard';
 import { EditarClienteModal } from './EditarClienteModal';
+import { NovoClienteModal } from './NovoClienteModal';
 import { AlocacaoLote } from './AlocacaoLote';
-import type { FuncaoAlocacao } from '../../types';
+import { AlocacaoEmLote } from './AlocacaoEmLote';
+import type { FuncaoAlocacao, DadosCliente, RegistroPoupanca } from '../../types';
 
 const LABEL_F: Record<FuncaoAlocacao, string> = {
   consultoria_gestao: 'Consultoria Gestão', consultoria_planejamento: 'Cons. Planejamento',
@@ -23,21 +28,32 @@ export function Perfil() {
     modalAberto, setModalAberto, colaboradores, parametros, salvarCliente, salvando,
     loading, periodoLabel, bankersUnicos, empresariosUnicos, atualizarCampoEmLote, carregar,
   } = usePerfil();
+  const { dadosPeriodo, periodoSelecionado } = useApp();
+  const { usuario } = useAuth();
+  const isAdmin = usuario?.role === 'admin';
+  const registrosPoupanca = dadosPeriodo?.registrosPoupanca ?? [];
   const [aba, setAba] = useState<(typeof ABAS)[number]>('Resumo');
-  const [visao, setVisao] = useState<'individual' | 'lote'>('individual');
+  const [visao, setVisao] = useState<'individual' | 'lote' | 'lote_aloc'>('individual');
+  const [novoClienteAberto, setNovoClienteAberto] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const c = clienteSelecionado;
+  const poupancaCliente = c ? encontrarPoupanca(c.nome_cliente, registrosPoupanca) : undefined;
   const bankers = useMemo(() =>
-    [...new Set(clientes.map(cl => cl.banker).filter((b): b is string => !!b))].sort(),
+    [...new Set(clientes.map((cl: DadosCliente) => cl.banker).filter((b): b is string => !!b))].sort(),
   [clientes]);
 
   if (loading) return <div className="p-8 text-center" style={{ color: '#6b6b8a' }}>Carregando...</div>;
 
   return (
     <div className="space-y-4">
-      {/* Toggle Individual / Lote */}
+      {/* Toggle Individual / Atribuição (banker/empresário) / Alocação (pct_*) */}
       <div className="flex items-center gap-3">
         <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #e2e2e8' }}>
-          {([['individual', '👤 Individual'], ['lote', '👥 Alocação em Lote']] as const).map(([id, label]) => (
+          {([
+            ['individual', '👤 Individual'],
+            ['lote', '👥 Atribuição em Lote'],
+            ['lote_aloc', '🎯 Alocação em Lote'],
+          ] as const).map(([id, label]) => (
             <button key={id} onClick={() => setVisao(id)}
               className={`px-4 py-1.5 text-xs font-medium transition-all ${visao === id ? 'bg-gradient-brand text-white' : ''}`}
               style={visao !== id ? { backgroundColor: '#fff', color: '#6b6b8a' } : undefined}>
@@ -45,12 +61,40 @@ export function Perfil() {
             </button>
           ))}
         </div>
+        {isAdmin && periodoSelecionado && (
+          <button onClick={() => setNovoClienteAberto(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-gradient-brand">
+            <UserPlus size={12} /> Novo Cliente
+          </button>
+        )}
       </div>
+
+      {toast && (
+        <div className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-700">{toast}</div>
+      )}
+
+      {novoClienteAberto && periodoSelecionado && (
+        <NovoClienteModal periodo={periodoSelecionado}
+          onFechar={() => setNovoClienteAberto(false)}
+          onCriado={(nome) => {
+            setNovoClienteAberto(false);
+            setToast(`Cliente "${nome}" criado com sucesso.`);
+            setTimeout(() => setToast(null), 3500);
+            carregar();
+          }} />
+      )}
 
       {visao === 'lote' && (
         <div className="bg-white rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
-          <AlocacaoLote clientes={clientes} bankersUnicos={bankersUnicos} empresariosUnicos={empresariosUnicos}
+          <AlocacaoLote clientes={clientes} colaboradores={colaboradores}
+            bankersUnicos={bankersUnicos} empresariosUnicos={empresariosUnicos}
             onAplicar={atualizarCampoEmLote} onRecarregar={carregar} />
+        </div>
+      )}
+
+      {visao === 'lote_aloc' && (
+        <div className="bg-white rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
+          <AlocacaoEmLote />
         </div>
       )}
 
@@ -71,7 +115,7 @@ export function Perfil() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y" style={{ borderColor: '#e2e2e8' }}>
-          {clientes.map(cli => (
+          {clientes.map((cli: DadosCliente) => (
             <ClienteCard key={cli.id ?? cli.nome_cliente} cliente={cli}
               selecionado={cli.id === c?.id} onClick={() => selecionar(cli)} />
           ))}
@@ -110,7 +154,7 @@ export function Perfil() {
               {aba === 'Resumo' && <ResumoTab c={c} />}
               {aba === 'Alocação' && <AlocacaoTab c={c} hp={parametros.horas_pacote} />}
               {aba === 'Configuração' && <ConfigTab c={c} />}
-              {aba === 'Cadastral' && <CadastralTab c={c} />}
+              {aba === 'Cadastral' && <CadastralTab c={c} poupanca={poupancaCliente} />}
             </div>
           </div>
         )}
@@ -118,8 +162,16 @@ export function Perfil() {
 
       {/* Modal edição */}
       {modalAberto && c && (
-        <EditarClienteModal cliente={c} colaboradores={colaboradores} bankers={bankers}
-          onSalvar={salvarCliente} salvando={salvando} onFechar={() => setModalAberto(false)} />
+        <EditarClienteModal cliente={c} poupanca={poupancaCliente}
+          colaboradores={colaboradores} bankers={bankers}
+          periodo={periodoSelecionado}
+          onSalvar={salvarCliente}
+          onExcluido={() => {
+            setToast(`Cliente "${c.nome_cliente}" removido.`);
+            setTimeout(() => setToast(null), 3500);
+            carregar();
+          }}
+          salvando={salvando} onFechar={() => setModalAberto(false)} />
       )}
     </div>
       )}
@@ -152,6 +204,9 @@ function ResumoTab({ c }: { c: import('../../types').DadosCliente }) {
 
 function AlocacaoTab({ c, hp }: { c: import('../../types').DadosCliente; hp: Record<string, Record<string, number>> }) {
   const pacoteHoras = hp[c.pacote_servico] ?? {};
+  // Fator de escopo agora vem do motor (calcularFatoresEscopo) — antes era lido
+  // do campo legacy fator_* do Cliente, que nunca é mais escrito.
+  const fatores = calcularFatoresEscopo(c);
   const TH = 'px-2 py-1.5 text-[10px] font-bold uppercase text-left';
   const TD = 'px-2 py-1.5 text-sm';
   return (
@@ -164,7 +219,7 @@ function AlocacaoTab({ c, hp }: { c: import('../../types').DadosCliente; hp: Rec
         {FUNCOES_ALOCACAO.map(f => {
           const resp = (c as unknown as Record<string, unknown>)[f] as string ?? '—';
           const hDir = pacoteHoras[f] ?? 0;
-          const fator = (c as unknown as Record<string, unknown>)[`fator_${f}`] as number ?? 0;
+          const fator = fatores[f] ?? 0;
           const hEf = hDir * fator;
           return (
             <tr key={f}>
@@ -189,31 +244,48 @@ function Par({ label, valor }: { label: string; valor: string }) {
   );
 }
 
+function corFator(fator: number): string {
+  if (fator > 1.5) return '#dc2626';   // vermelho — extrapolando muito
+  if (fator > 1.0) return '#ea580c';   // laranja — acima do escopo
+  return '#16a34a';                    // verde — dentro do escopo
+}
+
+function ParFator({ funcao, fator }: { funcao: FuncaoAlocacao; fator: number }) {
+  return (
+    <div className="flex justify-between py-1.5 border-b" style={{ borderColor: '#f3f4f6' }}>
+      <span className="text-xs" style={{ color: '#6b6b8a' }}>Escopo {LABEL_F[funcao]}</span>
+      <span className="text-sm font-medium" style={{ color: corFator(fator) }}>{fator.toFixed(2)}</span>
+    </div>
+  );
+}
+
 function ConfigTab({ c }: { c: import('../../types').DadosCliente }) {
+  const fatores = calcularFatoresEscopo(c);
   return (
     <div>
       <Par label="Pacote de serviço" valor={c.pacote_servico} />
       <Par label="Peso jurídico" valor={(c.peso_juridico ?? 1.0).toFixed(1)} />
       <Par label="Volume movimentos/mês" valor={String(c.volume_movimentos_mes ?? 0)} />
-      <Par label="Horas reativas/mês" valor={String(c.horas_reativas_mes ?? 0)} />
       <Par label="Utiliza serviço jurídico" valor={c.utiliza_servico_juridico ? 'Sim' : 'Não'} />
       <Par label="Utiliza conciliação" valor={c.utiliza_conciliacao ? 'Sim' : 'Não'} />
       <Par label="Taxa rebate onshore" valor={`${((c.percentual_rebate_anual_onshore ?? 0) * 100).toFixed(2)}% a.a.`} />
       <Par label="Taxa rebate offshore" valor={`${((c.percentual_rebate_anual_offshore ?? 0) * 100).toFixed(2)}% a.a.`} />
       <Par label="Alíquota imp. rebate" valor={`${((c.aliquota_impostos_rebate ?? 0) * 100).toFixed(2)}%`} />
+      {FUNCOES_ALOCACAO.map(f => <ParFator key={f} funcao={f} fator={fatores[f]} />)}
     </div>
   );
 }
 
-function CadastralTab({ c }: { c: import('../../types').DadosCliente }) {
+function CadastralTab({ c, poupanca }: { c: DadosCliente; poupanca?: RegistroPoupanca }) {
   return (
     <div>
       <Par label="Nome completo" valor={c.nome_cliente} />
       <Par label="Empresário" valor={c.empresario ?? '—'} />
       <Par label="Banker Responsável" valor={c.banker ?? '—'} />
       <Par label="Receita fee" valor={formatCurrency(c.receita_fee)} />
-      <Par label="AUM Onshore" valor={formatCurrency(c.pl_onshore)} />
-      <Par label="AUM Offshore" valor={formatCurrency(c.pl_offshore ?? 0)} />
+      {/* PL vem do RegistroPoupanca do período (CLAUDE.md). */}
+      <Par label="AUM Onshore" valor={formatCurrency(poupanca?.pl_onshore ?? 0)} />
+      <Par label="AUM Offshore" valor={formatCurrency(poupanca?.pl_offshore ?? 0)} />
       <Par label="Custo contabilidade dedicado" valor={formatCurrency(c.custo_contabilidade_dedicado ?? 0)} />
       <Par label="Custo pagamento dedicado" valor={formatCurrency(c.custo_pagamento_dedicado ?? 0)} />
       <Par label="Custo administrativo dedicado" valor={formatCurrency(c.custo_administrativo_dedicado ?? 0)} />

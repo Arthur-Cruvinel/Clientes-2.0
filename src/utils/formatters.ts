@@ -1,6 +1,19 @@
 // --- Funções de Formatação ---
 
+import type { RegistroPoupanca } from '../types';
 import { SIGLA_PARA_NOME } from '../features/poupanca/import/MAPEAMENTO_SIGLAS';
+
+/**
+ * Busca o RegistroPoupanca de um cliente num array indexado por nome.
+ * PL é gerenciado pelo módulo AUM & Performance (CLAUDE.md) — consumidores
+ * que precisam exibir/calcular PL chamam este helper sobre dadosPeriodo.registrosPoupanca.
+ */
+export function encontrarPoupanca(
+  nomeCliente: string,
+  registros: RegistroPoupanca[],
+): RegistroPoupanca | undefined {
+  return registros.find(r => r.nome_cliente === nomeCliente);
+}
 
 // Inverte SIGLA_PARA_NOME para buscar sigla pelo nome do cliente.
 // Construído uma única vez no carregamento do módulo.

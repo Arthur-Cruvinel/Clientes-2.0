@@ -1,14 +1,15 @@
 // --- Exportadores Excel (SheetJS) ---
-// Gera planilhas .xlsx formatadas para Visão Geral, AUM e histórico individual.
+// Gera planilhas .xlsx com NÚMEROS REAIS (não strings formatadas),
+// permitindo somas, validações e fórmulas no Excel.
 
 import * as XLSX from 'xlsx';
 import type { DadosCliente, RegistroPoupanca } from '../../types';
+import type { MM6Cliente } from '../../features/poupanca/usePoupanca';
 
 // ============================================================
 // Helpers
 // ============================================================
 
-/** Remove acentos e caracteres especiais, substituindo por hífens */
 function slugify(texto: string): string {
   return texto
     .normalize('NFD')
@@ -18,24 +19,42 @@ function slugify(texto: string): string {
     .toLowerCase();
 }
 
-/** Formata número como moeda BRL para exibição na planilha */
-function brl(valor: number): string {
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-/** Formata número como percentual */
-function pct(valor: number, decimais = 1): string {
-  return `${valor.toFixed(decimais).replace('.', ',')}%`;
-}
-
-/** Dispara o download de um workbook */
 function salvarWorkbook(wb: XLSX.WorkBook, nomeArquivo: string): void {
   XLSX.writeFile(wb, nomeArquivo);
 }
 
-/** Configura largura das colunas com base nos cabeçalhos */
 function autoWidth(ws: XLSX.WorkSheet, headers: string[]): void {
-  ws['!cols'] = headers.map((h) => ({ wch: Math.max(h.length + 2, 14) }));
+  ws['!cols'] = headers.map((h) => ({ wch: Math.max(h.length + 2, 16) }));
+}
+
+/**
+ * Aplica formatação numérica às células de dados de uma worksheet.
+ * - Colunas de moeda: #,##0.00
+ * - Colunas de percentual: 0.00%
+ * Mantém cabeçalhos e título como texto.
+ *
+ * @param ws - Worksheet
+ * @param primeiraLinhaData - Índice da primeira linha com dados (0-based)
+ * @param colsPct - Índices das colunas que são percentual (0-based)
+ * @param colsTexto - Índices das colunas que devem ficar como texto (0-based)
+ */
+function formatarCelulas(
+  ws: XLSX.WorkSheet,
+  primeiraLinhaData: number,
+  colsPct: Set<number>,
+  colsTexto: Set<number>,
+): void {
+  const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
+  for (let R = primeiraLinhaData; R <= range.e.r; R++) {
+    for (let C = 0; C <= range.e.c; C++) {
+      if (colsTexto.has(C)) continue;
+      const addr = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[addr];
+      if (!cell || typeof cell.v !== 'number') continue;
+      cell.t = 'n'; // tipo numérico
+      cell.z = colsPct.has(C) ? '0.00%' : '#,##0.00';
+    }
+  }
 }
 
 // ============================================================
@@ -55,28 +74,26 @@ export function exportVisaoGeralExcel(
     'RECEITA REBATE', 'REGIME',
   ];
 
-  const rows: (string | number)[][] = [];
+  const rows: (string | number | null)[][] = [];
 
-  // Título
   rows.push(['GALÁCTICOS CAPITAL — Visão Geral CFO']);
   rows.push([
     `Período: ${periodo} | Regime: ${regime} | Exportado em: ${new Date().toLocaleString('pt-BR')}`,
   ]);
-  rows.push([]); // linha vazia
+  rows.push([]);
   rows.push(headers);
 
-  // Dados
   for (const c of dados) {
     rows.push([
       c.nome_cliente,
-      brl(c.receita_bruta),
-      brl(c.impostos_faturamento),
-      brl(c.custo_direto),
-      brl(c.custo_indireto_rateado),
-      brl(c.custo_dedicado),
-      brl(c.ebitda),
-      pct(c.margem),
-      brl(c.receita_rebate),
+      c.receita_bruta,
+      c.impostos_faturamento,
+      c.custo_direto,
+      c.custo_indireto_rateado,
+      c.custo_dedicado,
+      c.ebitda,
+      c.margem / 100,  // decimal pra Excel (5.5% → 0.055 → exibe "5.50%")
+      c.receita_rebate,
       regime,
     ]);
   }
@@ -84,26 +101,27 @@ export function exportVisaoGeralExcel(
   // Totais
   const soma = (campo: keyof DadosCliente) =>
     dados.reduce((acc, c) => acc + (Number(c[campo]) || 0), 0);
-
   const margemMedia = dados.length > 0
     ? dados.reduce((acc, c) => acc + c.margem, 0) / dados.length
     : 0;
 
   rows.push([
     'TOTAL',
-    brl(soma('receita_bruta')),
-    brl(soma('impostos_faturamento')),
-    brl(soma('custo_direto')),
-    brl(soma('custo_indireto_rateado')),
-    brl(soma('custo_dedicado')),
-    brl(soma('ebitda')),
-    pct(margemMedia),
-    brl(soma('receita_rebate')),
+    soma('receita_bruta'),
+    soma('impostos_faturamento'),
+    soma('custo_direto'),
+    soma('custo_indireto_rateado'),
+    soma('custo_dedicado'),
+    soma('ebitda'),
+    margemMedia / 100,
+    soma('receita_rebate'),
     '',
   ]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   autoWidth(ws, headers);
+  // Margem % = coluna 7 (0-based), Texto = colunas 0 (nome) e 9 (regime)
+  formatarCelulas(ws, 4, new Set([7]), new Set([0, 9]));
 
   XLSX.utils.book_append_sheet(wb, ws, 'Visão Geral');
   salvarWorkbook(wb, `visao-geral_${periodo}_${Date.now()}.xlsx`);
@@ -113,7 +131,6 @@ export function exportVisaoGeralExcel(
 // AUM & Performance (tabela agregada)
 // ============================================================
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function exportAumExcel(
   registros: Record<string, unknown>[],
   periodoLabel: string,
@@ -123,11 +140,11 @@ export function exportAumExcel(
 
   const headers = [
     'CLIENTE', 'AUM INICIAL', 'NNM', 'TOMBAMENTO', 'NNM LÍQUIDO',
-    'RENT. R$', 'RENT. %', 'CDI %', 'SPREAD', 'G. CAMBIAL',
+    'RENT. R$', 'IMPOSTOS', 'RENT. %', 'CDI %', 'SPREAD', 'G. CAMBIAL',
     'AUM FINAL', 'META', 'PROGRESSO %',
   ];
 
-  const rows: (string | number)[][] = [];
+  const rows: (string | number | null)[][] = [];
 
   rows.push(['GALÁCTICOS CAPITAL — AUM & Performance']);
   rows.push([`Período: ${periodoLabel} | Visão: ${visao}`]);
@@ -135,25 +152,35 @@ export function exportAumExcel(
   rows.push(headers);
 
   for (const r of registros) {
+    const imp = r.impostos != null ? Number(r.impostos) : null;
+    const rentPct = Number(r.rent_pct ?? r.rentabilidade_pct ?? 0);
+    const cdiPct = Number(r.cdi_pct ?? 0);
+    const spreadPct = Number(r.spread ?? 0);
+    const progressoPct = Number(r.progresso_pct ?? 0);
     rows.push([
       String(r.nome_cliente ?? r.cliente ?? ''),
-      brl(Number(r.aum_inicial ?? r.pl_inicial_total ?? 0)),
-      brl(Number(r.nnm ?? r.aporte_mes_total ?? 0)),
-      brl(Number(r.tombamento ?? r.nnm_tombamento ?? 0)),
-      brl(Number(r.nnm_liquido ?? 0)),
-      brl(Number(r.rent_rs ?? r.rentabilidade_total ?? 0)),
-      pct(Number(r.rent_pct ?? r.rentabilidade_pct ?? 0)),
-      pct(Number(r.cdi_pct ?? 0)),
-      pct(Number(r.spread ?? 0)),
-      brl(Number(r.ganho_cambial ?? 0)),
-      brl(Number(r.aum_final ?? r.pl_total ?? 0)),
-      brl(Number(r.meta ?? r.meta_poupanca_mensal ?? 0)),
-      pct(Number(r.progresso_pct ?? 0)),
+      Number(r.aum_inicial ?? r.pl_inicial_total ?? 0),
+      Number(r.nnm ?? r.aporte_mes_total ?? 0),
+      Number(r.tombamento ?? r.nnm_tombamento ?? 0),
+      Number(r.nnm_liquido ?? 0),
+      Number(r.rent_rs ?? r.rentabilidade_total ?? 0),
+      imp != null && imp > 0 ? imp : null,
+      rentPct / 100,      // decimal pra formato Excel %
+      cdiPct / 100,
+      spreadPct / 100,
+      // null = indisponível (cliente onshore-only / primeiro mês sem prev) →
+      // célula vazia. 0 = calculado e zero (PTAX inalterada) → renderiza '0'.
+      r.ganho_cambial == null ? null : Number(r.ganho_cambial),
+      Number(r.aum_final ?? r.pl_total ?? 0),
+      Number(r.meta ?? r.meta_poupanca_mensal ?? 0),
+      progressoPct / 100,
     ]);
   }
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   autoWidth(ws, headers);
+  // Colunas %: 7=Rent%, 8=CDI%, 9=Spread, 13=Progresso%  |  Texto: 0=Nome
+  formatarCelulas(ws, 4, new Set([7, 8, 9, 13]), new Set([0]));
 
   XLSX.utils.book_append_sheet(wb, ws, 'AUM & Performance');
   salvarWorkbook(wb, `aum-performance_${periodoLabel}_${Date.now()}.xlsx`);
@@ -180,7 +207,7 @@ export function exportClienteAumExcel(
     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
   ];
 
-  const rows: (string | number)[][] = [];
+  const rows: (string | number | null)[][] = [];
 
   rows.push([`GALÁCTICOS CAPITAL — ${nomeCliente}`]);
   rows.push([`Período: ${periodoLabel}`]);
@@ -190,16 +217,16 @@ export function exportClienteAumExcel(
   for (const r of registros) {
     rows.push([
       `${meses[r.mes] ?? r.mes}/${r.ano}`,
-      brl(r.pl_inicial_total ?? 0),
-      brl(r.aporte_mes_total),
-      brl(r.nnm_tombamento ?? 0),
-      brl(r.rentabilidade_total ?? 0),
-      pct(r.rentabilidade_pct ?? 0, 2),
-      '', // CDI — preenchido pelo consumidor se disponível
-      '', // Spread
-      '', // Ganho cambial
-      brl(r.pl_total),
-      brl(r.meta_poupanca_mensal ?? 0),
+      r.pl_inicial_total ?? 0,
+      r.aporte_mes_total,
+      r.nnm_tombamento ?? 0,
+      r.rentabilidade_total ?? 0,
+      (r.rentabilidade_pct ?? 0) * 100 / 100,  // já é decimal → manter pra Excel %
+      null, // CDI
+      null, // Spread
+      null, // Ganho cambial
+      r.pl_total,
+      r.meta_poupanca_mensal ?? 0,
     ]);
   }
 
@@ -209,21 +236,120 @@ export function exportClienteAumExcel(
 
   rows.push([
     'TOTAL',
-    '',
-    brl(somaNum('aporte_mes_total')),
-    brl(somaNum('nnm_tombamento')),
-    brl(somaNum('rentabilidade_total')),
-    '', '', '', '',
-    '',
-    '',
+    null,
+    somaNum('aporte_mes_total'),
+    somaNum('nnm_tombamento'),
+    somaNum('rentabilidade_total'),
+    null, null, null, null,
+    null,
+    null,
   ]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   autoWidth(ws, headers);
+  // Colunas %: 5=Rent%, 6=CDI%, 7=Spread  |  Texto: 0=Mês/Ano
+  formatarCelulas(ws, 4, new Set([5, 6, 7]), new Set([0]));
 
-  // Nome da aba: máximo 31 caracteres (limitação do Excel)
   const nomeAba = nomeCliente.substring(0, 31);
-
   XLSX.utils.book_append_sheet(wb, ws, nomeAba);
   salvarWorkbook(wb, `${slugify(nomeCliente)}_aum_${Date.now()}.xlsx`);
+}
+
+// ============================================================
+// Burn Rate (drilldown MM6)
+// ============================================================
+
+export function exportBurnRateExcel(
+  clientes: MM6Cliente[],
+  periodoLabel: string,
+  anoFim: number,
+): void {
+  const wb = XLSX.utils.book_new();
+  const headers = [
+    'CLIENTE', 'PL ATUAL', 'MM6 RENT R$/MÊS', 'MM6 TAXA %/MÊS',
+    'MM6 NNM LÍQ./MÊS', 'VARIAÇÃO MM6', 'SPREAD vs CDI', 'MESES HIST.',
+    `PL PROJ. DEZ/${anoFim}`, `META INDIV. DEZ/${anoFim}`, 'CAPACIDADE FONTE',
+    'GAP META INDIV.', 'SEVERIDADE', 'EM BURN', 'REBATE EM RISCO',
+  ];
+  const rows: (string | number | null)[][] = [];
+  rows.push([`GALÁCTICOS CAPITAL — Burn Rate (${periodoLabel})`]);
+  rows.push([`Critério: variacao_mm6 < 0 (NNM líq. + Rent. BRL dos últimos 6 meses)`]);
+  rows.push([]);
+  rows.push(headers);
+  for (const c of clientes) {
+    rows.push([
+      c.nome_cliente,
+      c.pl_atual,
+      c.mm6_rent_brl,
+      c.mm6_rent_pct,         // decimal — coluna formatada como %
+      c.mm6_nnm_liquido,
+      c.variacao_mm6,
+      c.spread,               // razão pura, não %
+      c.n_meses,
+      c.pl_projetado_fim_ano,
+      c.meta_individual ?? null,
+      c.capacidade_fonte,
+      c.gap_meta_individual ?? null,
+      c.severidade ?? '',
+      c.em_burn ? 'sim' : 'não',
+      c.rebate_em_risco,
+    ]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  autoWidth(ws, headers);
+  // Coluna 3 = Taxa %  |  Texto: 0=Cliente, 10=Fonte, 12=Severidade, 13=EmBurn
+  formatarCelulas(ws, 4, new Set([3]), new Set([0, 10, 12, 13]));
+  XLSX.utils.book_append_sheet(wb, ws, 'Burn Rate');
+  salvarWorkbook(wb, `burn-rate_${slugify(periodoLabel)}_${Date.now()}.xlsx`);
+}
+
+// ============================================================
+// Projeção AUM (drilldown MM6)
+// ============================================================
+
+export function exportProjecaoExcel(
+  clientes: MM6Cliente[],
+  periodoLabel: string,
+  anoFim: number,
+): void {
+  const wb = XLSX.utils.book_new();
+  const headers = [
+    'CLIENTE', 'PL ATUAL', 'MM6 RENT %/MÊS', 'MM6 NNM LÍQ./MÊS',
+    'MM6 NNM BRUTO', 'MM6 TOMB.', 'CAPACIDADE ESPERADA', 'CAPACIDADE FONTE',
+    'MM6 CDI %/MÊS', 'SPREAD', 'MESES HIST.',
+    `PL PROJ. DEZ/${anoFim}`, `META INDIV. DEZ/${anoFim}`, 'GAP META INDIV.', 'STATUS',
+  ];
+  const rows: (string | number | null)[][] = [];
+  rows.push([`GALÁCTICOS CAPITAL — Projeção AUM Dez/${anoFim} (${periodoLabel})`]);
+  rows.push([`Modelo: PL[t] = PL[t-1] × (1 + CDI_proj × spread) + MM6_NNM`]);
+  rows.push([]);
+  rows.push(headers);
+  for (const c of clientes) {
+    const status = c.em_burn ? 'Em burn'
+      : c.meta_individual == null ? 'Sem meta'
+      : (c.gap_meta_individual ?? 0) > 0 ? 'Acima da meta' : 'Abaixo da meta';
+    rows.push([
+      c.nome_cliente,
+      c.pl_atual,
+      c.mm6_rent_pct,
+      c.mm6_nnm_liquido,
+      c.mm6_nnm_bruto,
+      c.mm6_tombamento,
+      c.capacidade_esperada,
+      c.capacidade_fonte,
+      c.mm6_cdi_pct,
+      c.spread,
+      c.n_meses,
+      c.pl_projetado_fim_ano,
+      c.meta_individual ?? null,
+      c.gap_meta_individual ?? null,
+      status,
+    ]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  autoWidth(ws, headers);
+  // Cols % (decimal Excel): 2=Rent%, 8=CDI%  |  Texto: 0=Cliente, 7=Fonte, 14=Status
+  formatarCelulas(ws, 4, new Set([2, 8]), new Set([0, 7, 14]));
+  XLSX.utils.book_append_sheet(wb, ws, 'Projeção');
+  salvarWorkbook(wb, `projecao-aum_${slugify(periodoLabel)}_${Date.now()}.xlsx`);
 }

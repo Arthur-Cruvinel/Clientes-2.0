@@ -16,6 +16,7 @@ interface Props {
   valoresUnicos: Map<string, string[]>;
   filtros: Record<string, Set<string>>;
   onFiltroChange: (chave: string, valores: Set<string>) => void;
+  periodoFechado?: boolean;
 }
 
 /** Calcula totais dinamicamente a partir dos clientes visíveis (filtrados). */
@@ -57,13 +58,15 @@ const stickyCol = { position: 'sticky' as const, left: 0, zIndex: 5, boxShadow: 
 
 export function TabelaClientes({
   clientes, colunas, colunaOrdenada, onOrdenar, visaoFinanceira,
-  valoresUnicos, filtros, onFiltroChange,
+  valoresUnicos, filtros, onFiltroChange, periodoFechado,
 }: Props) {
   const isMC = visaoFinanceira === 'margem_contribuicao';
   const totaisLinha = useMemo(() => calcularTotais(clientes, isMC), [clientes, isMC]);
+  // Estilo da tabela quando período fechado (borda verde sutil)
+  const borderStyle = periodoFechado ? { borderColor: '#86efac' } : { borderColor: '#e2e2e8' };
 
   return (
-    <div className="overflow-x-auto overflow-y-auto rounded-lg border" style={{ borderColor: '#e2e2e8', maxHeight: '70vh' }}>
+    <div className="overflow-x-auto overflow-y-auto rounded-lg border" style={{ ...borderStyle, maxHeight: '70vh' }}>
       <table className="min-w-full divide-y" style={{ borderColor: '#e2e2e8' }}>
         <thead style={{ backgroundColor: '#f9f9fb', position: 'sticky', top: 0, zIndex: 10 }}>
           <tr>

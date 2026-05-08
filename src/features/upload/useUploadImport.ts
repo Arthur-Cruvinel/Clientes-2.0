@@ -247,13 +247,22 @@ export function useUploadImport() {
       novoLogs.push({ colecao: 'colaboradores', status: 'erro', mensagem: String(e) });
     }
 
-    // Clientes — wipe-and-replace
+    // Clientes — salvar em clientes_base/ (collection raiz)
     try {
-      await wipeSubcollection(periodo, 'clientes');
-      await escreverBatch('clientes', preview.clientes as unknown as Record<string, unknown>[]);
-      novoLogs.push({ colecao: 'clientes', status: 'ok', mensagem: `${preview.clientes.length} registros` });
+      const clienteDocs = preview.clientes as unknown as Record<string, unknown>[];
+      for (let i = 0; i < clienteDocs.length; i += BATCH_LIMIT) {
+        const chunk = clienteDocs.slice(i, i + BATCH_LIMIT);
+        const promises = chunk.map(item => {
+          const slug = slugify(String(item['nome_cliente'] ?? ''));
+          const docRef = doc(db, 'clientes_base', slug);
+          return setDoc(docRef, sanitizeDoc(item));
+        });
+        await Promise.all(promises);
+        setLoteInfo(prev => ({ ...prev, loteAtual: prev.loteAtual + 1 }));
+      }
+      novoLogs.push({ colecao: 'clientes_base', status: 'ok', mensagem: `${preview.clientes.length} registros` });
     } catch (e) {
-      novoLogs.push({ colecao: 'clientes', status: 'erro', mensagem: String(e) });
+      novoLogs.push({ colecao: 'clientes_base', status: 'erro', mensagem: String(e) });
     }
 
     // Custos Indiretos — wipe-and-replace

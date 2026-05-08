@@ -19,6 +19,10 @@ export const MAPEAMENTO_SIGLAS: Record<string, string> = {
   'AJF': 'AJF',  // ALAN JAVIER FRANCO
   'AJF_C': 'AJF',  // ALAN JAVIER FRANCO
   'AJF_GLPG': 'AJF',  // ALAN JAVIER FRANCO
+  'AKS': 'AKS',  // ALAN KARDEC
+  'AKS_BTG': 'AKS',  // ALAN KARDEC
+  'AKS_C': 'AKS',  // ALAN KARDEC
+  'AKS_GLPG': 'AKS',  // ALAN KARDEC
   '8206874': 'AMI',  // AMILCAR AUGUSTO LOPES JUNIOR
   'AMI_C': 'AMI',  // AMILCAR AUGUSTO LOPES JUNIOR
   'AMI_GLPG': 'AMI',  // AMILCAR AUGUSTO LOPES JUNIOR
@@ -140,10 +144,15 @@ export const MAPEAMENTO_SIGLAS: Record<string, string> = {
   'JVC_XP': 'JVC',  // JOÃO VICTOR ANDRADE CAETANO
   '7206792': 'JVI',  // JOÃO VICTOR DA SILVA MARCELINO
   'JVI': 'JVI',  // JOÃO VICTOR DA SILVA MARCELINO
+  'JVI_BTG': 'JVI',  // JOÃO VICTOR DA SILVA MARCELINO
   'JVI_C': 'JVI',  // JOÃO VICTOR DA SILVA MARCELINO
   'JVI_GLPG': 'JVI',  // JOÃO VICTOR DA SILVA MARCELINO
   'JVI_ICATU': 'JVI',  // JOÃO VICTOR DA SILVA MARCELINO
   'JVI_XP': 'JVI',  // JOÃO VICTOR DA SILVA MARCELINO
+  'KSL': 'KSL',  // KEVIN SANTOS LOPES
+  'KSL_BTG': 'KSL',  // KEVIN SANTOS LOPES
+  'KSL_C': 'KSL',  // KEVIN SANTOS LOPES
+  'KSL_GLPG': 'KSL',  // KEVIN SANTOS LOPES
   '18017269175': 'LAG',  // LUIZ DE ARAUJO GUIMARAES NETO
   '32': 'LAG',  // LUIZ DE ARAUJO GUIMARAES NETO
   '4749109': 'LAG',  // LUIZ DE ARAUJO GUIMARAES NETO
@@ -165,6 +174,10 @@ export const MAPEAMENTO_SIGLAS: Record<string, string> = {
   'LES_C': 'LES',  // LUCAS ESTEVES SOUZA
   'LES_GLPG': 'LES',  // LUCAS ESTEVES SOUZA
   'LES_XP': 'LES',  // LUCAS ESTEVES SOUZA
+  'LEV': 'LEV',  // LUCAS EVANGELISTA
+  'LEV_BTG': 'LEV',  // LUCAS EVANGELISTA
+  'LEV_C': 'LEV',  // LUCAS EVANGELISTA
+  'LEV_GLPG': 'LEV',  // LUCAS EVANGELISTA
   '252': 'LGJ',  // LUAN GUILHERME DE JESUS VIEIRA
   '33900730477': 'LGJ',  // LUAN GUILHERME DE JESUS VIEIRA
   '37186887518': 'LGJ',  // LUAN GUILHERME DE JESUS VIEIRA
@@ -217,6 +230,8 @@ export const MAPEAMENTO_SIGLAS: Record<string, string> = {
   'MLM_C': 'MLM',  // MOISES LIMA MAGALHAES
   'MLM_GLPG': 'MLM',  // MOISES LIMA MAGALHAES
   'MLM_XP': 'MLM',  // MOISES LIMA MAGALHAES
+  'TAW019408': 'MLM',  // MOISES LIMA MAGALHAES — conta offshore Andbanc (MSAL)
+  'D47226006': 'MLM',  // MOISES LIMA MAGALHAES — conta offshore JP Morgan (MSAL)
   '7207436': 'MRT',  // MATHEUS ROSSETTO
   'MRT': 'MRT',  // MATHEUS ROSSETTO
   'MRT_C': 'MRT',  // MATHEUS ROSSETTO
@@ -284,13 +299,10 @@ export const MAPEAMENTO_SIGLAS: Record<string, string> = {
   'STE': 'STE',  // STEFANY FERNANDES DOS SANTOS ABREU
   'STE_C': 'STE',  // STEFANY FERNANDES DOS SANTOS ABREU
   'STE_GLPG': 'STE',  // STEFANY FERNANDES DOS SANTOS ABREU
-  'TAMIRES CASSIA DIAS GOMES': 'TGC',  // TAMIRES CASSIA DIAS DE BRITTO
-  'TGC': 'TGC',  // TAMIRES CASSIA DIAS DE BRITTO
-  'TGC_BTG': 'TGC',  // TAMIRES CASSIA DIAS DE BRITTO
-  'TGC_C': 'TGC',  // TAMIRES CASSIA DIAS DE BRITTO
-  'TGC_GLPG': 'TGC',  // TAMIRES CASSIA DIAS DE BRITTO
-  'TGC_ICATU': 'TGC',  // TAMIRES CASSIA DIAS DE BRITTO
-  'TGC_XP': 'TGC',  // TAMIRES CASSIA DIAS DE BRITTO
+  'TCG': 'TCG',  // TAMIRES CÁSSIA DIAS DE BRITTO
+  'TCG_BTG': 'TCG',  // TAMIRES CÁSSIA DIAS DE BRITTO
+  'TCG_C': 'TCG',  // TAMIRES CÁSSIA DIAS DE BRITTO
+  'TCG_GLPG': 'TCG',  // TAMIRES CÁSSIA DIAS DE BRITTO
   'TME': 'TME',  // THIAGO HENRIQUE SANTOS MENDES
   'TME_BTG': 'TME',  // THIAGO HENRIQUE SANTOS MENDES
   'TME_C': 'TME',  // THIAGO HENRIQUE SANTOS MENDES
@@ -329,6 +341,29 @@ export const MAPEAMENTO_SIGLAS: Record<string, string> = {
   'WRS_C': 'WRS',  // WESLEY RIBEIRO DA SILVA
   'WRS_GLPG': 'WRS',  // WESLEY RIBEIRO DA SILVA
   'WRS_XP': 'WRS',  // WESLEY RIBEIRO DA SILVA
+
+  // ── Nomes offshore (US Performance Report) ─────────────────────────────
+  // Nomes completos que aparecem no relatório offshore do Galápagos e
+  // precisam ser resolvidos para a sigla do cliente onshore correspondente.
+  // Holdings e SPVs primeiro, depois pessoas físicas (ordem alfabética).
+  'LAG International Investments Ltd.': 'LAG',   // LUIZ DE ARAUJO GUIMARAES NETO
+  'MSAL Investments Ltd.': 'MLM',                // MOISES LIMA MAGALHAES
+  'RS Services Ltd.': 'RSS',                     // RAFAEL SILVA
+  'Tomé Capital Group Ltd.': 'AVG',              // ARTUR VICTOR GUIMARÃES
+  'Ademilson Braga Bispo Junior': 'ABJ',          // ADEMILSON BRAGA BISPO JUNIOR
+  'Gabriel Fernando de Jesus': 'GFJ',            // GABRIEL FERNANDO DE JESUS (novo)
+  'Gabriel Pereira Dos Santos': 'GPS',           // GABRIEL PEREIRA DOS SANTOS
+  'João Victor Andrade Caetano': 'JVI',          // JOÃO VICTOR DA SILVA MARCELINO
+  'Luan Guilherme de Jesus Vieira': 'LGJ',       // LUAN GUILHERME DE JESUS VIEIRA
+  'Marco Antonio Fava Fialdini': 'FAV',          // MARCO ANTONIO FAVA FIALDINI
+  'Matheus Isaias dos Santos': 'MTS',            // MATHEUS BAHIA SANTOS
+  'Maycon Vinicius Ferreira da Cruz': 'MAY',     // MAYCON VINICIUS FERREIRA DA CRUZ
+  'Oliver Decesary Santos': 'LIV',               // OLIVER DECESARY SANTOS (novo)
+  'Roger Krug Guedes': 'RKG',                    // ROGER KRUG GUEDES
+  'Victor Alexander da Silva': 'VIA',            // VICTOR ALEXANDER DA SILVA
+  'Wenderson Galeno': 'WRG',                    // WENDERSON GALENO
+  'Wesley Ribeiro Da Silva': 'WRS',              // WESLEY RIBEIRO DA SILVA
+  'William Gomes Carvalho Santos': 'WGC',        // WILLIAM GOMES CARVALHO SANTOS
 };
 
 // Mapeamento inverso: sigla → nome completo (extraído dos comentários acima)
@@ -336,6 +371,7 @@ export const SIGLA_PARA_NOME: Record<string, string> = {
   'ABJ': 'ADEMILSON BRAGA BISPO JUNIOR',
   'ACM': 'ANA CAROLINA ARANTES MIGUEL',
   'AJF': 'ALAN JAVIER FRANCO',
+  'AKS': 'ALAN KARDEC',
   'AMI': 'AMILCAR AUGUSTO LOPES JUNIOR',
   'ARM': 'ARTHUR MENDONÇA CABRAL',
   'ARV': 'ANA RAQUEL VICTOR GUIMARAES',
@@ -355,6 +391,7 @@ export const SIGLA_PARA_NOME: Record<string, string> = {
   'FSP': 'FLORENCE ANDRADE GUIMARAES SCAPPINI',
   'GABRIEL JESUS': 'GABRIEL FERNANDO DE JESUS',
   'GABRIEL PIPINO': 'GABRIEL PIPINO',
+  'GFJ': 'GABRIEL FERNANDO DE JESUS',
   'GLP': 'GABRIEL NATHAN SILVA FERNANDES',
   'GMD': 'GABRIEL MARCATTO BENETTON',
   'GMS': 'GREGORE DE MAGALHAES SILVA FAVERO',
@@ -367,9 +404,12 @@ export const SIGLA_PARA_NOME: Record<string, string> = {
   'JLM': 'JOSE CARLOS LOPES DE MACEDO',
   'JVC': 'JOÃO VICTOR ANDRADE CAETANO',
   'JVI': 'JOÃO VICTOR DA SILVA MARCELINO',
+  'KSL': 'KEVIN SANTOS LOPES',
   'LAG': 'LUIZ DE ARAUJO GUIMARAES NETO',
   'LEJ': 'LEONARDO CESAR JARDIM',
   'LES': 'LUCAS ESTEVES SOUZA',
+  'LEV': 'LUCAS EVANGELISTA',
+  'LIV': 'OLIVER DECESARY SANTOS',
   'LGJ': 'LUAN GUILHERME DE JESUS VIEIRA',
   'LHA': 'LUIZ HENRIQUE ANDRE ROSA DA SILVA',
   'LIS': 'LORENA IMPROTA NUNES SANTANA',
@@ -390,12 +430,13 @@ export const SIGLA_PARA_NOME: Record<string, string> = {
   'RAI': 'RAIMUNDO VICTOR SOBRINHO',
   'RDN': 'RONALD DOMINGUES NAZARIO DE LIMA',
   'RII': 'RAFAEL SILVA',
+  'RSS': 'RAFAEL SILVA',
   'RKG': 'ROGER KRUG GUEDES',
   'RLN': 'RONALDO LUIS NAZARIO DE LIMA',
   'SCS': 'SAMIR CAETANO DE SOUZA SANTOS',
   'SMM': 'SONIA MARA DA SILVA MAGALHAES',
   'STE': 'STEFANY FERNANDES DOS SANTOS ABREU',
-  'TGC': 'TAMIRES CASSIA DIAS DE BRITTO',
+  'TCG': 'TAMIRES CÁSSIA DIAS DE BRITTO',
   'TME': 'THIAGO HENRIQUE SANTOS MENDES',
   'TMO': 'TIAGO MACHADO DE OLIVEIRA',
   'VIA': 'VICTOR ALEXANDER DA SILVA',
@@ -413,4 +454,20 @@ export const SIGLA_PARA_NOME: Record<string, string> = {
 export function resolverSigla(codigo: string): string | null {
   const normalizado = codigo.trim().toUpperCase();
   return MAPEAMENTO_SIGLAS[normalizado] ?? null;
+}
+
+// Inverso: nome completo → sigla curta (derivado de SIGLA_PARA_NOME)
+export const NOME_PARA_SIGLA: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const [sigla, nome] of Object.entries(SIGLA_PARA_NOME)) {
+    // Pula entradas onde a sigla é o próprio nome (ex: "GABRIEL JESUS") — não há ganho visual
+    if (sigla.trim().toUpperCase() === nome.trim().toUpperCase()) continue;
+    out[nome.trim().toUpperCase()] = sigla;
+  }
+  return out;
+})();
+
+export function siglaPorNome(nome: string): string | null {
+  if (!nome) return null;
+  return NOME_PARA_SIGLA[nome.trim().toUpperCase()] ?? null;
 }

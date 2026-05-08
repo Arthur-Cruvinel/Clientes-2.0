@@ -1,7 +1,7 @@
 // --- Renderização da tabela de clientes por visão (com ordenação e filtro) ---
 
-import { useMemo, useState, useCallback } from 'react';
-import { AlertTriangle, Info } from 'lucide-react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { AlertTriangle, Info, Flag } from 'lucide-react';
 import { formatCurrency, getSiglaCliente } from '../../utils/formatters';
 import type { RegistroPoupanca } from '../../types';
 import type { LinhaTabela, Visao } from './PoupancaTabela';
@@ -15,6 +15,11 @@ interface Props {
   visao: Visao;
   clientesSemBanker?: Set<string>;
   onClienteClick: (registros: RegistroPoupanca[]) => void;
+  // Revisão (cliente-level)
+  estaMarcado?: (nome: string) => boolean;
+  onToggleRevisao?: (nome: string) => void;
+  // Lift de ordenação para o pai (usado pela navegação anterior/próximo)
+  onOrdenadosChange?: (nomes: string[]) => void;
 }
 
 const TH_R = 'px-3 py-2 text-xs font-bold uppercase text-right';
@@ -38,6 +43,19 @@ function pick(l: LinhaTabela, v: Visao) {
   return { pi: l.plIniCons, pf: l.plFimCons, nnm: l.nnmCons, rb: l.rentBrlCons, rp: l.rentPctCons };
 }
 
+// Meses até PL zerar (burn rate). Aplicável só quando capacidade < 0 e PL > 0.
+function calcBurn(l: LinhaTabela, pl: number): number | null {
+  const cap = l.registros[l.registros.length - 1]?.capacidade_poupanca_mensal;
+  if (cap == null || cap >= 0 || pl <= 0) return null;
+  return Math.ceil(pl / Math.abs(cap));
+}
+
+function corBurn(meses: number): string {
+  if (meses <= 12) return '#991b1b';   // vermelho escuro — crítico
+  if (meses <= 24) return '#d97706';   // âmbar — alerta
+  return '#6b7280';                    // cinza — distante
+}
+
 function acessorVisao(visao: Visao) {
   return (l: LinhaTabela, col: string): number | string | null => {
     const d = pick(l, visao);
@@ -47,18 +65,26 @@ function acessorVisao(visao: Visao) {
       case 'pi': return d.pi;
       case 'nnm': return d.nnm;
       case 'rb': return d.rb;
+      case 'imp': return l.impostosTotal ?? null;
       case 'rp': return d.rp;
       case 'gc': return l.ganhoCambial;
       case 'pf': return d.pf;
+      case 'burn': return calcBurn(l, d.pf);
       case 'meta': return l.metaPeriodo;
-      case 'status': return l.metaPeriodo ? l.nnmCons / l.metaPeriodo : l.nnmCons;
+      case 'status': return l.metaPeriodo ? l.nnmPoupancaLiquida / l.metaPeriodo : l.nnmPoupancaLiquida;
       default: return null;
     }
   };
 }
 
-export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClienteClick }: Props) {
+export function PoupancaTabelaLinhas({
+  linhas, visao, clientesSemBanker, onClienteClick,
+  estaMarcado, onToggleRevisao, onOrdenadosChange,
+}: Props) {
   const mostrarGC = visao !== 'onshore';
+  // Impostos vêm de lâminas onshore (Comdinheiro), então só fazem sentido em
+  // visões que incluem onshore. Na visão pura offshore, escondemos a coluna.
+  const mostrarImp = visao !== 'offshore';
   const [filtroClientes, setFiltroClientes] = useState<Set<string> | null>(null);
   const [filtroSiglas, setFiltroSiglas] = useState<Set<string> | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<Set<string> | null>(null);
@@ -78,8 +104,17 @@ export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClien
   const acessor = useCallback(acessorVisao(visao), [visao]);
   const { ordenados, coluna, direcao, alternar } = useOrdenacao(filtradas, acessor);
 
+  // Notifica o pai sempre que a lista ordenada/filtrada mudar — usado pela
+  // navegação anterior/próximo no modal de detalhe individual.
+  useEffect(() => {
+    if (onOrdenadosChange) {
+      onOrdenadosChange(ordenados.map(l => l.nome));
+    }
+  }, [ordenados, onOrdenadosChange]);
+
   const totais = useMemo(() => {
     let pi = 0, pf = 0, nnm = 0, rb = 0, gc = 0, temGc = false, metaPeriodo = 0;
+    let imp = 0, temImp = false;
     let srp = 0, sp = 0;
     for (const l of ordenados) {
       const d = pick(l, visao);
@@ -87,16 +122,22 @@ export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClien
       if (l.metaPeriodo) metaPeriodo += l.metaPeriodo;
       if (d.rp != null && d.pf > 0) { srp += d.rp * d.pf; sp += d.pf; }
       if (l.ganhoCambial != null) { gc += l.ganhoCambial; temGc = true; }
+      if (l.impostosTotal != null) { imp += l.impostosTotal; temImp = true; }
     }
-    return { pi, pf, nnm, rb, metaPeriodo, gc: temGc ? gc : null, rpMedia: sp > 0 ? srp / sp : 0 };
+    return {
+      pi, pf, nnm, rb, metaPeriodo,
+      gc: temGc ? gc : null,
+      imp: temImp ? imp : null,
+      rpMedia: sp > 0 ? srp / sp : 0,
+    };
   }, [ordenados, visao]);
 
   const thProps = { colunaAtiva: coluna, direcao, onAlternar: alternar };
 
   return (
-    <div className="overflow-x-auto rounded-lg border" style={{ borderColor: '#e2e2e8' }}>
+    <div className="overflow-x-auto overflow-y-auto rounded-lg border" style={{ borderColor: '#e2e2e8', maxHeight: '70vh' }}>
       <table className="min-w-full text-sm table-fixed">
-        <thead style={{ backgroundColor: '#f9f9fb' }}>
+        <thead style={{ backgroundColor: '#f9f9fb', position: 'sticky', top: 0, zIndex: 10 }}>
           <tr>
             <ThOrdenavel chave="sigla" label="Sigla" className="px-3 py-2 text-xs font-bold uppercase text-center w-16" {...thProps}>
               <FiltroCheckbox valores={siglas} selecionados={filtroSiglas} onAplicar={setFiltroSiglas} />
@@ -107,21 +148,29 @@ export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClien
             <ThOrdenavel chave="pi" label="AUM Inicial" className={`${TH_R} w-28`} {...thProps} />
             <ThOrdenavel chave="nnm" label="NNM" className={`${TH_R} w-24`} {...thProps} />
             <ThOrdenavel chave="rb" label="Rent. R$" className={`${TH_R} w-28`} {...thProps} />
+            {mostrarImp && <ThOrdenavel chave="imp" label="Impostos" className={`${TH_R} w-24`} {...thProps} />}
             <ThOrdenavel chave="rp" label="Rent. %" className={`${TH_R} w-20`} {...thProps} />
             {mostrarGC && <ThOrdenavel chave="gc" label="G. Cambial" className={`${TH_R} w-28`} {...thProps} />}
             <ThOrdenavel chave="pf" label="AUM Final" className={`${TH_R} w-28`} {...thProps} />
+            <ThOrdenavel chave="burn" label="Burn" className={`${TH_R} w-20`} {...thProps} />
             <ThOrdenavel chave="meta" label="Meta Poupança" className={`${TH_R} w-28`} {...thProps} />
             <ThOrdenavel chave="status" label="Status" className="px-3 py-2 text-xs font-bold uppercase text-center w-28" {...thProps}>
               <FiltroCheckbox valores={statusVals} selecionados={filtroStatus} onAplicar={setFiltroStatus} />
             </ThOrdenavel>
+            <th className="px-2 py-2 text-xs font-bold uppercase text-center w-12" title="Marcar para revisão">
+              <Flag size={13} style={{ color: '#6b6b8a', display: 'inline-block' }} />
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
           {ordenados.map(l => {
             const d = pick(l, visao);
+            const isOff = visao === 'offshore';
+            const marcadoRevisao = estaMarcado?.(l.nome) ?? false;
             return (
               <tr key={l.nome} onClick={() => onClienteClick(l.registros)}
-                className="cursor-pointer hover:bg-blue-50/40 transition-colors">
+                className="cursor-pointer hover:bg-blue-50/40 transition-colors"
+                style={marcadoRevisao ? { backgroundColor: '#fef3c7' } : undefined}>
                 <td className="px-3 py-2 text-center">
                   <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[9px] font-bold"
                     style={{ backgroundColor: '#160F41', color: '#fff' }}>
@@ -136,7 +185,12 @@ export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClien
                     )}
                   </span>
                 </td>
-                <td className={TD_R}>{d.pi ? formatCurrency(d.pi) : '—'}</td>
+                <td className={TD_R}>
+                  {d.pi ? formatCurrency(d.pi) : '—'}
+                  {isOff && l.plIniOffUsd > 0.01 && (
+                    <span className="block" style={{ fontSize: 10, color: '#94a3b8' }}>USD {l.plIniOffUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                  )}
+                </td>
                 <td className={TD_R} style={cor(d.nnm)}>
                   <span className="inline-flex items-center gap-0.5 justify-end">
                     {formatCurrency(d.nnm)}
@@ -146,8 +200,21 @@ export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClien
                       </span>
                     )}
                   </span>
+                  {isOff && Math.abs(l.nnmOffUsd) > 0.01 && (
+                    <span className="block" style={{ fontSize: 10, color: '#94a3b8' }}>USD {l.nnmOffUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                  )}
                 </td>
-                <td className={TD_R} style={cor(d.rb)}>{formatCurrency(d.rb)}</td>
+                <td className={TD_R} style={cor(d.rb)}>
+                  {formatCurrency(d.rb)}
+                  {isOff && Math.abs(l.rentBrlOffUsd) > 0.01 && (
+                    <span className="block" style={{ fontSize: 10, color: '#94a3b8' }}>USD {l.rentBrlOffUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                  )}
+                </td>
+                {mostrarImp && (
+                  <td className={TD_R} style={{ color: l.impostosTotal != null ? '#dc2626' : '#94a3b8' }}>
+                    {l.impostosTotal != null ? formatCurrency(l.impostosTotal) : '—'}
+                  </td>
+                )}
                 <td className={TD_R} style={d.rp != null && d.rp < 0 ? { color: '#dc2626' } : undefined}>
                   {d.rp != null ? `${(d.rp * 100).toFixed(2)}%` : '—'}
                 </td>
@@ -156,11 +223,48 @@ export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClien
                     {l.ganhoCambial != null ? formatCurrency(l.ganhoCambial) : '—'}
                   </td>
                 )}
-                <td className={TD_R}>{formatCurrency(d.pf)}</td>
-                <td className={TD_R}>{l.metaPeriodo ? formatCurrency(l.metaPeriodo) : '—'}</td>
+                <td className={TD_R}>
+                  {formatCurrency(d.pf)}
+                  {isOff && l.plFimOffUsd > 0.01 && (
+                    <span className="block" style={{ fontSize: 10, color: '#94a3b8' }}>USD {l.plFimOffUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                  )}
+                </td>
+                {(() => {
+                  const burn = calcBurn(l, d.pf);
+                  return (
+                    <td className={TD_R} style={burn != null ? { color: corBurn(burn), fontWeight: 600 } : { color: '#94a3b8' }}>
+                      {burn != null ? `${burn} meses` : '—'}
+                    </td>
+                  );
+                })()}
+                <td className={TD_R}>
+                  {l.metaPeriodo
+                    ? <span style={l.registros[l.registros.length - 1]?.meta_poupanca_mensal ? undefined : { color: '#94a3b8', fontStyle: 'italic' }}
+                        title={l.registros[l.registros.length - 1]?.meta_poupanca_mensal ? 'Meta manual' : 'Meta auto (media NNM liq.)'}>
+                        {formatCurrency(l.metaPeriodo)}
+                      </span>
+                    : '—'}
+                </td>
                 <td className="px-2 py-2">
                   <TabelaStatusBar nnm={l.nnmPoupancaLiquida} meta={l.metaPeriodo} metaMensal={l.metaMensal}
-                    tombamento={l.tombamentoTotal > 0 && l.nnmPoupancaLiquida <= 0 && l.nnmCons > 0} />
+                    tombamento={l.tombamentoTotal > 0 && l.nnmPoupancaLiquida <= 0 && l.nnmCons > 0}
+                    capacidade={l.registros[l.registros.length - 1]?.capacidade_poupanca_mensal}
+                    semCapacidade={l.registros[l.registros.length - 1]?.sem_capacidade_poupanca} />
+                </td>
+                <td className="px-2 py-2 text-center">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onToggleRevisao?.(l.nome); }}
+                    title={marcadoRevisao ? 'Desmarcar revisão' : 'Marcar para revisão'}
+                    className="p-1 rounded hover:bg-black/5 transition-colors"
+                  >
+                    <Flag
+                      size={14}
+                      style={{
+                        color: marcadoRevisao ? '#dc2626' : '#cbd5e1',
+                        fill: marcadoRevisao ? '#fca5a5' : 'transparent',
+                      }}
+                    />
+                  </button>
                 </td>
               </tr>
             );
@@ -175,6 +279,11 @@ export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClien
             <td className={`${TD_R} font-semibold`}>{totais.pi ? formatCurrency(totais.pi) : '—'}</td>
             <td className={`${TD_R} font-semibold`} style={cor(totais.nnm)}>{formatCurrency(totais.nnm)}</td>
             <td className={`${TD_R} font-semibold`} style={cor(totais.rb)}>{formatCurrency(totais.rb)}</td>
+            {mostrarImp && (
+              <td className={`${TD_R} font-semibold`} style={{ color: totais.imp != null ? '#dc2626' : '#94a3b8' }}>
+                {totais.imp != null ? formatCurrency(totais.imp) : '—'}
+              </td>
+            )}
             <td className={`${TD_R} font-semibold`}>{(totais.rpMedia * 100).toFixed(2)}%</td>
             {mostrarGC && (
               <td className={`${TD_R} font-semibold`} style={cor(totais.gc)}>
@@ -182,7 +291,9 @@ export function PoupancaTabelaLinhas({ linhas, visao, clientesSemBanker, onClien
               </td>
             )}
             <td className={`${TD_R} font-semibold`}>{formatCurrency(totais.pf)}</td>
+            <td />
             <td className={`${TD_R} font-semibold`}>{totais.metaPeriodo > 0 ? formatCurrency(totais.metaPeriodo) : '—'}</td>
+            <td />
             <td />
           </tr>
         </tfoot>

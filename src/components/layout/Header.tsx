@@ -2,9 +2,10 @@
 // Tema claro: fundo branco, textos escuros, acentos da marca nos controles.
 
 import { useApp } from '../../state/AppContext';
+import { useAuth } from '../../state/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
 import type { RegimeTributario, VisaoFinanceira } from '../../types';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Copy } from 'lucide-react';
 
 const isDev = import.meta.env.MODE === 'development';
 
@@ -27,9 +28,14 @@ function gerarOpcoesPeriodo(): { valor: string; label: string }[] {
 const OPCOES_PERIODO = gerarOpcoesPeriodo();
 
 export function Header() {
-  const { periodoSelecionado, setPeriodoSelecionado, regime, setRegime, visaoFinanceira, setVisaoFinanceira, dadosPeriodo, loading } = useApp();
+  const { periodoSelecionado, setPeriodoSelecionado, regime, setRegime, visaoFinanceira, setVisaoFinanceira, dadosPeriodo, loading, iniciarCopiaManual } = useApp();
+  const { usuario } = useAuth();
+  const isAdmin = usuario?.role === 'admin';
 
-  const receitaTotal = dadosPeriodo?.totais.receita_bruta_total ?? 0;
+  const receitaTotal = dadosPeriodo?.totais.receita_bruta ?? 0;
+  // Período "tem dados" se o wrapper tem resultados ou clientes carregados.
+  const periodoTemDados = !!dadosPeriodo
+    && (dadosPeriodo.resultados.length > 0 || dadosPeriodo.clientes.length > 0);
 
   return (
     <header
@@ -115,6 +121,18 @@ export function Header() {
             <option key={p.valor} value={p.valor}>{p.label}</option>
           ))}
         </select>
+
+        {/* Cópia manual — só admin, desabilitado quando período já tem dados */}
+        {isAdmin && periodoSelecionado && (
+          <button onClick={iniciarCopiaManual} disabled={periodoTemDados}
+            title={periodoTemDados
+              ? 'Período já possui dados — cópia indisponível'
+              : 'Copiar dados do período anterior para este período'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>
+            <Copy size={13} /> Copiar período anterior
+          </button>
+        )}
 
         {/* Indicador de loading */}
         {loading && (

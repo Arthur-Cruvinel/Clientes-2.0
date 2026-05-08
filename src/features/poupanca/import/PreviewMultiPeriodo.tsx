@@ -15,6 +15,15 @@ interface Props {
   onLimpar: () => void;
 }
 
+// NNM exibido = aporte bruto sem tombamento embutido.
+// Quando nnm_linha_abertura > 0, o parser somou o tombamento DUAS vezes
+// em aporte_mes_total (uma vez em E_(i), outra em E_mes) — subtrai pra
+// mostrar o NNM real (= B - C = NNM bruto).
+function nnmExibido(r: RegistroMensal): number {
+  const tomb = r.nnm_linha_abertura ?? 0;
+  return tomb > 0 ? r.aporte_mes_total - tomb : r.aporte_mes_total;
+}
+
 export function PreviewMultiPeriodo({ registros, nomeCliente, salvando, onSalvar, onLimpar }: Props) {
   if (registros.length === 0) return null;
 
@@ -30,6 +39,7 @@ export function PreviewMultiPeriodo({ registros, nomeCliente, salvando, onSalvar
               <th className={`${TH} text-left`}>Mês/Ano</th>
               <th className={TH}>AUM Inicial</th>
               <th className={TH}>NNM</th>
+              <th className={TH}>Impostos</th>
               <th className={TH}>Rent. R$</th>
               <th className={TH}>Rent. %</th>
               <th className={TH}>CDI %</th>
@@ -41,7 +51,10 @@ export function PreviewMultiPeriodo({ registros, nomeCliente, salvando, onSalvar
               <tr key={i}>
                 <td className="px-3 py-2 text-xs font-medium">{MESES[r.mes - 1]}/{r.ano}</td>
                 <td className={TD}>{formatCurrency(r.pl_inicial_total)}</td>
-                <td className={TD}>{formatCurrency(r.aporte_mes_total)}</td>
+                <td className={TD}>{formatCurrency(nnmExibido(r))}</td>
+                <td className={TD} style={(r.impostos_mes ?? 0) > 0 ? { color: '#991b1b' } : undefined}>
+                  {formatCurrency(r.impostos_mes ?? 0)}
+                </td>
                 <td className={TD}>{formatCurrency(r.rentabilidade_total)}</td>
                 <td className={TD}>{(r.rentabilidade_pct * 100).toFixed(2)}%</td>
                 <td className={TD}>{r.cdi_mes_pct != null ? `${(r.cdi_mes_pct * 100).toFixed(2)}%` : '—'}</td>
@@ -49,6 +62,20 @@ export function PreviewMultiPeriodo({ registros, nomeCliente, salvando, onSalvar
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr style={{ backgroundColor: '#f3f4f6' }}>
+              <td className="px-3 py-2 text-xs font-bold">Total</td>
+              <td className={`${TD} font-bold`}>{formatCurrency(registros.reduce((s, r) => s + r.pl_inicial_total, 0))}</td>
+              <td className={`${TD} font-bold`}>{formatCurrency(registros.reduce((s, r) => s + nnmExibido(r), 0))}</td>
+              <td className={`${TD} font-bold`} style={{ color: '#991b1b' }}>
+                {formatCurrency(registros.reduce((s, r) => s + (r.impostos_mes ?? 0), 0))}
+              </td>
+              <td className={`${TD} font-bold`}>{formatCurrency(registros.reduce((s, r) => s + r.rentabilidade_total, 0))}</td>
+              <td className={`${TD} font-bold`}>—</td>
+              <td className={`${TD} font-bold`}>—</td>
+              <td className={`${TD} font-bold`}>{formatCurrency(registros[registros.length - 1]?.pl_total ?? 0)}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
       <div className="flex gap-3">

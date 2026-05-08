@@ -2,14 +2,113 @@
 
 import type { PacoteServico, FuncaoAlocacao, Parametros } from '../types';
 
+// ── HORAS PRODUTIVAS CLT ──────────────────────────────────────────────────
+// Base: regime CLT, 44h semanais, 52 semanas/ano.
+// Carnaval: ponto facultativo adotado pela Galácticos (seg + ter).
+// Feriados municipais: SP (25/jan, 09/jul) e RJ (20/jan, 23/abr).
+// Metodologia auditável — ver CLAUDE.md (Metodologia — Horas Produtivas CLT).
+
+export const SEMANAS_ANO = 52;
+export const HORAS_SEMANAIS_CLT = 44;
+export const HORAS_DIA_UTIL = HORAS_SEMANAIS_CLT / 5;                   // 8,8h
+export const HORAS_FERIAS_ANO = HORAS_SEMANAIS_CLT * (30 / 7);          // ~188h
+
+export const FERIADOS_POR_LOCALIDADE: Record<string, number> = {
+  SP: 15,   // 11 nacionais + 2 municipais (25/jan, 09/jul) + 2 carnaval
+  RJ: 15,   // 11 nacionais + 2 municipais (20/jan, 23/abr) + 2 carnaval
+};
+
+export const HORAS_BRUTAS_ANO = SEMANAS_ANO * HORAS_SEMANAIS_CLT;       // 2.288h
+
+export const HORAS_PRODUTIVAS_POR_LOCALIDADE: Record<string, number> = {
+  SP: HORAS_BRUTAS_ANO - HORAS_FERIAS_ANO
+      - (FERIADOS_POR_LOCALIDADE.SP * HORAS_DIA_UTIL),                  // ~1.968h
+  RJ: HORAS_BRUTAS_ANO - HORAS_FERIAS_ANO
+      - (FERIADOS_POR_LOCALIDADE.RJ * HORAS_DIA_UTIL),                  // ~1.968h
+};
+
+export const HORAS_PRODUTIVAS_MES_POR_LOCALIDADE: Record<string, number> = {
+  SP: HORAS_PRODUTIVAS_POR_LOCALIDADE.SP / 12,
+  RJ: HORAS_PRODUTIVAS_POR_LOCALIDADE.RJ / 12,
+};
+
+// ── TABELAS PREVIDENCIÁRIAS ───────────────────────────────────────────────
+// Atualizar anualmente. Sempre usar a tabela do ano vigente da folha
+// (ANO_FOLHA_VIGENTE). As faixas terminam no teto previdenciário —
+// salários acima do teto resultam naturalmente no INSS-teto, sem precisar
+// de faixa Infinity (que duplicaria a 14% acima do teto e violaria o teto).
+//   INSS 2026: teto previdenciário R$ 988,09 (atinge-se em R$ 8.475,55)
+//   IRRF 2026: alíquotas vigentes desde jan/2026
+
+export interface FaixaINSS { ate: number; aliquota: number; }
+export interface FaixaIRRF { ate: number; aliquota: number; deducao: number; }
+
+export const TABELA_INSS: Record<number, FaixaINSS[]> = {
+  2025: [
+    { ate: 1518.00, aliquota: 0.075 },
+    { ate: 2793.88, aliquota: 0.090 },
+    { ate: 4190.83, aliquota: 0.120 },
+    { ate: 8157.41, aliquota: 0.140 },  // teto 2025 → R$ 951,63
+  ],
+  2026: [
+    { ate: 1621.00, aliquota: 0.075 },
+    { ate: 2902.84, aliquota: 0.090 },
+    { ate: 4354.27, aliquota: 0.120 },
+    { ate: 8475.55, aliquota: 0.140 },  // teto 2026 → R$ 988,09
+  ],
+};
+
+export const TABELA_IRRF: Record<number, FaixaIRRF[]> = {
+  2025: [
+    { ate: 2259.20,  aliquota: 0,     deducao: 0      },
+    { ate: 2826.65,  aliquota: 0.075, deducao: 169.44 },
+    { ate: 3751.05,  aliquota: 0.150, deducao: 381.44 },
+    { ate: 4664.68,  aliquota: 0.225, deducao: 662.77 },
+    { ate: Infinity, aliquota: 0.275, deducao: 896.00 },
+  ],
+  2026: [
+    { ate: 2428.80,  aliquota: 0,     deducao: 0      },
+    { ate: 2826.65,  aliquota: 0.075, deducao: 182.16 },
+    { ate: 3751.05,  aliquota: 0.150, deducao: 394.16 },
+    { ate: 4664.68,  aliquota: 0.225, deducao: 675.49 },
+    { ate: Infinity, aliquota: 0.275, deducao: 908.73 },
+  ],
+};
+
+// Redutor adicional IRRF 2026 — isenção até R$ 5.000 por mês.
+// Fonte: gov.br/secom (vigente desde jan/2026).
+//   renda ≤ 5.000      → R$ 312,89
+//   5.000 < renda ≤ 7.350 → max(0, 978,62 − 0,133145 × renda)
+//   renda > 7.350      → 0
+export const REDUTOR_IR_2026 = {
+  ate_5000: 312.89,
+  formula: (renda: number): number =>
+    renda <= 5000
+      ? 312.89
+      : renda <= 7350
+        ? Math.max(0, 978.62 - 0.133145 * renda)
+        : 0,
+};
+
+export const DEDUCAO_DEPENDENTE_IRRF: Record<number, number> = {
+  2025: 189.59,
+  2026: 189.59,
+};
+
+// Ano vigente da folha — atualizar todo janeiro.
+export const ANO_FOLHA_VIGENTE = 2026;
+
+// Compatibilidade — HORAS_CLT_MES segue sendo usado em HORAS_PACOTE (pct_normativo).
+// Para custo/hora usar HORAS_PRODUTIVAS_POR_LOCALIDADE.
 export const HORAS_CLT_MES = 168;
 
 // ── PACOTES DE SERVIÇO ─────────────────────────────────────────────────────
-// Horas-direito por função para cada pacote.
-// São as horas que o cliente TEM DIREITO mensalmente — não as horas efetivas.
-// Horas efetivas = horas_direito × fator_utilizacao + horas_reativas
-// Fonte: planilha de Processos e Atividades (Galácticos Capital, 2024)
-// Revisão: conforme redesenho de produto — não alterar sem decisão formal.
+// Horas de referência normativa por função para cada pacote.
+// Usadas exclusivamente para o indicador de escopo (fator_):
+//   pct_normativo = horas_pacote[funcao] / HORAS_CLT_MES
+//   fator         = pct_dedicado_real / pct_normativo
+// NÃO são a base do cálculo de custo direto — esse usa pct_ × custo_total_mensal.
+// Fonte: planilha de Processos e Atividades (Galácticos Capital, 2024).
 
 export const HORAS_PACOTE: Record<PacoteServico, Record<FuncaoAlocacao, number>> = {
   full: {

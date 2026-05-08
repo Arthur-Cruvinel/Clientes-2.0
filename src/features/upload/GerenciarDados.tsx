@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trash2, Loader2, ClipboardList, Database, PiggyBank, Search } from 'lucide-react';
 import { db } from '../../services/firebase';
-import { deleteDoc, doc, getDocs, collection } from 'firebase/firestore';
+import { deleteDoc, deleteField, doc, getDocs, collection, updateDoc } from 'firebase/firestore';
 import { Modal } from '../../components/ui/Modal';
 import {
   limparCollection, limparCollectionTodosPeriodos, contarPeriodos,
@@ -25,9 +25,10 @@ export function GerenciarDados() {
   const [operando, setOperando] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [logOps, setLogOps] = useState<LogItem[]>([]);
-  // Excluir registro específico
+  // Excluir registro específico (suporta múltiplos clientes em lote)
+  const [excTipo, setExcTipo] = useState<'todos' | 'onshore' | 'offshore'>('todos');
   const [excBusca, setExcBusca] = useState('');
-  const [excCliente, setExcCliente] = useState<string | null>(null);
+  const [excClientes, setExcClientes] = useState<string[]>([]);
   const [excMesIni, setExcMesIni] = useState(hoje.getMonth() + 1);
   const [excAnoIni, setExcAnoIni] = useState(hoje.getFullYear());
   const [excMesFim, setExcMesFim] = useState(hoje.getMonth() + 1);
@@ -58,8 +59,8 @@ export function GerenciarDados() {
   }
 
   const excSugestoes = excBusca.trim()
-    ? excNomes.filter(n => n.toLowerCase().includes(excBusca.toLowerCase())).slice(0, 8)
-    : [];
+    ? excNomes.filter(n => n.toLowerCase().includes(excBusca.toLowerCase())).slice(0, 12)
+    : excNomes;
 
   const periodo = `${ano}-${String(mes).padStart(2, '0')}`;
   const ts = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -174,38 +175,93 @@ export function GerenciarDados() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium" style={{ color: '#160F41' }}>Excluir cliente em período específico</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600">Remove documento completo</span>
+            </div>
+
+            {/* Tipo de dados a excluir */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-medium shrink-0" style={{ color: '#6b6b8a' }}>Tipo:</span>
+              <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #e2e2e8' }}>
+                {([
+                  { id: 'todos', label: 'Todos', badge: 'Remove documento completo', cor: 'bg-red-50 text-red-600' },
+                  { id: 'onshore', label: 'Só Onshore', badge: 'Limpa campos onshore', cor: 'bg-blue-50 text-blue-600' },
+                  { id: 'offshore', label: 'Só Offshore', badge: 'Limpa campos offshore', cor: 'bg-purple-50 text-purple-600' },
+                ] as const).map(t => (
+                  <button key={t.id} onClick={() => setExcTipo(t.id)}
+                    className={`px-3 py-1.5 text-xs font-medium transition-all ${excTipo === t.id ? 'bg-gradient-brand text-white' : ''}`}
+                    style={excTipo !== t.id ? { backgroundColor: '#fff', color: '#6b6b8a' } : undefined}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <p className="text-xs" style={{ color: '#6b6b8a' }}>
-              Remove todos os dados do cliente no mês selecionado, incluindo onshore e offshore.
+              {excTipo === 'todos' && 'Remove o documento inteiro (onshore + offshore). Irreversível.'}
+              {excTipo === 'onshore' && 'Limpa apenas campos onshore (PL, NNM, rent. onshore). Preserva offshore.'}
+              {excTipo === 'offshore' && 'Limpa apenas campos offshore (PL, NNM, rent. offshore, PTAX). Preserva onshore.'}
             </p>
 
-            {/* Busca de cliente */}
+            {/* Busca e seleção de clientes (multi-select) */}
             <div className="relative" ref={excRef}>
               <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5" style={{ border: '1px solid #e2e2e8' }}>
                 <Search size={13} className="text-gray-400 shrink-0" />
-                <input value={excCliente ?? excBusca}
-                  onChange={e => { setExcBusca(e.target.value); setExcCliente(null); setExcDropdown(true); }}
-                  onFocus={() => { if (excBusca.trim()) setExcDropdown(true); }}
-                  placeholder="Buscar cliente..."
+                <input value={excBusca}
+                  onChange={e => { setExcBusca(e.target.value); setExcDropdown(true); }}
+                  onFocus={() => setExcDropdown(true)}
+                  placeholder={excClientes.length > 0 ? `${excClientes.length} selecionado(s) — buscar mais...` : 'Buscar clientes...'}
                   className="flex-1 text-xs outline-none bg-transparent" style={{ color: '#160F41' }} />
-                {excCliente && (
-                  <button onClick={() => { setExcCliente(null); setExcBusca(''); }}
-                    className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                {excClientes.length > 0 && (
+                  <button onClick={() => setExcClientes([])}
+                    className="text-gray-400 hover:text-gray-600 text-[10px] shrink-0">Limpar ({excClientes.length})</button>
                 )}
               </div>
               {excDropdown && excSugestoes.length > 0 && (
-                <div className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-lg shadow-lg ring-1 ring-black/10 overflow-y-auto" style={{ maxHeight: 200 }}>
-                  {excSugestoes.map(n => (
-                    <button key={n} className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors"
-                      style={{ color: '#160F41' }}
-                      onClick={() => { setExcCliente(n); setExcBusca(''); setExcDropdown(false); }}>
-                      {n}
+                <div className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-lg shadow-lg ring-1 ring-black/10 overflow-y-auto" style={{ maxHeight: 240 }}>
+                  {/* Ações rápidas */}
+                  <div className="flex gap-2 px-3 py-2 border-b" style={{ borderColor: '#f1f5f9' }}>
+                    <button onClick={() => { setExcClientes(excSugestoes); }}
+                      className="text-[10px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100">
+                      Selecionar todos ({excSugestoes.length})
                     </button>
-                  ))}
+                    <button onClick={() => setExcClientes([])}
+                      className="text-[10px] font-medium px-2 py-0.5 rounded bg-gray-50 text-gray-500 hover:bg-gray-100">
+                      Limpar seleção
+                    </button>
+                  </div>
+                  {excSugestoes.map(n => {
+                    const selecionado = excClientes.includes(n);
+                    return (
+                      <button key={n} className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-2 ${selecionado ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                        style={{ color: '#160F41' }}
+                        onClick={() => {
+                          setExcClientes(prev =>
+                            selecionado ? prev.filter(x => x !== n) : [...prev, n],
+                          );
+                        }}>
+                        <span className={`inline-flex items-center justify-center w-4 h-4 rounded border text-[10px] shrink-0 ${selecionado ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300'}`}>
+                          {selecionado ? '✓' : ''}
+                        </span>
+                        {n}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
+
+            {/* Chips dos selecionados */}
+            {excClientes.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {excClientes.slice(0, 8).map(n => (
+                  <span key={n} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700">
+                    {n.split(' ').slice(0, 2).join(' ')}
+                    <button onClick={() => setExcClientes(prev => prev.filter(x => x !== n))} className="hover:text-red-500">✕</button>
+                  </span>
+                ))}
+                {excClientes.length > 8 && (
+                  <span className="text-[10px] px-2 py-0.5 text-gray-500">+{excClientes.length - 8} mais</span>
+                )}
+              </div>
+            )}
 
             {/* Período (De / Até) */}
             <div className="space-y-1.5">
@@ -242,45 +298,76 @@ export function GerenciarDados() {
             </div>
 
             {/* Botão excluir */}
-            <button disabled={operando || !excCliente || (excAnoFim * 12 + excMesFim) < (excAnoIni * 12 + excMesIni)}
+            <button disabled={operando || excClientes.length === 0 || (excAnoFim * 12 + excMesFim) < (excAnoIni * 12 + excMesIni)}
               className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                excCliente && (excAnoFim * 12 + excMesFim) >= (excAnoIni * 12 + excMesIni)
+                excClientes.length > 0 && (excAnoFim * 12 + excMesFim) >= (excAnoIni * 12 + excMesIni)
                   ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-gray-200 text-gray-400 cursor-not-allowed'
               }`}
               onClick={() => {
-                if (!excCliente) return;
+                if (excClientes.length === 0) return;
                 const nMeses = (excAnoFim * 12 + excMesFim) - (excAnoIni * 12 + excMesIni) + 1;
                 if (nMeses <= 0) return;
                 const label = nMeses === 1
                   ? `${ML[excMesIni - 1]}/${excAnoIni}`
                   : `${ML[excMesIni - 1]}/${excAnoIni} a ${ML[excMesFim - 1]}/${excAnoFim} (${nMeses} meses)`;
+                const tipoLabel = excTipo === 'todos' ? 'todos os dados'
+                  : excTipo === 'onshore' ? 'apenas dados ONSHORE' : 'apenas dados OFFSHORE';
+                const clientesLabel = excClientes.length === 1
+                  ? excClientes[0]
+                  : `${excClientes.length} clientes`;
                 pedir({
-                  titulo: 'Excluir registros',
-                  msg: `Excluir ${excCliente} — ${label}?\nEsta operação remove ${nMeses} documento${nMeses > 1 ? 's' : ''} e não pode ser desfeita.`,
+                  titulo: `Excluir ${excTipo === 'todos' ? 'registros' : excTipo}`,
+                  msg: `Excluir ${tipoLabel} de ${clientesLabel} — ${label}?\n${
+                    excTipo === 'todos'
+                      ? `Remove até ${nMeses * excClientes.length} documentos inteiros.`
+                      : `Limpa campos ${excTipo} em até ${nMeses * excClientes.length} documentos (preserva ${excTipo === 'onshore' ? 'offshore' : 'onshore'}).`
+                  } Não pode ser desfeita.`,
                   enfatico: true,
                   fn: async () => {
                     setConfirm(null); setOperando(true);
                     try {
-                      const slug = slugify(excCliente);
                       let removidos = 0, naoEncontrados = 0;
-                      let m = excMesIni, a = excAnoIni;
-                      while (a * 12 + m <= excAnoFim * 12 + excMesFim) {
-                        const docId = `${slug}_${a}_${m}`;
-                        try {
-                          await deleteDoc(doc(db, 'poupanca', docId));
-                          removidos++;
-                        } catch {
-                          naoEncontrados++;
+
+                      // Campos a limpar por tipo (usa deleteField() pra remover do doc)
+                      const camposOnshore = {
+                        pl_onshore: deleteField(), pl_inicial_onshore: deleteField(),
+                        aporte_mes_onshore: deleteField(), rentabilidade_onshore: deleteField(),
+                        rendimento_nominal_brl: deleteField(), impostos_mes: deleteField(),
+                      };
+                      const camposOffshore = {
+                        pl_offshore: deleteField(), pl_offshore_usd: deleteField(),
+                        pl_inicial_offshore: deleteField(), aporte_mes_offshore: deleteField(),
+                        rentabilidade_offshore: deleteField(), ptax_fechamento: deleteField(),
+                      };
+
+                      // Itera sobre TODOS os clientes selecionados × todos os meses
+                      for (const cliente of excClientes) {
+                        const slug = slugify(cliente);
+                        let m = excMesIni, a = excAnoIni;
+                        while (a * 12 + m <= excAnoFim * 12 + excMesFim) {
+                          const docId = `${slug}_${a}_${m}`;
+                          const ref = doc(db, 'poupanca', docId);
+                          try {
+                            if (excTipo === 'todos') {
+                              await deleteDoc(ref);
+                            } else {
+                              await updateDoc(ref, excTipo === 'onshore' ? camposOnshore : camposOffshore);
+                            }
+                            removidos++;
+                          } catch {
+                            naoEncontrados++;
+                          }
+                          m++; if (m > 12) { m = 1; a++; }
                         }
-                        m++; if (m > 12) { m = 1; a++; }
                       }
                       const res = removidos > 0
-                        ? `${removidos} doc${removidos > 1 ? 's' : ''} removido${removidos > 1 ? 's' : ''}${naoEncontrados > 0 ? ` (${naoEncontrados} não encontrado${naoEncontrados > 1 ? 's' : ''})` : ''}`
+                        ? `${removidos} doc${removidos > 1 ? 's' : ''} processado${removidos > 1 ? 's' : ''}${naoEncontrados > 0 ? ` (${naoEncontrados} não encontrado${naoEncontrados > 1 ? 's' : ''})` : ''}`
                         : 'Nenhum registro encontrado';
-                      setLogOps(p => [{ ts: ts(), acao: `Excluir ${excCliente} ${label}`, resultado: res, ok: removidos > 0 }, ...p].slice(0, 10));
-                      setExcCliente(null); setExcBusca('');
+                      const acaoLabel = `${excTipo !== 'todos' ? excTipo + ' ' : ''}${clientesLabel} ${label}`;
+                      setLogOps(p => [{ ts: ts(), acao: acaoLabel, resultado: res, ok: removidos > 0 }, ...p].slice(0, 10));
+                      setExcClientes([]); setExcBusca('');
                     } catch (e) {
-                      setLogOps(p => [{ ts: ts(), acao: `Excluir ${excCliente}`, resultado: e instanceof Error ? e.message : String(e), ok: false }, ...p].slice(0, 10));
+                      setLogOps(p => [{ ts: ts(), acao: `Excluir ${clientesLabel}`, resultado: e instanceof Error ? e.message : String(e), ok: false }, ...p].slice(0, 10));
                     } finally { setOperando(false); }
                   },
                 });

@@ -1,8 +1,14 @@
 // --- Definição de colunas da tabela de clientes (Visão Geral) ---
 
 import type { ColunaConfig } from '../../components/ui/DataTable';
-import type { DadosCliente, VisaoFinanceira } from '../../types';
+import type { VisaoFinanceira } from '../../types';
+import type { DadosClienteComPoupanca } from '../../utils/dadosClienteAdapter';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
+
+// PL é injetado no merge via RegistroPoupanca (CLAUDE.md). Tabela usa o tipo
+// estendido para enxergar pl_onshore/pl_offshore como campos opcionais.
+type DadosCliente = DadosClienteComPoupanca;
+import { Badge } from '../../components/ui/Badge';
 
 const COR_PACOTE: Record<string, { bg: string; cor: string }> = {
   full:       { bg: '#160F41', cor: '#ffffff' },
@@ -69,6 +75,27 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
         : <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>Sem banker</span>,
     },
     {
+      chave: 'classificacao', titulo: 'Tipo', alinhamento: 'center', ordenavel: true,
+      render: (c) => (
+        <Badge variante={
+          c.classificacao === 'Pure Asset' ? 'default' :
+          c.classificacao === 'Fee' ? 'sucesso' :
+          c.classificacao === 'Fee Isento' ? 'roxo' : 'alerta'
+        }>
+          {c.classificacao}
+        </Badge>
+      ),
+    },
+    {
+      chave: 'data_entrada', titulo: 'Entrada', alinhamento: 'center', ordenavel: true,
+      render: (c) => {
+        if (!c.data_entrada) return <span style={{ color: '#d1d5db' }}>—</span>;
+        const [a, m] = c.data_entrada.split('-').map(Number);
+        const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        return <span className="text-xs">{meses[m - 1]}/{a}</span>;
+      },
+    },
+    {
       chave: 'pacote_servico', titulo: 'Pacote', alinhamento: 'center', ordenavel: true,
       render: (c) => <PacoteBadge pacote={c.pacote_servico} />,
     },
@@ -83,7 +110,7 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
         const taxaOn = c.percentual_rebate_anual_onshore ?? 0;
         const taxaOff = c.percentual_rebate_anual_offshore ?? 0;
         const partes: string[] = [];
-        if (c.pl_onshore > 0 && taxaOn > 0) partes.push(`${fmtTaxaRebate(taxaOn)} on`);
+        if ((c.pl_onshore ?? 0) > 0 && taxaOn > 0) partes.push(`${fmtTaxaRebate(taxaOn)} on`);
         if ((c.pl_offshore ?? 0) > 0 && taxaOff > 0) partes.push(`${fmtTaxaRebate(taxaOff)} off`);
         return (
           <div className="text-right">
@@ -167,6 +194,13 @@ export function valorTextoColuna(c: DadosCliente, chave: string, isMC: boolean):
   switch (chave) {
     case 'nome_cliente': return c.nome_cliente;
     case 'banker': return c.banker ?? 'Sem banker';
+    case 'classificacao': return c.classificacao;
+    case 'data_entrada': {
+      if (!c.data_entrada) return '—';
+      const [a, m] = c.data_entrada.split('-').map(Number);
+      const ms = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return `${ms[m - 1]}/${a}`;
+    }
     case 'pacote_servico': return LABEL_PACOTE[c.pacote_servico] ?? c.pacote_servico;
     case 'receita_fee_mensal': return c.receita_fee_mensal > 0 ? formatCurrency(c.receita_fee_mensal) : '-';
     case 'receita_rebate': return c.receita_rebate > 0 ? formatCurrency(c.receita_rebate) : '-';

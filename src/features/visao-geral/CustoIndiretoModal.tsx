@@ -1,7 +1,12 @@
 // --- Modal de detalhamento do Custo Indireto rateado para um cliente ---
+// Decompõe o rateio por tipo (geral / juridico / conciliacao) para auditoria.
+// Reproduz a fórmula do motor (financials.custos.ts:96-145) — incluindo o
+// pool institucional dos colaboradores na parcela 'geral'.
 
 import { Modal } from '../../components/ui/Modal';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
+import { useApp } from '../../state/AppContext';
+import { calcularCustoInstitucional } from '../../utils/financials';
 import type { DadosCliente, CustoIndireto } from '../../types';
 
 interface Props {
@@ -19,6 +24,12 @@ const LABEL_TIPO: Record<string, string> = {
 };
 
 export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, custosDiretos, onFechar }: Props) {
+  const { dadosPeriodo } = useApp();
+  const colaboradores = dadosPeriodo?.colaboradores ?? [];
+  // Pool institucional dos colaboradores (% institucional × custo_total_mensal)
+  // entra no pool 'geral' do motor — incluir aqui para que o detalhamento bata.
+  const custoInstitucional = calcularCustoInstitucional(colaboradores);
+
   // Denominadores globais (mesma lógica do motor financeiro)
   const somaCustoDireto = todosClientes.reduce((s, c) => s + (custosDiretos.get(c.nome_cliente) ?? 0), 0);
   const somaPesoJuridico = todosClientes
@@ -28,12 +39,20 @@ export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, cu
     .filter(c => c.utiliza_conciliacao && (c.volume_movimentos_mes ?? 0) > 0)
     .reduce((s, c) => s + (c.volume_movimentos_mes ?? 0), 0);
 
-  // Agrupa custos por tipo
-  const custosPorTipo = { geral: 0, juridico: 0, conciliacao: 0 };
+  // Agrupa custos por tipo. Pool 'geral' soma também o institucional dos
+  // colaboradores — alinhado com financials.custos.ts:99-100.
+  const custosPorTipo = { geral: custoInstitucional, juridico: 0, conciliacao: 0 };
   const descricoesPorTipo: Record<string, CustoIndireto[]> = { geral: [], juridico: [], conciliacao: [] };
   for (const ci of custosIndiretos) {
     custosPorTipo[ci.tipo_custo] += ci.valor_mensal;
     descricoesPorTipo[ci.tipo_custo].push(ci);
+  }
+  if (custoInstitucional > 0) {
+    descricoesPorTipo.geral.push({
+      descricao_custo: 'Custo Institucional (folha)',
+      valor_mensal: custoInstitucional,
+      tipo_custo: 'geral',
+    });
   }
 
   type Linha = { descricao: string; tipo: string; valorTotal: number; baseRateio: string; pctCliente: number; alocado: number };

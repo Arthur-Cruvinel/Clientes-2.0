@@ -1,23 +1,42 @@
 // --- Serviço de consulta CDI mensal (BCB série 4391) ---
 // Busca a taxa CDI acumulada no mês via API do BCB.
 
+import { diasUteisEntre, diasUteisNoMes, ultimoDiaDoMes } from './diasUteis';
+
 const BASE_URL = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.4391/dados';
 const TIMEOUT_MS = 8000;
 
-/** Cache em memória — chave "YYYY-MM", valor decimal (ex: 0.008294). */
+/** Cache em memória do CDI cheio — chave "YYYY-MM", valor decimal. */
 const cache = new Map<string, number>();
 
-function ultimoDiaDoMes(ano: number, mes: number): number {
-  return new Date(ano, mes, 0).getDate();
-}
-
 /**
- * Busca o CDI acumulado no mês via BCB (série 4391).
- * Retorna decimal (ex: 0.008294 para 0,8294% no mês).
+ * Busca o CDI do mês via BCB (série 4391). Retorna decimal.
+ * Se diaIni e/ou diaFim forem informados, retorna pro-rata por dias úteis:
+ *   cdi_prorata = cdi_mes_cheio × (diasUteisEntre(diaIni, diaFim) / diasUteisNoMes)
+ * Sem parâmetros opcionais → comportamento original (mês cheio).
  */
-export async function buscarCDIMensal(ano: number, mes: number): Promise<number> {
+export async function buscarCDIMensal(
+  ano: number, mes: number, diaIni?: number, diaFim?: number,
+): Promise<number> {
   const chave = `${ano}-${String(mes).padStart(2, '0')}`;
 
+  const cdiCheio = await buscarCDICheio(ano, mes);
+
+  // Sem recorte → mês cheio (comportamento original)
+  if (diaIni == null && diaFim == null) return cdiCheio;
+
+  const ini = diaIni ?? 1;
+  const fim = diaFim ?? ultimoDiaDoMes(ano, mes);
+  const diasPeriodo = diasUteisEntre(ano, mes, ini, fim);
+  const diasMes = diasUteisNoMes(ano, mes);
+  if (diasMes <= 0) return cdiCheio;
+  const fator = diasPeriodo / diasMes;
+  console.log(`[CDI] ${chave} pro-rata ${ini}-${fim}: ${diasPeriodo}/${diasMes} dias úteis (fator ${fator.toFixed(4)})`);
+  return cdiCheio * fator;
+}
+
+async function buscarCDICheio(ano: number, mes: number): Promise<number> {
+  const chave = `${ano}-${String(mes).padStart(2, '0')}`;
   const cached = cache.get(chave);
   if (cached != null) return cached;
 

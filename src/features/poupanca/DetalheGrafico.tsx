@@ -5,6 +5,7 @@ import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianG
 import type { LinhaDetalhe } from './PoupancaClienteDetalhe';
 import type { Visao } from './PoupancaTabela';
 import { calcularAcumulado, alinharCDI } from '../../utils/acumulado';
+import { pickR } from './DetalheTabela';
 
 interface Props {
   linhas: LinhaDetalhe[];
@@ -19,22 +20,13 @@ interface Ponto {
   spread: number | null;
 }
 
-function retornoMensal(l: LinhaDetalhe, visao: Visao): number {
-  const r = l.r;
-  if (visao === 'onshore') {
-    const d = (r.pl_inicial_onshore ?? 0) + (r.aporte_mes_onshore ?? 0);
-    return d > 0 ? (r.rentabilidade_onshore ?? 0) / d : 0;
-  }
-  if (visao === 'offshore') {
-    const d = (r.pl_inicial_offshore ?? 0) + (r.aporte_mes_offshore ?? 0);
-    return d > 0 ? (r.rentabilidade_offshore ?? 0) / d : 0;
-  }
-  return r.rentabilidade_pct ?? 0;
-}
-
 export function DetalheGrafico({ linhas, cdiPorMes, visao }: Props) {
   const dados = useMemo<Ponto[]>(() => {
-    const retornos = linhas.map(l => retornoMensal(l, visao));
+    // Usa pickR (mesma função da tabela e dos cards)
+    const retornos = linhas.map((l, i) => {
+      const prev = i > 0 ? linhas[i - 1].r : null;
+      return pickR(l.r, visao, prev).rp;
+    });
     const rentAcum = calcularAcumulado(retornos);
     const meses = linhas.map(l => ({ ano: l.r.ano, mes: l.r.mes }));
     const cdiMensal = alinharCDI(meses, cdiPorMes);
@@ -54,6 +46,8 @@ export function DetalheGrafico({ linhas, cdiPorMes, visao }: Props) {
   if (dados.length === 0) return null;
 
   const fmtPct = (v: number) => `${(v * 100).toFixed(2)}%`;
+  const bmLabel = visao === 'offshore' ? 'Fed Funds Acumulado' : 'CDI Acumulado';
+  const bmLabelCurto = visao === 'offshore' ? 'Fed Funds Ac.' : 'CDI Acumulado';
 
   return (
     <ResponsiveContainer width="100%" height={240}>
@@ -66,7 +60,7 @@ export function DetalheGrafico({ linhas, cdiPorMes, visao }: Props) {
           formatter={(value, name) => {
             const v = Number(value);
             const label = name === 'rentAcum' ? 'Rent. Acumulada'
-              : name === 'cdiAcum' ? 'CDI Acumulado' : 'Spread';
+              : name === 'cdiAcum' ? bmLabelCurto : 'Spread';
             const prefix = name === 'spread' && v > 0 ? '+' : '';
             return [`${prefix}${fmtPct(v)}`, label];
           }}
@@ -75,7 +69,7 @@ export function DetalheGrafico({ linhas, cdiPorMes, visao }: Props) {
         <Legend wrapperStyle={{ fontSize: 11 }}
           formatter={(v: string) =>
             v === 'rentAcum' ? 'Rent. Acumulada'
-            : v === 'cdiAcum' ? 'CDI Acumulado' : 'Spread'
+            : v === 'cdiAcum' ? bmLabel : 'Spread'
           } />
         <Bar dataKey="spread" name="spread" stackId="spread" barSize={20}>
           {dados.map((d, i) => (

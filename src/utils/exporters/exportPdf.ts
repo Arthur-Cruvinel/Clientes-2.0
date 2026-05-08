@@ -4,6 +4,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { DadosCliente, RegistroPoupanca } from '../../types';
+import type { MM6Cliente } from '../../features/poupanca/usePoupanca';
 
 // ============================================================
 // Constantes visuais
@@ -262,25 +263,30 @@ export function exportAumPdf(
   // Tabela
   const head = [[
     'Cliente', 'AUM Inicial', 'NNM', 'Tombamento', 'NNM Líquido',
-    'Rent. R$', 'Rent. %', 'CDI %', 'Spread', 'G. Cambial',
+    'Rent. R$', 'Impostos', 'Rent. %', 'CDI %', 'Spread', 'G. Cambial',
     'AUM Final', 'Meta', 'Progresso %',
   ]];
 
-  const body = registros.map((r) => [
-    String(r.nome_cliente ?? r.cliente ?? ''),
-    brl(Number(r.aum_inicial ?? r.pl_inicial_total ?? 0)),
-    brl(Number(r.nnm ?? r.aporte_mes_total ?? 0)),
-    brl(Number(r.tombamento ?? r.nnm_tombamento ?? 0)),
-    brl(Number(r.nnm_liquido ?? 0)),
-    brl(Number(r.rent_rs ?? r.rentabilidade_total ?? 0)),
-    pct(Number(r.rent_pct ?? r.rentabilidade_pct ?? 0)),
-    pct(Number(r.cdi_pct ?? 0)),
-    pct(Number(r.spread ?? 0)),
-    brl(Number(r.ganho_cambial ?? 0)),
-    brl(Number(r.aum_final ?? r.pl_total ?? 0)),
-    brl(Number(r.meta ?? r.meta_poupanca_mensal ?? 0)),
-    pct(Number(r.progresso_pct ?? 0)),
-  ]);
+  const body = registros.map((r) => {
+    const imp = r.impostos != null ? Number(r.impostos) : null;
+    return [
+      String(r.nome_cliente ?? r.cliente ?? ''),
+      brl(Number(r.aum_inicial ?? r.pl_inicial_total ?? 0)),
+      brl(Number(r.nnm ?? r.aporte_mes_total ?? 0)),
+      brl(Number(r.tombamento ?? r.nnm_tombamento ?? 0)),
+      brl(Number(r.nnm_liquido ?? 0)),
+      brl(Number(r.rent_rs ?? r.rentabilidade_total ?? 0)),
+      imp != null && imp > 0 ? brl(imp) : '—',
+      pct(Number(r.rent_pct ?? r.rentabilidade_pct ?? 0)),
+      pct(Number(r.cdi_pct ?? 0)),
+      pct(Number(r.spread ?? 0)),
+      // null = indisponível (vide exportExcel para detalhe).
+      r.ganho_cambial == null ? '—' : brl(Number(r.ganho_cambial)),
+      brl(Number(r.aum_final ?? r.pl_total ?? 0)),
+      brl(Number(r.meta ?? r.meta_poupanca_mensal ?? 0)),
+      pct(Number(r.progresso_pct ?? 0)),
+    ];
+  });
 
   autoTable(doc, {
     startY,
@@ -424,4 +430,196 @@ export function exportClienteAumPdf(
     .toLowerCase();
 
   doc.save(`${slugNome}_aum_${Date.now()}.pdf`);
+}
+
+// ============================================================
+// Burn Rate (drilldown MM6) — landscape
+// ============================================================
+
+export function exportBurnRatePdf(
+  clientes: MM6Cliente[],
+  periodoLabel: string,
+  anoFim: number,
+): void {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const startY = desenharHeader(
+    doc,
+    'Clientes com Burn Rate Ativo',
+    `Critério: variação MM6 < 0  ·  ${clientes.length} cliente${clientes.length === 1 ? '' : 's'}`,
+    periodoLabel,
+  );
+
+  const head = [[
+    'Cliente', 'PL Atual', 'Rent. MM6', 'Taxa MM6', 'NNM MM6', 'Var. MM6',
+    `PL Proj. Dez/${anoFim}`, `Meta Dez/${anoFim}`, 'Gap Meta', 'Severidade',
+    'Rebate em Risco',
+  ]];
+
+  const fmtSev = (s: MM6Cliente['severidade']) =>
+    s === 'critico' ? 'Crítico' : s === 'moderado' ? 'Moderado'
+      : s === 'leve' ? 'Leve' : '—';
+  const body = clientes.map((c) => [
+    c.nome_cliente,
+    brl(c.pl_atual),
+    brl(c.mm6_rent_brl),
+    pct(c.mm6_rent_pct * 100, 2),
+    brl(c.mm6_nnm_liquido),
+    brl(c.variacao_mm6),
+    c.pl_projetado_fim_ano < 0.5 ? 'PL ZERADO' : brl(c.pl_projetado_fim_ano),
+    c.meta_individual != null ? brl(c.meta_individual) : '—',
+    c.gap_meta_individual != null ? brl(c.gap_meta_individual) : '—',
+    fmtSev(c.severidade),
+    brl(c.rebate_em_risco),
+  ]);
+
+  autoTable(doc, {
+    startY,
+    head,
+    body,
+    theme: 'grid',
+    styles: { fontSize: 7, cellPadding: 1.5 },
+    headStyles: { fillColor: COR_HEADER, textColor: '#ffffff', fontStyle: 'bold', fontSize: 7 },
+    alternateRowStyles: { fillColor: COR_LINHA_ALT },
+    didParseCell(data) {
+      if (data.section !== 'body') return;
+      const c = clientes[data.row.index];
+      if (!c) return;
+      // Rent BRL/Taxa/Variação — vermelho quando negativo
+      if ([2, 3, 5].includes(data.column.index)) {
+        const v = data.column.index === 2 ? c.mm6_rent_brl
+          : data.column.index === 3 ? c.mm6_rent_pct : c.variacao_mm6;
+        if (v < 0) data.cell.styles.textColor = COR_NEGATIVO;
+      }
+      // Gap — verde se positivo, vermelho se negativo
+      if (data.column.index === 8 && c.gap_meta_individual != null) {
+        data.cell.styles.textColor = c.gap_meta_individual >= 0 ? COR_POSITIVO : COR_NEGATIVO;
+      }
+      // Severidade — destacar crítico em vermelho
+      if (data.column.index === 9 && c.severidade === 'critico') {
+        data.cell.styles.textColor = COR_NEGATIVO;
+        data.cell.styles.fontStyle = 'bold';
+      }
+      // PL ZERADO badge
+      if (data.column.index === 6 && c.pl_projetado_fim_ano < 0.5) {
+        data.cell.styles.textColor = COR_NEGATIVO;
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  desenharFooter(doc);
+  const slug = periodoLabel.replace(/[\s/]/g, '_');
+  doc.save(`burn-rate_${slug}_${Date.now()}.pdf`);
+}
+
+// ============================================================
+// Projeção AUM (drilldown MM6) — landscape
+// ============================================================
+
+export function exportProjecaoPdf(
+  clientes: MM6Cliente[],
+  periodoLabel: string,
+  anoFim: number,
+  consolidado: {
+    pl_total_atual: number;
+    pl_total_projetado_fim_ano: number;
+    meta_total: number | null;
+    gap_total: number | null;
+  },
+): void {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+
+  let startY = desenharHeader(
+    doc,
+    `Projeção de AUM até Dezembro/${anoFim}`,
+    `Modelo MM6 + CDI projetado  ·  período de visualização: ${periodoLabel}`,
+    `${clientes.length} cliente${clientes.length === 1 ? '' : 's'}`,
+  );
+
+  // KPIs consolidados
+  const kpis = [
+    { label: 'AUM Atual', valor: brl(consolidado.pl_total_atual) },
+    { label: `AUM Projetado Dez/${anoFim}`, valor: brl(consolidado.pl_total_projetado_fim_ano) },
+    { label: 'Meta Total', valor: consolidado.meta_total != null ? brl(consolidado.meta_total) : '—' },
+    { label: 'Gap', valor: consolidado.gap_total != null ? brl(consolidado.gap_total) : '—' },
+  ];
+  const boxW = (pageW - 20 - 15) / 4;
+  kpis.forEach((kpi, i) => {
+    const x = 10 + i * (boxW + 5);
+    doc.setFillColor('#f8f9fc');
+    doc.roundedRect(x, startY, boxW, 14, 2, 2, 'F');
+    doc.setFontSize(7); doc.setTextColor('#6b7280');
+    doc.text(kpi.label, x + 4, startY + 5);
+    doc.setFontSize(10); doc.setTextColor('#1f2937');
+    doc.setFont('helvetica', 'bold');
+    doc.text(kpi.valor, x + 4, startY + 11);
+    doc.setFont('helvetica', 'normal');
+  });
+  startY += 20;
+
+  const head = [[
+    'Cliente', 'PL Atual', 'Rent. MM6', 'NNM MM6', 'Cap. Esperada', 'Fonte',
+    'CDI MM6', 'Spread', `PL Proj. Dez/${anoFim}`, `Meta Dez/${anoFim}`, 'Gap', 'Status',
+  ]];
+  const body = clientes.map((c) => {
+    const status = c.em_burn ? 'Em burn'
+      : c.meta_individual == null ? 'Sem meta'
+      : (c.gap_meta_individual ?? 0) > 0 ? 'Acima da meta' : 'Abaixo da meta';
+    return [
+      c.nome_cliente,
+      brl(c.pl_atual),
+      pct(c.mm6_rent_pct * 100, 2),
+      brl(c.mm6_nnm_liquido),
+      brl(c.capacidade_esperada),
+      c.capacidade_fonte === 'manual' ? 'Manual' : 'Auto',
+      pct(c.mm6_cdi_pct * 100, 2),
+      `${c.spread.toFixed(2)}×`,
+      c.pl_projetado_fim_ano < 0.5 ? 'PL ZERADO' : brl(c.pl_projetado_fim_ano),
+      c.meta_individual != null ? brl(c.meta_individual) : '—',
+      c.gap_meta_individual != null ? brl(c.gap_meta_individual) : '—',
+      status,
+    ];
+  });
+
+  autoTable(doc, {
+    startY,
+    head,
+    body,
+    theme: 'grid',
+    styles: { fontSize: 7, cellPadding: 1.5 },
+    headStyles: { fillColor: COR_HEADER, textColor: '#ffffff', fontStyle: 'bold', fontSize: 7 },
+    alternateRowStyles: { fillColor: COR_LINHA_ALT },
+    didParseCell(data) {
+      if (data.section !== 'body') return;
+      const c = clientes[data.row.index];
+      if (!c) return;
+      // Rent% e NNM — vermelho se negativo
+      if (data.column.index === 2 && c.mm6_rent_pct < 0) data.cell.styles.textColor = COR_NEGATIVO;
+      if (data.column.index === 3 && c.mm6_nnm_liquido < 0) data.cell.styles.textColor = COR_NEGATIVO;
+      // Gap — verde positivo, vermelho negativo
+      if (data.column.index === 10 && c.gap_meta_individual != null) {
+        data.cell.styles.textColor = c.gap_meta_individual >= 0 ? COR_POSITIVO : COR_NEGATIVO;
+      }
+      // Status — colore Em burn e Acima/Abaixo
+      if (data.column.index === 11) {
+        if (c.em_burn) { data.cell.styles.textColor = COR_NEGATIVO; data.cell.styles.fontStyle = 'bold'; }
+        else if (c.gap_meta_individual != null && c.gap_meta_individual >= 0) {
+          data.cell.styles.textColor = COR_POSITIVO;
+        } else if (c.gap_meta_individual != null && c.gap_meta_individual < 0) {
+          data.cell.styles.textColor = COR_NEGATIVO;
+        }
+      }
+      // PL ZERADO em destaque
+      if (data.column.index === 8 && c.pl_projetado_fim_ano < 0.5) {
+        data.cell.styles.textColor = COR_NEGATIVO;
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  desenharFooter(doc);
+  const slug = periodoLabel.replace(/[\s/]/g, '_');
+  doc.save(`projecao-aum_${slug}_${Date.now()}.pdf`);
 }

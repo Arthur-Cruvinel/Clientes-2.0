@@ -90,7 +90,9 @@ export function BankerClienteTabela({ nomes, registrosPorCliente, nMeses, onClie
               <td className={TD}>{formatCurrency(l.pf)}</td>
               <td className={TD}>{l.metaPeriodo ? formatCurrency(l.metaPeriodo) : '—'}</td>
               <td className="px-2 py-2">
-                <TabelaStatusBar nnm={l.nnm} meta={l.metaPeriodo} metaMensal={l.metaMensal} />
+                <TabelaStatusBar nnm={l.nnm} meta={l.metaPeriodo} metaMensal={l.metaMensal}
+                  capacidade={l.registros[l.registros.length - 1]?.capacidade_poupanca_mensal}
+                  semCapacidade={l.registros[l.registros.length - 1]?.sem_capacidade_poupanca} />
               </td>
             </tr>
           ))}
