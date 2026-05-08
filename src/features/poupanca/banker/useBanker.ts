@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import type { RegistroPoupanca } from '../../../types';
+import { nnmReal } from '../../../utils/financials';
 
 // ── Interfaces ───────────────────────────────────────────────────────────
 
@@ -52,7 +53,8 @@ function agregarCliente(regs: RegistroPoupanca[], nMeses: number) {
 
   let nnm = 0, rentAbs = 0;
   for (const r of sorted) {
-    nnm += safe(r.aporte_mes_total);
+    // NNM Real consolidado (desconta transferências internas)
+    nnm += nnmReal(r);
     rentAbs += safe(r.rentabilidade_total);
   }
 

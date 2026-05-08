@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { formatCurrency } from '../../../utils/formatters';
 import type { RegistroPoupanca } from '../../../types';
 import { TabelaStatusBar } from '../TabelaStatusBar';
+import { nnmReal } from '../../../utils/financials';
 
 interface Props {
   nomes: string[];
@@ -37,7 +38,11 @@ export function BankerClienteTabela({ nomes, registrosPorCliente, nMeses, onClie
       const sorted = [...regs].sort((a, b) => pNum(a.ano, a.mes) - pNum(b.ano, b.mes));
       const pri = sorted[0], ult = sorted[sorted.length - 1];
       let nnm = 0, rentR = 0;
-      for (const r of sorted) { nnm += safe(r.aporte_mes_total); rentR += safe(r.rentabilidade_total); }
+      for (const r of sorted) {
+        // NNM Real consolidado (desconta transferências internas)
+        nnm += nnmReal(r);
+        rentR += safe(r.rentabilidade_total);
+      }
       const pi = safe(pri.pl_inicial_total);
       const d = pi + nnm;
       const metaMensal = ult.meta_poupanca_mensal ?? null;

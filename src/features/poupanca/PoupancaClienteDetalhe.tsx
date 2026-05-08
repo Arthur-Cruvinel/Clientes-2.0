@@ -17,6 +17,7 @@ import type { Visao } from './PoupancaTabela';
 import { ExportButton } from '../../components/ui/ExportButton';
 import { exportClienteAumExcel } from '../../utils/exporters/exportExcel';
 import { exportClienteAumPdf } from '../../utils/exporters/exportPdf';
+import { nnmRealOnshore, nnmRealOffshore } from '../../utils/financials';
 
 interface Props {
   registros: RegistroPoupanca[];
@@ -225,8 +226,9 @@ export function PoupancaClienteDetalhe({
       const nnmOffR = Math.abs(r.aporte_mes_offshore ?? 0);
       if (plOn < T && plOff < T && plIniOn < T && plIniOff < T && nnmOnR < T && nnmOffR < T) continue;
 
-      const nnmOn = r.aporte_mes_onshore ?? 0;
-      const nnmOff = r.aporte_mes_offshore ?? 0;
+      // NNM Real por dimensão (desconta transferência interna)
+      const nnmOn = nnmRealOnshore(r);
+      const nnmOff = nnmRealOffshore(r);
 
       // Tombamento por dimensão
       let tombOn: number, tombOff: number;

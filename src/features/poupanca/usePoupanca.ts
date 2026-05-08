@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import type { RegistroPoupanca, Cliente } from '../../types';
-import { nnmPoupancaLiquida, nnmReal } from '../../utils/financials';
+import { nnmPoupancaLiquida, nnmReal, nnmRealOnshore, nnmRealOffshore } from '../../utils/financials';
 import { calcOffshore, pickR } from './DetalheTabela';
 import { buscarAumLegado, invalidarCacheAumLegado } from '../../services/aumLegado';
 import { buscarCDIMensal } from '../../services/cdi';
@@ -595,15 +595,18 @@ export function usePoupanca(
         const r = sorted[i];
         const prev = i > 0 ? sorted[i - 1] : null;
 
-        // Onshore: direto do DB
-        nnmOnCliente += r.aporte_mes_onshore ?? 0;
+        // Onshore: NNM Real (desconta transferência interna onshore)
+        nnmOnCliente += nnmRealOnshore(r);
         rentOnCliente += r.rentabilidade_onshore ?? 0;
         tombCliente += r.nnm_tombamento ?? 0;
         liqCliente += nnmPoupancaLiquida(r);
 
-        // Offshore: mesma fórmula da tabela (calcOffshore)
+        // Offshore: NNM Real (desconta transferência interna offshore).
+        // off.nnmBrl pode incluir conversão por PTAX e accrued interest;
+        // a transferência interna está em BRL no doc, então usar nnmRealOffshore
+        // garante que a subtração ocorre na grandeza correta.
         const off = calcOffshore(r, prev);
-        nnmOffBrlCliente += off.nnmBrl;
+        nnmOffBrlCliente += nnmRealOffshore(r);
         rentOffBrlCliente += off.rentBrl;
       }
 
