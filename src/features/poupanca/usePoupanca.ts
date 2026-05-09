@@ -10,6 +10,7 @@ import { calcOffshore, pickR } from './DetalheTabela';
 import { buscarAumLegado, invalidarCacheAumLegado } from '../../services/aumLegado';
 import { buscarCDIMensal } from '../../services/cdi';
 import { buscarCDIProjetado } from '../../services/cdiProjetado';
+import { buscarFedFundsRate } from '../../services/fedFundsRate';
 
 export type ModoAUM = 'galapagos' | 'sob_gestao';
 
@@ -324,6 +325,15 @@ export function usePoupanca(
   const [modoAUM, setModoAUM] = useState<ModoAUM>('sob_gestao');
   const [aumLegadoPorMes, setAumLegadoPorMes] = useState<Map<string, number>>(new Map());
   const [aumLegadoTotal, setAumLegadoTotal] = useState(0);
+  // Decomposição do legado por dimensão (inferida via moeda — ver aumLegado.ts).
+  // Usadas pela projeção Sob Gestão, que capitaliza onshore por CDI projetado
+  // e offshore por Fed Funds. Independentes do total p/ não acoplar consumers.
+  const [aumLegadoOnshoreTotal, setAumLegadoOnshoreTotal] = useState(0);
+  const [aumLegadoOffshoreTotal, setAumLegadoOffshoreTotal] = useState(0);
+  // Série mês a mês do PL legado capitalizado, calculada num useEffect próprio
+  // (depende de I/O — CDI projetado + Fed Funds). Chave "YYYY-MM" → PL legado
+  // total (onshore + offshore) projetado naquele mês.
+  const [legadoProjPorMes, setLegadoProjPorMes] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     let cancelado = false;
@@ -392,8 +402,13 @@ export function usePoupanca(
       setTodosRegistros(registros);
       // Buscar AUM legado (invalidar cache para dados atualizados)
       invalidarCacheAumLegado();
-      buscarAumLegado().then(({ porMes, total }) => {
-        if (!cancelado) { setAumLegadoPorMes(porMes); setAumLegadoTotal(total); }
+      buscarAumLegado().then(({ porMes, total, totalOnshore, totalOffshore }) => {
+        if (!cancelado) {
+          setAumLegadoPorMes(porMes);
+          setAumLegadoTotal(total);
+          setAumLegadoOnshoreTotal(totalOnshore);
+          setAumLegadoOffshoreTotal(totalOffshore);
+        }
       });
     }).catch(e => console.error('[Poupanca] Erro ao buscar registros:', e))
       .finally(() => { if (!cancelado) setLoading(false); });
@@ -1033,6 +1048,72 @@ export function usePoupanca(
     return () => { cancelado = true; };
   }, [registrosPorCliente, registroAnteriorPorCliente, todosRegistros, clientes, metaAUM, anoFim]);
 
+  // ── Capitalização do PL legado (modo Sob Gestão) ─────────────────────────
+  //
+  // Sob Gestão = projeção Galápagos (já calculada acima em mm6Clientes) + PL
+  // legado capitalizado mês a mês pelos benchmarks projetados:
+  //   onshore  → CDI projetado  (curva SELIC Focus do BCB, via cdiProjetado)
+  //   offshore → Fed Funds      (premissa simplificadora — ver abaixo)
+  //
+  // O legado NÃO recebe NNM novo na projeção (não há aporte/saída no modelo).
+  // Só capitaliza o saldo atual.
+  //
+  // PREMISSA SIMPLIFICADORA — Fed Funds projetado:
+  //   Como ainda não há curva projetada de Fed Funds (só série realizada via
+  //   FRED em buscarFedFundsRate), usamos o último Fed Funds realizado como
+  //   constante ao longo de toda a projeção. Substituir por curva projetada
+  //   (ex: implied SOFR) quando disponível. Varremos até 6 meses retroativos
+  //   para tolerar atraso de publicação do FRED.
+  useEffect(() => {
+    if (mm6Clientes.length === 0 && aumLegadoOnshoreTotal === 0 && aumLegadoOffshoreTotal === 0) {
+      // Sem clientes Galápagos E sem legado → série vazia.
+      setLegadoProjPorMes(new Map());
+      return;
+    }
+    let cancelado = false;
+    (async () => {
+      // Fed Funds constante = último realizado disponível (varredura retroativa
+      // de até 6 meses para cobrir atraso típico de publicação do FRED).
+      let fedConstante = 0;
+      const hoje = new Date();
+      for (let i = 0; i < 6; i++) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        const v = await buscarFedFundsRate(d.getFullYear(), d.getMonth() + 1).catch(() => null);
+        if (cancelado) return;
+        if (v != null && v > 0) { fedConstante = v; break; }
+      }
+
+      // Ponto de partida da capitalização: alinha com o último mês realizado
+      // entre os clientes Galápagos (mantém a curva conectada). Se não há
+      // cliente Galápagos, usa o último mês do filtro como referência.
+      let ultimoP = 0;
+      for (const v of mm6Clientes) {
+        const p = pNum(v.ultimo_mes.ano, v.ultimo_mes.mes);
+        if (p > ultimoP) ultimoP = p;
+      }
+      if (ultimoP === 0) ultimoP = pNum(anoFim, mesFim);
+      const fimAnoP = pNum(anoFim, 12);
+
+      // Capitalização composta mês a mês — mesma estrutura da projeção
+      // Galápagos, mas sem NNM.
+      let plOn = aumLegadoOnshoreTotal;
+      let plOff = aumLegadoOffshoreTotal;
+      const mapa = new Map<string, number>();
+      for (let p = ultimoP + 1; p <= fimAnoP; p++) {
+        const ano = Math.floor((p - 1) / 12);
+        const mes = ((p - 1) % 12) + 1;
+        const cdi = await buscarCDIProjetado(ano, mes).catch(() => 0);
+        if (cancelado) return;
+        plOn = plOn * (1 + cdi);
+        plOff = plOff * (1 + fedConstante);
+        const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+        mapa.set(chave, plOn + plOff);
+      }
+      if (!cancelado) setLegadoProjPorMes(mapa);
+    })();
+    return () => { cancelado = true; };
+  }, [mm6Clientes, aumLegadoOnshoreTotal, aumLegadoOffshoreTotal, anoFim, mesFim]);
+
   // Derivados MM6 — substituem o pipeline antigo (variacao mediana de pickR).
   const clientesEmBurnMM6 = useMemo(
     () => mm6Clientes.filter(v => v.em_burn),
@@ -1086,6 +1167,44 @@ export function usePoupanca(
       .sort((a, b) => pNum(a.ano, a.mes) - pNum(b.ano, b.mes));
   }, [mm6Clientes]);
 
+  // ── Sob Gestão: série projetada e consolidação ──────────────────────────
+  // Soma a série Galápagos (mês a mês) com a curva do legado capitalizado.
+  // Em meses que existem só na curva legado (ex: legado começa antes do
+  // último mês Galápagos), incluímos também — mantém a série completa.
+  const serieAumSobGestaoProjetadaMM6 = useMemo(() => {
+    const agreg = new Map<string, { ano: number; mes: number; pl: number }>();
+    for (const m of serieAumProjetadaMM6) {
+      const chave = `${m.ano}-${String(m.mes).padStart(2, '0')}`;
+      agreg.set(chave, { ano: m.ano, mes: m.mes, pl: m.pl });
+    }
+    for (const [chave, plLegado] of legadoProjPorMes) {
+      const [ano, mes] = chave.split('-').map(Number);
+      const existente = agreg.get(chave);
+      if (existente) existente.pl += plLegado;
+      else agreg.set(chave, { ano, mes, pl: plLegado });
+    }
+    return Array.from(agreg.values())
+      .sort((a, b) => pNum(a.ano, a.mes) - pNum(b.ano, b.mes));
+  }, [serieAumProjetadaMM6, legadoProjPorMes]);
+
+  // Projeção Sob Gestão consolidada — mesmo formato de projecaoConsolidadaMM6,
+  // mas pl_total_atual e pl_total_projetado_fim_ano somam o legado.
+  const projecaoSobGestaoConsolidadaMM6 = useMemo(() => {
+    // Último mês da curva legado projetada = Dez/anoFim. Se a curva está
+    // vazia (sem legado, ou ainda carregando do useEffect async), legadoFim = 0
+    // e a projeção Sob Gestão coincide com Galápagos.
+    const chaveFim = `${anoFim}-12`;
+    const legadoFim = legadoProjPorMes.get(chaveFim) ?? 0;
+    return {
+      ...projecaoConsolidadaMM6,
+      pl_total_atual: projecaoConsolidadaMM6.pl_total_atual + aumLegadoTotal,
+      pl_total_projetado_fim_ano: projecaoConsolidadaMM6.pl_total_projetado_fim_ano + legadoFim,
+      gap_total: projecaoConsolidadaMM6.meta_total != null
+        ? (projecaoConsolidadaMM6.pl_total_projetado_fim_ano + legadoFim) - projecaoConsolidadaMM6.meta_total
+        : null,
+    };
+  }, [projecaoConsolidadaMM6, legadoProjPorMes, aumLegadoTotal, anoFim]);
+
   return {
     registrosPorCliente,
     historico,
@@ -1107,6 +1226,12 @@ export function usePoupanca(
     clientesEmBurnMM6,
     projecaoConsolidada: projecaoConsolidadaMM6,
     serieAumProjetadaMM6,
+    // ── Modo Sob Gestão (Galápagos + legado capitalizado) ────────
+    // Consumidores devem alternar entre projecaoConsolidada e
+    // projecaoSobGestaoConsolidada conforme modoAUM. Mesma estrutura,
+    // apenas pl_total_atual/projetado_fim_ano/gap_total somam legado.
+    projecaoSobGestaoConsolidada: projecaoSobGestaoConsolidadaMM6,
+    serieAumSobGestaoProjetadaMM6,
     // Legado mantido para retrocompat — não recomendado para novos consumers.
     variacaoPLPorCliente,
     clientesEmBurnNovo,

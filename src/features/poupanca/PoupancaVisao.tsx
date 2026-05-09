@@ -74,9 +74,19 @@ export function PoupancaVisao() {
 
   const { dadosPeriodo } = useApp();
 
-  const { registrosPorCliente, historico, historicoMetaCumprimento, loading, totais, metaNNM, setMetaNNM, metaAUM, setMetaAUM, metasPeriodo, setMetasPeriodo, dadosProjecao, modoAUM, setModoAUM, aumLegadoTotal, clientesQueimando, rebateEmRiscoTotal, mm6Clientes, clientesEmBurnMM6, projecaoConsolidada, serieAumProjetadaMM6, mesesNoPeriodo, aumInicialPeriodo, registroAnteriorPorCliente, recarregar } = usePoupanca(
+  const { registrosPorCliente, historico, historicoMetaCumprimento, loading, totais, metaNNM, setMetaNNM, metaAUM, setMetaAUM, metasPeriodo, setMetasPeriodo, dadosProjecao, modoAUM, setModoAUM, aumLegadoTotal, clientesQueimando, rebateEmRiscoTotal, mm6Clientes, clientesEmBurnMM6, projecaoConsolidada, serieAumProjetadaMM6, projecaoSobGestaoConsolidada, serieAumSobGestaoProjetadaMM6, mesesNoPeriodo, aumInicialPeriodo, registroAnteriorPorCliente, recarregar } = usePoupanca(
     mesInicio, anoInicio, mesFim, anoFim, dadosPeriodo?.clientes,
   );
+
+  // Card "Projeção Dez" e linha projetada do gráfico alternam entre Galápagos
+  // (poupança pura) e Sob Gestão (poupança + legado capitalizado) conforme
+  // o toggle. Demais KPIs (NNM, Burn, Rebate) continuam Galápagos puro.
+  const projecaoDisplay = modoAUM === 'sob_gestao'
+    ? projecaoSobGestaoConsolidada
+    : projecaoConsolidada;
+  const serieProjetadaDisplay = modoAUM === 'sob_gestao'
+    ? serieAumSobGestaoProjetadaMM6
+    : serieAumProjetadaMM6;
 
   const [burnModalAberto, setBurnModalAberto] = useState(false);
   const [projecaoModalAberto, setProjecaoModalAberto] = useState(false);
@@ -183,7 +193,7 @@ export function PoupancaVisao() {
         </div>
       )}
 
-      {!loading && <PoupancaKpis totais={totais} mesInicio={mesInicio} anoInicio={anoInicio} mesFim={mesFim} anoFim={anoFim} modoAUM={modoAUM} aumLegadoTotal={aumLegadoTotal} clientesQueimando={clientesQueimando} rebateEmRiscoTotal={rebateEmRiscoTotal} projecao={projecaoConsolidada} mesesNoPeriodo={mesesNoPeriodo} aumInicialPeriodo={aumInicialPeriodo} onAbrirBurnDetalhe={() => setBurnModalAberto(true)} onAbrirProjecao={() => setProjecaoModalAberto(true)} />}
+      {!loading && <PoupancaKpis totais={totais} mesInicio={mesInicio} anoInicio={anoInicio} mesFim={mesFim} anoFim={anoFim} modoAUM={modoAUM} aumLegadoTotal={aumLegadoTotal} clientesQueimando={clientesQueimando} rebateEmRiscoTotal={rebateEmRiscoTotal} projecao={projecaoDisplay} mesesNoPeriodo={mesesNoPeriodo} aumInicialPeriodo={aumInicialPeriodo} onAbrirBurnDetalhe={() => setBurnModalAberto(true)} onAbrirProjecao={() => setProjecaoModalAberto(true)} />}
 
       {burnModalAberto && (
         <BurnRateModal
@@ -204,7 +214,7 @@ export function PoupancaVisao() {
           onFechar={() => setProjecaoModalAberto(false)} />
       )}
       {!loading && <PoupancaMeta metaAUM={metaAUM} setMetaAUM={setMetaAUM} metaNNM={metaNNM} setMetaNNM={setMetaNNM} metasPeriodo={metasPeriodo} setMetasPeriodo={setMetasPeriodo} totais={totais} historico={historico} historicoMeta={historicoMetaCumprimento} modoAUM={modoAUM} aumLegadoTotal={aumLegadoTotal} />}
-      {!loading && <PoupancaChart dados={historico} metaAUM={metaAUM} totais={totais} mesFim={mesFim} anoFim={anoFim} serieAumProjetadaMM6={serieAumProjetadaMM6} />}
+      {!loading && <PoupancaChart dados={historico} metaAUM={metaAUM} totais={totais} mesFim={mesFim} anoFim={anoFim} serieAumProjetadaMM6={serieProjetadaDisplay} />}
       {!loading && <PoupancaMetaChart dados={historicoMetaCumprimento} dadosProjecao={dadosProjecao} metaAUM={metaAUM} mesFim={mesFim} anoFim={anoFim} />}
 
       {!loading && (
