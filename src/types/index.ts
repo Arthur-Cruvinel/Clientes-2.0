@@ -27,6 +27,20 @@ export type VisaoFinanceira = 'margem_contribuicao' | 'ebitda';
 
 export interface Cliente {
   id?: string;
+  /**
+   * Identificador estável (UUID v4) imutável da entidade.
+   *
+   * Diferença vs docId:
+   *   - docId: derivado do slug (muda se renomear)
+   *   - id_estavel: gerado uma vez, nunca muda
+   *
+   * Use id_estavel para referências cross-coleção (cliente referenciando
+   * colaborador, por exemplo). Use docId para legibilidade no console.
+   *
+   * Campo opcional no schema durante migração. Após Fase 3 concluída,
+   * será obrigatório em novos docs.
+   */
+  id_estavel?: string;
   nome_cliente: string;
   empresario?: string;
   banker?: string;  // nome do banker responsável (Galápagos)
@@ -176,6 +190,20 @@ export interface ResultadoReajuste {
 
 export interface Colaborador {
   id?: string;
+  /**
+   * Identificador estável (UUID v4) imutável da entidade.
+   *
+   * Diferença vs docId:
+   *   - docId: derivado do slug (muda se renomear)
+   *   - id_estavel: gerado uma vez, nunca muda
+   *
+   * Use id_estavel para referências cross-coleção (cliente referenciando
+   * colaborador, por exemplo). Use docId para legibilidade no console.
+   *
+   * Campo opcional no schema durante migração. Após Fase 3 concluída,
+   * será obrigatório em novos docs.
+   */
+  id_estavel?: string;
   nome_colaborador: string;
   cargo: string;
   localidade?: 'SP' | 'RJ';             // default tratado como 'SP' quando ausente
@@ -254,6 +282,20 @@ export interface ResultadoFolha {
 
 export interface CustoIndireto {
   id?: string;
+  /**
+   * Identificador estável (UUID v4) imutável da entidade.
+   *
+   * Diferença vs docId:
+   *   - docId: derivado do slug (muda se renomear)
+   *   - id_estavel: gerado uma vez, nunca muda
+   *
+   * Use id_estavel para referências cross-coleção (cliente referenciando
+   * colaborador, por exemplo). Use docId para legibilidade no console.
+   *
+   * Campo opcional no schema durante migração. Após Fase 3 concluída,
+   * será obrigatório em novos docs.
+   */
+  id_estavel?: string;
   descricao_custo: string;
   valor_mensal: number;
   tipo_custo: 'geral' | 'juridico' | 'conciliacao';

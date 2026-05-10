@@ -9,6 +9,7 @@ import { Modal } from '../../components/ui/Modal';
 import { db, salvarClienteBase } from '../../services/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { Cliente, PacoteServico } from '../../types';
+import { slug } from '../../utils/slug';
 
 interface Props {
   periodo: string;
@@ -20,13 +21,6 @@ const PACOTES: PacoteServico[] = ['full', 'advanced', 'light', 'future', 'asset_
 
 const INP = 'rounded px-2 py-1.5 text-sm w-full';
 const BRD = { border: '1px solid #e2e2e8', color: '#160F41' } as const;
-
-/** Mesmo slug usado em salvarClienteBase — replicado p/ pré-checagem antes
- *  do save, evita gravar e depois descobrir duplicata. */
-function clienteSlug(nome: string): string {
-  return nome.normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-}
 
 export function NovoClienteModal({ periodo, onFechar, onCriado }: Props) {
   const [nome, setNome] = useState('');
@@ -50,13 +44,13 @@ export function NovoClienteModal({ periodo, onFechar, onCriado }: Props) {
     if (!trimmed) return setErro('Nome é obrigatório.');
     if (!periodo) return setErro('Período não definido.');
     if (!/^\d{4}-\d{2}$/.test(dataEntrada)) return setErro('Data de entrada inválida.');
-    const slug = clienteSlug(trimmed);
-    if (!slug) return setErro('Nome inválido (sem caracteres alfanuméricos).');
+    const slugCliente = slug(trimmed);
+    if (!slugCliente) return setErro('Nome inválido (sem caracteres alfanuméricos).');
 
     setSalvando(true);
     try {
       // Uniqueness check em clientes_base/.
-      const ref = doc(db, 'clientes_base', slug);
+      const ref = doc(db, 'clientes_base', slugCliente);
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const existente = snap.data() as Cliente;
@@ -85,7 +79,7 @@ export function NovoClienteModal({ periodo, onFechar, onCriado }: Props) {
 
       // 1) Cadastro mestre. 2) Doc do período (snapshot inicial).
       await salvarClienteBase(novo);
-      await setDoc(doc(db, 'fechamentos', periodo, 'clientes', slug), novo);
+      await setDoc(doc(db, 'fechamentos', periodo, 'clientes', slugCliente), novo);
 
       onCriado(trimmed);
     } catch (e) {

@@ -6,6 +6,7 @@ import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import { db, buscarMapeamentoSiglas, salvarEntradaMapeamento } from '../../../services/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { BATCH_LIMIT } from '../../../utils/constants';
+import { slug } from '../../../utils/slug';
 import { parseOffshoreComClaude, parseOnshoreComClaude, type SiglaNaoMapeada } from './parsers/parseComClaude';
 import { buscarPTAXFechamento } from '../../../services/ptax';
 // [NOVO] Import do parser multi-período
@@ -149,10 +150,6 @@ function sanitizeDoc(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined));
 }
 
-function slugify(nome: string): string {
-  return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-}
 
 /** Extrai texto de um PDF via pdfjs-dist. Filtra páginas vazias. */
 async function extrairTextoPDF(file: File): Promise<string> {
@@ -255,11 +252,11 @@ export function useImportPoupanca() {
     setSalvando(true);
     setToast(null);
     try {
-      const slug = slugify(nomeClienteMulti);
+      const slugCliente = slug(nomeClienteMulti);
       for (let i = 0; i < previewMulti.length; i += BATCH_LIMIT) {
         const chunk = previewMulti.slice(i, i + BATCH_LIMIT);
         const promises = chunk.map(r => {
-          const docId = `${slug}_${r.ano}_${r.mes}`;
+          const docId = `${slugCliente}_${r.ano}_${r.mes}`;
 
           // ── Detecção de mês de tombamento (Comdinheiro) ──
           // Convenção do sistema (alinhada ao resto do código):
@@ -513,8 +510,8 @@ export function useImportPoupanca() {
       for (let i = 0; i < preview.length; i += BATCH_LIMIT) {
         const chunk = preview.slice(i, i + BATCH_LIMIT);
         const promises = chunk.map(async item => {
-          const slug = slugify(item.nome_cliente ?? 'desconhecido');
-          const docId = `${slug}_${ano}_${mes}`;
+          const slugCliente = slug(item.nome_cliente ?? 'desconhecido');
+          const docId = `${slugCliente}_${ano}_${mes}`;
 
           // Dados comuns a ambos os tipos
           const dados: Record<string, unknown> = {

@@ -10,6 +10,7 @@ import {
   deletarColaboradorPeriodosFuturos, db,
 } from '../../services/firebase';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
+import { slug } from '../../utils/slug';
 import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
 import { compararDerivados, type Ordenacao } from './ordenacao';
 
@@ -40,12 +41,6 @@ function normalizarFuncao(f: string): FuncaoAlocacao | null {
 
 const statusDe = (o: number): StatusOcupacao =>
   o > 1.2 ? 'sobrecarga' : o > 1.0 ? 'atencao' : 'ok';
-
-/** Slug ASCII p/ uso como id do documento Firestore. */
-export function slugificar(nome: string): string {
-  return nome.normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-}
 
 export function useColaboradores() {
   const { dadosPeriodo, periodoSelecionado, recarregar } = useApp();
@@ -123,7 +118,7 @@ export function useColaboradores() {
   const criarColaborador = useCallback(async (novo: Colaborador) => {
     if (!periodoSelecionado) throw new Error('Selecione um período antes de criar.');
     if (!novo.nome_colaborador?.trim()) throw new Error('Nome obrigatório.');
-    const id = novo.id ?? slugificar(novo.nome_colaborador);
+    const id = novo.id ?? slug(novo.nome_colaborador);
     if (colaboradoresValidos.some(c => c.id === id || c.nome_colaborador === novo.nome_colaborador))
       throw new Error('Já existe um colaborador com esse nome no período.');
     setSalvando(true);

@@ -5,6 +5,7 @@
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { BATCH_LIMIT } from '../utils/constants';
+import { slug } from '../utils/slug';
 
 // Campos calculados que NÃO devem ser copiados
 const CAMPOS_CALCULADOS = new Set([
@@ -24,16 +25,6 @@ const CAMPOS_CALCULADOS = new Set([
   'horas_totais',
   'custo_direto_detalhe',
 ]);
-
-function slugify(nome: string): string {
-  return nome
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '');
-}
 
 export interface ResultadoMigracao {
   total: number;
@@ -104,20 +95,20 @@ export async function migrarClientesBase(
       limpo.migrado_em = new Date().toISOString();
 
       const nome = (data.nome_cliente as string) ?? '';
-      const slug = slugify(nome);
+      const slugCliente = slug(nome);
 
-      return { slug, nome, dados: limpo };
+      return { slugCliente, nome, dados: limpo };
     });
 
     // 3. Salvar em batches de 400
     for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
       const chunk = docs.slice(i, i + BATCH_LIMIT);
-      const promises = chunk.map(({ slug, nome, dados }) => {
-        if (!slug) {
+      const promises = chunk.map(({ slugCliente, nome, dados }) => {
+        if (!slugCliente) {
           resultado.erros.push(`Slug vazio para cliente: ${nome}`);
           return Promise.resolve();
         }
-        return setDoc(doc(db, 'clientes_base', slug), dados)
+        return setDoc(doc(db, 'clientes_base', slugCliente), dados)
           .then(() => { resultado.sucesso++; })
           .catch((e: Error) => {
             resultado.erros.push(`${nome}: ${e.message}`);

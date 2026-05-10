@@ -1,6 +1,7 @@
 // --- Parser do template Excel patrimonial ---
 
 import * as XLSX from 'xlsx';
+import { slug } from '../../utils/slug';
 import type { InvestimentoExterno, Imovel, Veiculo, OutroBem, Passivo } from '../../types';
 
 export interface PatrimonioParseado {
@@ -20,10 +21,6 @@ export interface ParseResult {
   totalRegistros: number;
 }
 
-function slugify(nome: string): string {
-  return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-}
 
 function lerAba<T>(wb: XLSX.WorkBook, nome: string, obrigatorios: string[]): { rows: (T & { cliente_nome: string })[]; erros: string[] } {
   const ws = wb.Sheets[nome];
@@ -51,11 +48,11 @@ export function parsePatrimonioExcel(buffer: ArrayBuffer): ParseResult {
   const mapa = new Map<string, PatrimonioParseado>();
 
   function getCliente(nome: string): PatrimonioParseado {
-    const slug = slugify(nome);
-    if (!mapa.has(slug)) {
-      mapa.set(slug, { cliente: nome, slug, investimentos: [], imoveis: [], veiculos: [], outros_bens: [], passivos: [] });
+    const slugCliente = slug(nome);
+    if (!mapa.has(slugCliente)) {
+      mapa.set(slugCliente, { cliente: nome, slug: slugCliente, investimentos: [], imoveis: [], veiculos: [], outros_bens: [], passivos: [] });
     }
-    return mapa.get(slug)!;
+    return mapa.get(slugCliente)!;
   }
 
   // Investimentos

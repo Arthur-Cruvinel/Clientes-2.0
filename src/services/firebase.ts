@@ -8,6 +8,7 @@ import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente,
 import { BATCH_LIMIT, FUNCOES_ALOCACAO } from '../utils/constants';
 import { PARAMETROS_DEFAULT } from '../utils/constants';
 import { buscarTetoPorPeriodo } from '../utils/financials.custos';
+import { slug } from '../utils/slug';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -687,12 +688,9 @@ export async function buscarClientesBase(): Promise<Cliente[]> {
  * Salva (ou atualiza) um cliente em clientes_base/{slug}.
  */
 export async function salvarClienteBase(cliente: Cliente): Promise<void> {
-  const slug = (cliente.nome_cliente ?? '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().trim()
-    .replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  const slugCliente = slug(cliente.nome_cliente ?? '');
   try {
-    await setDoc(doc(db, 'clientes_base', slug), cliente);
+    await setDoc(doc(db, 'clientes_base', slugCliente), cliente);
   } catch (error) {
     console.error('[Firebase] Erro ao salvar cliente_base:', error);
     throw error;
@@ -719,9 +717,9 @@ export async function salvarPerfilComplexidade(
   volume?: { volume_movimentos_mes?: number; qtd_recebiveis_mes?: number; qtd_contratacoes_mes?: number },
   clienteId?: string,
 ): Promise<void> {
-  const slug = clienteSlug(nomeCliente);
+  const slugCliente = slug(nomeCliente);
   try {
-    await updateDoc(doc(db, 'clientes_base', slug), { perfil_complexidade: perfil });
+    await updateDoc(doc(db, 'clientes_base', slugCliente), { perfil_complexidade: perfil });
     if (volume && clienteId) {
       const limpo = Object.fromEntries(Object.entries(volume).filter(([_, v]) => v !== undefined));
       if (Object.keys(limpo).length > 0) {
@@ -793,10 +791,6 @@ export async function reabrirPeriodo(periodo: string, reaberto_por: string): Pro
 // Histórico de alterações de clientes
 // ============================================================
 
-function clienteSlug(nome: string): string {
-  return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-}
 
 /**
  * Registra uma alteração na subcoleção clientes_base/{slug}/historico_alteracoes/.
@@ -805,9 +799,9 @@ export async function registrarAlteracao(
   clienteNome: string,
   alteracao: AlteracaoCliente,
 ): Promise<void> {
-  const slug = clienteSlug(clienteNome);
+  const slugCliente = slug(clienteNome);
   try {
-    await addDoc(collection(db, 'clientes_base', slug, 'historico_alteracoes'), alteracao);
+    await addDoc(collection(db, 'clientes_base', slugCliente, 'historico_alteracoes'), alteracao);
   } catch (error) {
     console.error(`[Firebase] Erro ao registrar alteração para ${clienteNome}:`, error);
   }
@@ -819,9 +813,9 @@ export async function registrarAlteracao(
 export async function buscarHistoricoAlteracoes(
   clienteNome: string,
 ): Promise<AlteracaoCliente[]> {
-  const slug = clienteSlug(clienteNome);
+  const slugCliente = slug(clienteNome);
   try {
-    const ref = collection(db, 'clientes_base', slug, 'historico_alteracoes');
+    const ref = collection(db, 'clientes_base', slugCliente, 'historico_alteracoes');
     const snap = await getDocs(query(ref, orderBy('alterado_em', 'desc')));
     return snap.docs.map(d => d.data() as AlteracaoCliente);
   } catch (error) {

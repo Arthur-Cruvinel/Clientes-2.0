@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Check, X, Loader2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { slug } from '../../utils/slug';
 import type { RegistroPoupanca } from '../../types';
 
 interface Props {
@@ -13,11 +14,6 @@ interface Props {
 }
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-function slugify(nome: string) {
-  return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-}
 
 export function DetalheMetaLote({ registros, onAplicado, onFechar }: Props) {
   const sorted = [...registros].sort((a, b) => (a.ano * 12 + a.mes) - (b.ano * 12 + b.mes));
@@ -48,9 +44,9 @@ export function DetalheMetaLote({ registros, onAplicado, onFechar }: Props) {
     setSalvando(true);
     setErro(null);
     try {
-      const slug = slugify(filtrados[0].nome_cliente);
+      const slugCliente = slug(filtrados[0].nome_cliente);
       await Promise.all(filtrados.map(r => {
-        const docId = `${slug}_${r.ano}_${r.mes}`;
+        const docId = `${slugCliente}_${r.ano}_${r.mes}`;
         return updateDoc(doc(db, 'poupanca', docId), { meta_poupanca_mensal: meta });
       }));
       const atualizados = filtrados.map(r => ({ ...r, meta_poupanca_mensal: meta }));

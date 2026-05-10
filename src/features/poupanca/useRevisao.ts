@@ -8,6 +8,7 @@ import {
   definirRevisaoCliente,
   definirRevisaoMes,
 } from '../../services/revisao';
+import { slug } from '../../utils/slug';
 
 export function useRevisao() {
   const [clientesMarcados, setClientesMarcados] = useState<Set<string>>(new Set());
@@ -26,33 +27,20 @@ export function useRevisao() {
   /** Verifica se um cliente está marcado pelo nome (não pelo slug). */
   const estaMarcado = useCallback((nomeCliente: string): boolean => {
     // O Set armazena slugs — convertemos o nome aqui
-    const slug = nomeCliente
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '');
-    return clientesMarcados.has(slug);
+    const slugCliente = slug(nomeCliente);
+    return clientesMarcados.has(slugCliente);
   }, [clientesMarcados]);
 
   /** Toggle de marcação de cliente — atualização otimista, rollback em erro. */
   const toggleCliente = useCallback(async (nomeCliente: string): Promise<void> => {
-    const slug = nomeCliente
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '');
-
-    const estavaMarcado = clientesMarcados.has(slug);
+    const slugCliente = slug(nomeCliente);
+    const estavaMarcado = clientesMarcados.has(slugCliente);
     const novoEstado = !estavaMarcado;
 
     // Otimista: atualiza UI imediatamente
     setClientesMarcados(prev => {
       const novo = new Set(prev);
-      if (novoEstado) novo.add(slug); else novo.delete(slug);
+      if (novoEstado) novo.add(slugCliente); else novo.delete(slugCliente);
       return novo;
     });
 
@@ -63,7 +51,7 @@ export function useRevisao() {
       // Rollback
       setClientesMarcados(prev => {
         const novo = new Set(prev);
-        if (estavaMarcado) novo.add(slug); else novo.delete(slug);
+        if (estavaMarcado) novo.add(slugCliente); else novo.delete(slugCliente);
         return novo;
       });
     }

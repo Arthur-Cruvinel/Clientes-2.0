@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { slug } from '../../utils/slug';
 import type { RegistroPoupanca } from '../../types';
 
 interface Props {
@@ -18,11 +19,6 @@ const ML = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out'
 const ANOS = [2024, 2025, 2026, 2027];
 const SEL = 'rounded-lg px-2 py-1 text-xs';
 const BSEL = { border: '1px solid #e2e2e8', color: '#160F41' };
-
-function slugify(nome: string) {
-  return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-}
 
 export function PoupancaMetaLote({ registrosPorCliente, mesInicio, anoInicio, mesFim, anoFim, onAplicado, onFechar }: Props) {
   const [mIni, setMIni] = useState(mesInicio);
@@ -64,12 +60,12 @@ export function PoupancaMetaLote({ registrosPorCliente, mesInicio, anoInicio, me
     try {
       const promises: Promise<void>[] = [];
       for (const nome of selecionados) {
-        const slug = slugify(nome);
+        const slugCliente = slug(nome);
         const regs = registrosPorCliente.get(nome) ?? [];
         for (const r of regs) {
           const p = r.ano * 12 + r.mes;
           if (p >= ini && p <= fim) {
-            promises.push(updateDoc(doc(db, 'poupanca', `${slug}_${r.ano}_${r.mes}`), { meta_poupanca_mensal: meta }));
+            promises.push(updateDoc(doc(db, 'poupanca', `${slugCliente}_${r.ano}_${r.mes}`), { meta_poupanca_mensal: meta }));
           }
         }
       }

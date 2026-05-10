@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, BarChart2, Briefcase, Home, Car, Gem, TrendingDown, Users, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Cliente } from '../../types';
+import { slug } from '../../utils/slug';
 import { usePatrimonio } from './usePatrimonio';
 import { usePatrimonioCrud } from './usePatrimonioCrud';
 import { PatrimonioVisaoGeral } from './visao-geral/PatrimonioVisaoGeral';
@@ -44,10 +45,8 @@ export function Patrimonio() {
     itemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [c?.nome_cliente]);
   const nome = modoConsolidado ? 'Consolidado — Todos os Clientes' : c?.nome_cliente ?? '';
-  const slug = c?.nome_cliente
-    ? c.nome_cliente.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
-    : null;
-  const crud = usePatrimonioCrud(slug, c?.nome_cliente ?? null);
+  const slugCliente = c?.nome_cliente ? slug(c.nome_cliente) : null;
+  const crud = usePatrimonioCrud(slugCliente, c?.nome_cliente ?? null);
 
   if (loading) return <div className="p-8 text-center" style={{ color: '#6b6b8a' }}>Carregando...</div>;
 

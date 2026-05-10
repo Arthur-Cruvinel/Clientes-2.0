@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import { db } from '../../services/firebase';
 import { collection, doc, writeBatch, setDoc, getDocs, query, where } from 'firebase/firestore';
 import { BATCH_LIMIT } from '../../utils/constants';
+import { slug } from '../../utils/slug';
 import {
   parseColaboradores, parseClientes, parseCustosIndiretos,
   parsePoupanca, verificarAbas,
@@ -36,13 +37,6 @@ type Etapa = 'selecao' | 'preview' | 'importando' | 'concluido';
 // Helpers
 // ============================================================
 
-/** Remove acentos, converte para snake_case. "João Silva" → "joao_silva" */
-function slugify(nome: string): string {
-  return nome
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().trim()
-    .replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-}
 
 /** Remove campos undefined — Firestore rejeita undefined, aceita apenas null ou ausência. */
 function sanitizeDoc(obj: Record<string, unknown>): Record<string, unknown> {
@@ -206,8 +200,8 @@ export function useUploadImport() {
       const chunk = dados.slice(i, i + BATCH_LIMIT);
       // setDoc com merge:true em paralelo dentro do lote
       const promises = chunk.map(item => {
-        const slug = slugify(String(item['nome_cliente'] ?? ''));
-        const docId = `${slug}_${item['ano']}_${item['mes']}`;
+        const slugCliente = slug(String(item['nome_cliente'] ?? ''));
+        const docId = `${slugCliente}_${item['ano']}_${item['mes']}`;
         const docRef = doc(db, 'poupanca', docId);
         return setDoc(docRef, sanitizeDoc(item), { merge: true });
       });
@@ -253,8 +247,8 @@ export function useUploadImport() {
       for (let i = 0; i < clienteDocs.length; i += BATCH_LIMIT) {
         const chunk = clienteDocs.slice(i, i + BATCH_LIMIT);
         const promises = chunk.map(item => {
-          const slug = slugify(String(item['nome_cliente'] ?? ''));
-          const docRef = doc(db, 'clientes_base', slug);
+          const slugCliente = slug(String(item['nome_cliente'] ?? ''));
+          const docRef = doc(db, 'clientes_base', slugCliente);
           return setDoc(docRef, sanitizeDoc(item));
         });
         await Promise.all(promises);

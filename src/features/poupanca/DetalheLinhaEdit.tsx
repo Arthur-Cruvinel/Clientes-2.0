@@ -5,6 +5,7 @@ import { Check, X, Loader2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { formatCurrency } from '../../utils/formatters';
+import { slug } from '../../utils/slug';
 import type { RegistroPoupanca } from '../../types';
 import type { Visao } from './PoupancaTabela';
 
@@ -15,11 +16,6 @@ interface Props {
   visao: Visao;
   onSalvo: (atualizado: RegistroPoupanca) => void;
   onCancelar: () => void;
-}
-
-function slugify(nome: string) {
-  return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 }
 
 function parseNum(v: string): number | null {
@@ -172,7 +168,7 @@ export function DetalheLinhaEdit({ registro: r, periodo, colSpan, visao, onSalvo
 
     setSalvando(true);
     try {
-      const docId = `${slugify(r.nome_cliente)}_${r.ano}_${r.mes}`;
+      const docId = `${slug(r.nome_cliente)}_${r.ano}_${r.mes}`;
       await updateDoc(doc(db, 'poupanca', docId), dados);
       onSalvo({ ...r, ...dados } as RegistroPoupanca);
     } catch (err) {

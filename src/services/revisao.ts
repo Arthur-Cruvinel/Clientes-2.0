@@ -5,19 +5,9 @@
 
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import { slug } from '../utils/slug';
 
 const FLAGS_DOC = doc(db, 'flags', 'revisao_clientes');
-
-/** Slugify igual ao usado em useImportPoupanca para gerar IDs consistentes. */
-export function slugify(nome: string): string {
-  return nome
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '');
-}
 
 // ============================================================
 // Cliente-level: doc único com mapa
@@ -46,17 +36,17 @@ export async function buscarClientesMarcados(): Promise<Set<string>> {
  * Operação idempotente — chamar duas vezes com mesmo valor é seguro.
  */
 export async function definirRevisaoCliente(nomeCliente: string, marcado: boolean): Promise<void> {
-  const slug = slugify(nomeCliente);
+  const slugCliente = slug(nomeCliente);
   // Atualização parcial do mapa: { clientes_marcados: { [slug]: true } } ou false pra remover
   const update: Record<string, unknown> = {};
   if (marcado) {
-    update[`clientes_marcados.${slug}`] = true;
+    update[`clientes_marcados.${slugCliente}`] = true;
   } else {
     // Para "desmarcar" usamos null no campo do mapa, que efetivamente remove.
     // Mas o Firestore não tem deleteField inline aqui — usamos setDoc com merge
     // e estado completo, ou updateDoc com sentinela. Optamos por gravar false
     // (mais simples; o filtro em buscarClientesMarcados ignora false).
-    update[`clientes_marcados.${slug}`] = false;
+    update[`clientes_marcados.${slugCliente}`] = false;
   }
   try {
     // updateDoc falha se o doc não existe; tentamos primeiro e fazemos
@@ -64,7 +54,7 @@ export async function definirRevisaoCliente(nomeCliente: string, marcado: boolea
     await updateDoc(FLAGS_DOC, update);
   } catch {
     await setDoc(FLAGS_DOC, {
-      clientes_marcados: { [slug]: marcado },
+      clientes_marcados: { [slugCliente]: marcado },
     }, { merge: true });
   }
 }
@@ -83,8 +73,8 @@ export async function definirRevisaoMes(
   mes: number,
   marcado: boolean,
 ): Promise<void> {
-  const slug = slugify(nomeCliente);
-  const docId = `${slug}_${ano}_${mes}`;
+  const slugCliente = slug(nomeCliente);
+  const docId = `${slugCliente}_${ano}_${mes}`;
   const ref = doc(db, 'poupanca', docId);
   try {
     await updateDoc(ref, { revisao_pendente: marcado });

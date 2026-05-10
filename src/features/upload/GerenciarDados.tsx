@@ -5,6 +5,7 @@ import { Trash2, Loader2, ClipboardList, Database, PiggyBank, Search } from 'luc
 import { db } from '../../services/firebase';
 import { deleteDoc, deleteField, doc, getDocs, collection, updateDoc } from 'firebase/firestore';
 import { Modal } from '../../components/ui/Modal';
+import { slug } from '../../utils/slug';
 import {
   limparCollection, limparCollectionTodosPeriodos, contarPeriodos,
   limparPoupancaMes, limparTodaPoupanca,
@@ -53,10 +54,6 @@ export function GerenciarDados() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  function slugify(nome: string) {
-    return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-  }
 
   const excSugestoes = excBusca.trim()
     ? excNomes.filter(n => n.toLowerCase().includes(excBusca.toLowerCase())).slice(0, 12)
@@ -342,10 +339,10 @@ export function GerenciarDados() {
 
                       // Itera sobre TODOS os clientes selecionados × todos os meses
                       for (const cliente of excClientes) {
-                        const slug = slugify(cliente);
+                        const slugCliente = slug(cliente);
                         let m = excMesIni, a = excAnoIni;
                         while (a * 12 + m <= excAnoFim * 12 + excMesFim) {
-                          const docId = `${slug}_${a}_${m}`;
+                          const docId = `${slugCliente}_${a}_${m}`;
                           const ref = doc(db, 'poupanca', docId);
                           try {
                             if (excTipo === 'todos') {
