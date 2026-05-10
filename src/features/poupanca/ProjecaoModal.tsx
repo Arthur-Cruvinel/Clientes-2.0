@@ -5,8 +5,12 @@
 // projetado por compounding mês a mês até Dez/anoFim, meta proporcional
 // e gap. Filtros por categoria.
 //
-// Modelo de projeção: PL[t] = PL[t-1] × (1 + CDI_proj[t] × spread) + MM6 NNM
-// onde spread = MM6 Rent. % / MM6 CDI realizado nos mesmos 6 meses.
+// Modelo de projeção (benchmark puro por dimensão):
+//   PL_on[t]  = max(0, PL_on[t-1]  × (1 + cdi_proj[t])      + nnm × prop_on)
+//   PL_off[t] = max(0, PL_off[t-1] × (1 + fedfunds_const)   + nnm × prop_off)
+// onde nnm = mm6_nnm_liquido (cliente) e prop_on/off = pl_atual_on / pl_atual.
+// `spread` continua exposto como métrica informativa (rent. histórica / CDI),
+// mas não entra mais no compounding.
 
 import { useMemo, useState } from 'react';
 import { X, Target } from 'lucide-react';
@@ -99,7 +103,8 @@ export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim
             <span><strong style={{ color: '#160F41' }}>{consolidado.meses_restantes}</strong> mês{consolidado.meses_restantes === 1 ? '' : 'es'} de projeção</span>
           </p>
           <p className="pl-[18px]">
-            <strong style={{ color: '#160F41' }}>PL projetado:</strong> mês a mês usando MM6 NNM líquido (tendência histórica) e CDI projetado × spread.
+            <strong style={{ color: '#160F41' }}>PL projetado:</strong> mês a mês em benchmark puro por dimensão — onshore capitaliza pelo CDI projetado,
+            offshore pelo Fed Funds (último realizado, premissa simplificadora). NNM mensal = MM6 NNM líquido.
             <strong style={{ color: '#160F41' }}> Meta individual:</strong> mesma fórmula, substituindo o NNM pela <em>capacidade esperada</em> do cliente
             (manual em <code>capacidade_poupanca_mensal</code> quando cadastrada; senão MM6 NNM bruto − MM6 tombamento).
             <strong style={{ color: '#160F41' }}> Gap:</strong> meta − projeção.
@@ -140,7 +145,7 @@ export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim
                   <th className={`${TH} text-right`}><HeaderOrdenavel titulo="PL Atual" chave="pl_atual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} /></th>
                   <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Rent. MM6" chave="mm6_rent_pct" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`Rent. %/mês — ${TIP_MM6}`} /></th>
                   <th className={`${TH} text-right`}><HeaderOrdenavel titulo="NNM MM6" chave="mm6_nnm_liquido" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="MM6 NNM líquido — NNM bruto − tombamento − transferência interna" /></th>
-                  <th className={`${TH} text-right`}><HeaderOrdenavel titulo="PL Proj." chave="pl_projetado_fim_ano" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`PL Projetado Dez/${anoFim} — PL[t] = PL[t-1] × (1 + CDI_proj × spread) + MM6 NNM`} /></th>
+                  <th className={`${TH} text-right`}><HeaderOrdenavel titulo="PL Proj." chave="pl_projetado_fim_ano" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`PL Projetado Dez/${anoFim} — benchmark puro: PL_on × (1 + CDI_proj) + PL_off × (1 + Fed Funds) + MM6 NNM`} /></th>
                   <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Meta" chave="meta_individual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Meta Individual — projeção do PL usando capacidade esperada como NNM mensal" /></th>
                   <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Gap" chave="gap_meta_individual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Gap = Meta − PL Projetado. Verde = vai superar a meta" /></th>
                   <th className={`${TH} text-center`}>Status</th>
@@ -158,7 +163,7 @@ export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim
                     + ` · fonte do alvo NNM/mês: ${c.meta_fonte ?? 'sem meta'}`;
                   const tipRent = `MM6 Rent.: ${(c.mm6_rent_pct * 100).toFixed(2)}%/mês`
                     + ` · MM6 CDI: ${(c.mm6_cdi_pct * 100).toFixed(2)}%/mês`
-                    + ` · spread: ${c.spread.toFixed(2)}× CDI`;
+                    + ` · spread informativo: ${c.spread.toFixed(2)}× CDI (não usado no compounding — projeção em benchmark puro)`;
                   // Tooltip da Meta — explica composição da capacidade.
                   const fmtBRL = (v: number) => v.toLocaleString('pt-BR',
                     { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });

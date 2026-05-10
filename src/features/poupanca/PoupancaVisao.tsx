@@ -48,12 +48,14 @@ function MesAnoSelect({ mes, ano, setMes, setAno, label }: {
 
 export function PoupancaVisao() {
   const hoje = new Date();
-  // Inicio: Jan/2025 — Fim: mês anterior ao atual
-  const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  // Default: ano corrente cheio (Jan a Dez). Cobre o horizonte completo
+  // dos cenários de projeção (Trajetória da Meta vai até a data_alvo da
+  // meta global, normalmente Dez/anoCorrente).
+  const anoCorrente = hoje.getFullYear();
   const [mesInicio, setMesInicio] = useState(1);
-  const [anoInicio, setAnoInicio] = useState(2025);
-  const [mesFim, setMesFim] = useState(mesAnterior.getMonth() + 1);
-  const [anoFim, setAnoFim] = useState(mesAnterior.getFullYear());
+  const [anoInicio, setAnoInicio] = useState(anoCorrente);
+  const [mesFim, setMesFim] = useState(12);
+  const [anoFim, setAnoFim] = useState(anoCorrente);
   // [NOVO] Navegar para Central de Importação
   const navigate = useNavigate();
   const [registrosDetalhe, setRegistrosDetalhe] = useState<RegistroPoupanca[]>([]);
@@ -74,7 +76,7 @@ export function PoupancaVisao() {
 
   const { dadosPeriodo } = useApp();
 
-  const { registrosPorCliente, historico, historicoMetaCumprimento, loading, totais, metaNNM, setMetaNNM, metaAUM, setMetaAUM, metasPeriodo, setMetasPeriodo, dadosProjecao, modoAUM, setModoAUM, aumLegadoTotal, clientesQueimando, rebateEmRiscoTotal, mm6Clientes, clientesEmBurnMM6, projecaoConsolidada, serieAumProjetadaMM6, projecaoSobGestaoConsolidada, serieAumSobGestaoProjetadaMM6, mesesNoPeriodo, aumInicialPeriodo, registroAnteriorPorCliente, recarregar } = usePoupanca(
+  const { registrosPorCliente, historico, historicoMetaCumprimento, loading, totais, metaNNM, setMetaNNM, metaAUM, setMetaAUM, metasPeriodo, setMetasPeriodo, modoAUM, setModoAUM, aumLegadoTotal, clientesQueimando, rebateEmRiscoTotal, mm6Clientes, clientesEmBurnMM6, projecaoConsolidada, serieAumProjetadaMM6, projecaoSobGestaoConsolidada, serieAumSobGestaoProjetadaMM6, serieAumOrganicoEsperado, serieAumRitmoAtual, serieMetaTrajetoria, coberturaCapacidade, mesesNoPeriodo, aumInicialPeriodo, registroAnteriorPorCliente, recarregar } = usePoupanca(
     mesInicio, anoInicio, mesFim, anoFim, dadosPeriodo?.clientes,
   );
 
@@ -214,8 +216,8 @@ export function PoupancaVisao() {
           onFechar={() => setProjecaoModalAberto(false)} />
       )}
       {!loading && <PoupancaMeta metaAUM={metaAUM} setMetaAUM={setMetaAUM} metaNNM={metaNNM} setMetaNNM={setMetaNNM} metasPeriodo={metasPeriodo} setMetasPeriodo={setMetasPeriodo} totais={totais} historico={historico} historicoMeta={historicoMetaCumprimento} modoAUM={modoAUM} aumLegadoTotal={aumLegadoTotal} />}
-      {!loading && <PoupancaChart dados={historico} metaAUM={metaAUM} totais={totais} mesFim={mesFim} anoFim={anoFim} serieAumProjetadaMM6={serieProjetadaDisplay} />}
-      {!loading && <PoupancaMetaChart dados={historicoMetaCumprimento} dadosProjecao={dadosProjecao} metaAUM={metaAUM} mesFim={mesFim} anoFim={anoFim} />}
+      {!loading && <PoupancaChart dados={historico} metaAUM={metaAUM} totais={totais} mesFim={mesFim} anoFim={anoFim} serieAumProjetadaMM6={serieProjetadaDisplay} modoAUM={modoAUM} aumLegadoTotal={aumLegadoTotal} />}
+      {!loading && <PoupancaMetaChart dados={historicoMetaCumprimento} metaAUM={metaAUM} serieAumOrganicoEsperado={serieAumOrganicoEsperado} serieAumRitmoAtual={serieAumRitmoAtual} serieMetaTrajetoria={serieMetaTrajetoria} coberturaCapacidade={coberturaCapacidade} />}
 
       {!loading && (
         <div className="space-y-3">

@@ -183,6 +183,11 @@ export interface MM6Cliente {
                                   // % do PL: > -1% leve, > -3% moderado, ≤ -3% crítico
   // ── PL ───────────────────────────────────────────────────────────
   pl_atual: number;
+  // PL atual decomposto por dimensão — base para capitalizar onshore com
+  // CDI e offshore com Fed Funds (ver useEffect MM6). Soma deve fechar
+  // com pl_atual exceto quando há discrepância de fonte (raro).
+  pl_atual_on: number;
+  pl_atual_off: number;
   ultimo_mes: { ano: number; mes: number };
   // ── Projeção mês a mês até Dez/anoFim (usa mm6_nnm_liquido) ──────
   pl_projetado_por_mes: Array<{
@@ -334,6 +339,14 @@ export function usePoupanca(
   // (depende de I/O — CDI projetado + Fed Funds). Chave "YYYY-MM" → PL legado
   // total (onshore + offshore) projetado naquele mês.
   const [legadoProjPorMes, setLegadoProjPorMes] = useState<Map<string, number>>(new Map());
+  // Cenário 1 (Orgânico Esperado) — projeção AUM partindo do PL atual com
+  // NNM agregado = soma das capacidade_poupanca_mensal cadastradas (fallback
+  // MM6 NNM líquido por cliente quando não cadastrada). Usa proporção GLOBAL
+  // on/off da carteira para distribuir o NNM agregado entre as duas trilhas
+  // de benchmark. Alimenta a aba Projeção do PoupancaMetaChart.
+  const [serieAumOrganicoEsperado, setSerieAumOrganicoEsperado] = useState<
+    Array<{ ano: number; mes: number; pl: number }>
+  >([]);
 
   useEffect(() => {
     let cancelado = false;
@@ -895,6 +908,20 @@ export function usePoupanca(
     for (const c of clientes ?? []) clientesPorNomeNorm.set(norm(c.nome_cliente), c);
 
     (async () => {
+      // ── Fed Funds constante (premissa simplificadora) ────────────────
+      // Ver decisão no commit anterior: enquanto não há curva projetada
+      // dedicada de Fed Funds, usamos o último realizado como constante
+      // ao longo de toda a projeção. Buscamos UMA VEZ por execução do
+      // useEffect (cache interno do buscarFedFundsRate evita refetch).
+      let fedConstante = 0;
+      const hojeRef = new Date();
+      for (let i = 0; i < 6; i++) {
+        const d = new Date(hojeRef.getFullYear(), hojeRef.getMonth() - i, 1);
+        const v = await buscarFedFundsRate(d.getFullYear(), d.getMonth() + 1).catch(() => null);
+        if (cancelado) return;
+        if (v != null && v > 0) { fedConstante = v; break; }
+      }
+
       const resultado: MM6Cliente[] = [];
 
       for (const [nome, regsIntervalo] of registrosPorCliente) {
@@ -906,9 +933,10 @@ export function usePoupanca(
         const regAnt = registroAnteriorPorCliente.get(nome) ?? null;
         const mm6 = mm6PorCliente(todosRegs, regAnt);
 
-        // CDI realizado dos MESMOS 6 meses do mm6 (paralelo). Usado apenas
-        // para calcular `spread = mm6_rent_pct / mm6_cdi_pct`. Quando o CDI
-        // base é 0 (mês não fechado, falha de fetch), spread = 1.0 (neutro).
+        // CDI realizado dos MESMOS 6 meses do mm6 — usado APENAS para
+        // expor `mm6_cdi_pct` e `spread` como métricas informativas
+        // (vs CDI). Não entram mais no compounding da projeção, que agora
+        // usa benchmark puro por dimensão.
         const cdiPromessas = mm6.ultimos6.map(r => buscarCDIMensal(r.ano, r.mes).catch(() => 0));
         const cdis = await Promise.all(cdiPromessas);
         if (cancelado) return;
@@ -919,11 +947,19 @@ export function usePoupanca(
         const spread = mm6_cdi_pct > 0 && mm6.mm6_rent_pct !== 0
           ? mm6.mm6_rent_pct / mm6_cdi_pct
           : 1;
-
-        // Cap conservador no spread (-10×, +10×) — cliente com mês de pico
-        // pode gerar spread enorme e projeção sem sentido.
+        // Cap [-10, +10] mantido apenas para o expor — não é mais usado
+        // no compounding, então o efeito de "explosão" desapareceu.
         const spreadCap = Math.max(-10, Math.min(10, spread));
+
         const pl_atual = ultimo.pl_total ?? 0;
+        const pl_atual_on = ultimo.pl_onshore ?? 0;
+        const pl_atual_off = ultimo.pl_offshore ?? 0;
+        // Proporção on/off por cliente — base para distribuir o NNM esperado
+        // entre as duas trilhas. Cliente com pl_atual = 0 (raro: apenas
+        // fluxo, sem saldo): default 100% onshore (assume reais até existir
+        // PL de referência).
+        const propOn = pl_atual > 0 ? pl_atual_on / pl_atual : 1;
+        const propOff = 1 - propOn;
         const ultimoP = pNum(ultimo.ano, ultimo.mes);
 
         // ── Capacidade esperada e fonte ────────────────────────────────
@@ -946,35 +982,46 @@ export function usePoupanca(
           ? 'manual' : 'automatico';
 
         // ── Projeção mês a mês até Dez/anoFim ──────────────────────────
-        // Single loop com 2 trilhas:
-        //   pl_projetado: usa mm6_nnm_liquido (tendência histórica).
-        //   pl_meta:      usa capacidade_esperada (alvo).
-        // Ambas: PL[t] = max(0, PL[t-1] × (1 + CDI_proj × spread) + nnm_t)
-        // Floor zero — patrimônio não pode ficar negativo no modelo. Cliente
-        // cuja projeção atinge zero E NNM é negativo nunca recupera, então
-        // paramos a iteração e preenchemos meses restantes com zero (evita
-        // chamadas extras a buscarCDIProjetado em caso degenerado).
+        // Metodologia BENCHMARK PURO POR DIMENSÃO (substitui spread × CDI):
+        //   PL_on[t]  = max(0, PL_on[t-1]  × (1 + cdi_proj[t])      + nnm × prop_on)
+        //   PL_off[t] = max(0, PL_off[t-1] × (1 + fedfunds_const)   + nnm × prop_off)
+        //   PL[t]     = PL_on[t] + PL_off[t]
+        //
+        // Duas trilhas em paralelo (dimensão × cenário):
+        //   pl_projetado: usa mm6_nnm_liquido como nnm (tendência histórica).
+        //   pl_meta:      usa capacidade_esperada como nnm (alvo).
+        // Floor zero em cada dimensão — patrimônio não pode ficar negativo.
+        // Early-break: se ambas dimensões de ambas trilhas zeraram E nenhum
+        // NNM consegue recuperar, preenche meses restantes com 0.
         const pl_projetado_por_mes: MM6Cliente['pl_projetado_por_mes'] = [];
-        let plAnt = pl_atual;
-        let plMetaAnt = pl_atual;
+        let plOnAnt = pl_atual_on;
+        let plOffAnt = pl_atual_off;
+        let plMetaOnAnt = pl_atual_on;
+        let plMetaOffAnt = pl_atual_off;
         let plMetaFim = pl_atual;
         for (let p = ultimoP + 1; p <= fimAnoP; p++) {
           const ano = Math.floor((p - 1) / 12);
           const mes = ((p - 1) % 12) + 1;
           const cdi_proj = await buscarCDIProjetado(ano, mes).catch(() => 0);
           if (cancelado) return;
-          const rent_proj = cdi_proj * spreadCap;
-          const pl = Math.max(0, plAnt * (1 + rent_proj) + mm6.mm6_nnm_liquido);
-          pl_projetado_por_mes.push({ ano, mes, pl, rent_proj, cdi_proj });
-          plAnt = pl;
-          // Trilha da meta — mesma rentabilidade projetada, NNM diferente.
-          plMetaAnt = Math.max(0, plMetaAnt * (1 + rent_proj) + capacidade_esperada);
-          plMetaFim = plMetaAnt;
 
-          // Early-break: ambas as trilhas zeradas E nenhuma capaz de
-          // recuperar (NNM/capacidade ≤ 0). Preenche meses restantes com 0.
+          // Trilha PROJEÇÃO (NNM = mm6_nnm_liquido).
+          plOnAnt = Math.max(0, plOnAnt * (1 + cdi_proj) + mm6.mm6_nnm_liquido * propOn);
+          plOffAnt = Math.max(0, plOffAnt * (1 + fedConstante) + mm6.mm6_nnm_liquido * propOff);
+          const pl = plOnAnt + plOffAnt;
+          // rent_proj agora é uma média ponderada das duas dimensões — não
+          // usada pelo modelo, só informativa para consumers que leem o array.
+          const rent_proj = cdi_proj * propOn + fedConstante * propOff;
+          pl_projetado_por_mes.push({ ano, mes, pl, rent_proj, cdi_proj });
+
+          // Trilha META (NNM = capacidade_esperada, mesmo benchmark).
+          plMetaOnAnt = Math.max(0, plMetaOnAnt * (1 + cdi_proj) + capacidade_esperada * propOn);
+          plMetaOffAnt = Math.max(0, plMetaOffAnt * (1 + fedConstante) + capacidade_esperada * propOff);
+          plMetaFim = plMetaOnAnt + plMetaOffAnt;
+
+          // Early-break: tudo zerado E nenhum NNM positivo → propaga zero.
           const nuncaRecupera = mm6.mm6_nnm_liquido <= 0 && capacidade_esperada <= 0;
-          if (pl === 0 && plMetaAnt === 0 && nuncaRecupera) {
+          if (pl === 0 && plMetaFim === 0 && nuncaRecupera) {
             for (let q = p + 1; q <= fimAnoP; q++) {
               const anoQ = Math.floor((q - 1) / 12);
               const mesQ = ((q - 1) % 12) + 1;
@@ -1033,6 +1080,7 @@ export function usePoupanca(
           n_meses: mm6.n_meses,
           em_burn, severidade,
           pl_atual,
+          pl_atual_on, pl_atual_off,
           ultimo_mes: { ano: ultimo.ano, mes: ultimo.mes },
           pl_projetado_por_mes,
           pl_projetado_fim_ano,
@@ -1205,6 +1253,125 @@ export function usePoupanca(
     };
   }, [projecaoConsolidadaMM6, legadoProjPorMes, aumLegadoTotal, anoFim]);
 
+  // ── Cenário 1 — Orgânico Esperado ──────────────────────────────────────
+  //
+  // Projeção AUM da carteira Galápagos partindo do PL atual e aplicando, mês
+  // a mês, o NNM AGREGADO esperado (soma de capacidade_poupanca_mensal de
+  // cada cliente, com fallback para MM6 NNM líquido quando não cadastrada).
+  // Distribui o NNM agregado entre dimensões usando proporção GLOBAL da
+  // carteira (PL_on_total / PL_total atual). Decisão de produto: proporção
+  // global é mais simples e representativa que por cliente para o cenário
+  // "esperado". Usa a mesma fórmula benchmark puro do useEffect MM6:
+  //   PL_on[t]  = max(0, PL_on[t-1]  × (1 + cdi_proj)      + nnm × prop_on)
+  //   PL_off[t] = max(0, PL_off[t-1] × (1 + fedfunds_const) + nnm × prop_off)
+  useEffect(() => {
+    if (mm6Clientes.length === 0) {
+      setSerieAumOrganicoEsperado([]);
+      return;
+    }
+    let cancelado = false;
+    (async () => {
+      // Fed Funds constante (mesma premissa do useEffect MM6).
+      let fedConstante = 0;
+      const hojeRef = new Date();
+      for (let i = 0; i < 6; i++) {
+        const d = new Date(hojeRef.getFullYear(), hojeRef.getMonth() - i, 1);
+        const v = await buscarFedFundsRate(d.getFullYear(), d.getMonth() + 1).catch(() => null);
+        if (cancelado) return;
+        if (v != null && v > 0) { fedConstante = v; break; }
+      }
+
+      // PL inicial agregado e ponto de partida (último mês entre clientes).
+      let plOnTotal = 0, plOffTotal = 0, ultimoP = 0;
+      for (const v of mm6Clientes) {
+        plOnTotal += v.pl_atual_on;
+        plOffTotal += v.pl_atual_off;
+        const p = pNum(v.ultimo_mes.ano, v.ultimo_mes.mes);
+        if (p > ultimoP) ultimoP = p;
+      }
+      if (ultimoP === 0) ultimoP = pNum(anoFim, mesFim);
+      const fimAnoP = pNum(anoFim, 12);
+      const plTotalAtual = plOnTotal + plOffTotal;
+      // Proporção GLOBAL da carteira — única que sobrevive à agregação.
+      // Cliente sem PL atual (raro) não distorce porque já entra com 0/0
+      // no numerador e denominador.
+      const propOn = plTotalAtual > 0 ? plOnTotal / plTotalAtual : 1;
+      const propOff = 1 - propOn;
+
+      // NNM agregado = Σ capacidade_esperada (que já vem com manual
+      // sobrescrevendo MM6 quando cadastrada — ver useEffect MM6).
+      let capacidadeAgregada = 0;
+      for (const v of mm6Clientes) capacidadeAgregada += v.capacidade_esperada;
+
+      let plOn = plOnTotal, plOff = plOffTotal;
+      const serie: Array<{ ano: number; mes: number; pl: number }> = [];
+      for (let p = ultimoP + 1; p <= fimAnoP; p++) {
+        const ano = Math.floor((p - 1) / 12);
+        const mes = ((p - 1) % 12) + 1;
+        const cdi = await buscarCDIProjetado(ano, mes).catch(() => 0);
+        if (cancelado) return;
+        plOn = Math.max(0, plOn * (1 + cdi) + capacidadeAgregada * propOn);
+        plOff = Math.max(0, plOff * (1 + fedConstante) + capacidadeAgregada * propOff);
+        const pl = plOn + plOff;
+        serie.push({ ano, mes, pl });
+        // Early-break: tudo zerado E NNM ≤ 0 → preenche resto com zero.
+        if (pl === 0 && capacidadeAgregada <= 0) {
+          for (let q = p + 1; q <= fimAnoP; q++) {
+            const anoQ = Math.floor((q - 1) / 12);
+            const mesQ = ((q - 1) % 12) + 1;
+            serie.push({ ano: anoQ, mes: mesQ, pl: 0 });
+          }
+          break;
+        }
+      }
+      if (!cancelado) setSerieAumOrganicoEsperado(serie);
+    })();
+    return () => { cancelado = true; };
+  }, [mm6Clientes, anoFim, mesFim]);
+
+  // ── Cenário 2 — Trajetória da Meta ─────────────────────────────────────
+  //
+  // Linha de referência top-down: interpolação linear do AUM no INÍCIO do
+  // período até a meta global na data_alvo (ex: Dez/anoFim). Diferente dos
+  // outros cenários, começa no PL inicial do período (não no atual). Se o
+  // período termina antes da data_alvo da meta, a linha não chega à meta
+  // cheia — vai num ponto fracionário (Opção II decidida).
+  const serieMetaTrajetoria = useMemo(() => {
+    if (!metaAUM || historico.length === 0) return [];
+    const inicio = historico[0];
+    const aumInicio = inicio.pl_total;
+    const pInicio = pNum(inicio.ano, inicio.mes);
+    const [anoAlvo, mesAlvo] = metaAUM.data_alvo.split('-').map(Number);
+    const pAlvo = pNum(anoAlvo, mesAlvo);
+    const pFim = pNum(anoFim, mesFim);
+    const totalMeses = pAlvo - pInicio;
+    if (totalMeses <= 0) return [];
+    const incrementoMes = (metaAUM.valor - aumInicio) / totalMeses;
+    const serie: Array<{ ano: number; mes: number; pl: number }> = [];
+    for (let p = pInicio; p <= pFim; p++) {
+      const ano = Math.floor((p - 1) / 12);
+      const mes = ((p - 1) % 12) + 1;
+      const decorridos = p - pInicio;
+      serie.push({ ano, mes, pl: aumInicio + incrementoMes * decorridos });
+    }
+    return serie;
+  }, [metaAUM, historico, anoFim, mesFim]);
+
+  // Cobertura de capacidade — quantos clientes têm capacidade_poupanca_mensal
+  // cadastrada manualmente (vs MM6 fallback). Alimenta o badge do header da
+  // aba Projeção do PoupancaMetaChart.
+  const coberturaCapacidade = useMemo(() => {
+    const y = registrosPorCliente.size;
+    if (y === 0) return { x: 0, y: 0, pct: 0 };
+    let x = 0;
+    for (const [, regs] of registrosPorCliente) {
+      const sorted = [...regs].sort((a, b) => pNum(a.ano, a.mes) - pNum(b.ano, b.mes));
+      const ultimo = sorted[sorted.length - 1];
+      if (ultimo?.capacidade_poupanca_mensal != null) x++;
+    }
+    return { x, y, pct: (x / y) * 100 };
+  }, [registrosPorCliente]);
+
   return {
     registrosPorCliente,
     historico,
@@ -1232,6 +1399,15 @@ export function usePoupanca(
     // apenas pl_total_atual/projetado_fim_ano/gap_total somam legado.
     projecaoSobGestaoConsolidada: projecaoSobGestaoConsolidadaMM6,
     serieAumSobGestaoProjetadaMM6,
+    // ── Cenários estratégicos da aba Projeção (PoupancaMetaChart) ──
+    // Cenário 1 (Orgânico Esperado): capacidade cadastrada + fallback MM6.
+    // Cenário 3 (Ritmo Atual): alias semântico do MM6 — mesma série.
+    // Cenário 2 (Trajetória da Meta): interpolação linear até a meta.
+    // Cobertura: badge no header da aba.
+    serieAumOrganicoEsperado,
+    serieAumRitmoAtual: serieAumProjetadaMM6,
+    serieMetaTrajetoria,
+    coberturaCapacidade,
     // Legado mantido para retrocompat — não recomendado para novos consumers.
     variacaoPLPorCliente,
     clientesEmBurnNovo,

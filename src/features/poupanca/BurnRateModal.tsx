@@ -107,7 +107,7 @@ export function BurnRateModal({ clientes, periodoInicio, periodoFim, anoFim, onF
                     <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Taxa MM6" chave="mm6_rent_pct" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`Taxa %/mês — ${TIP_MM6}`} /></th>
                     <th className={`${TH} text-right`}><HeaderOrdenavel titulo="NNM MM6" chave="mm6_nnm_liquido" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`NNM líq./mês — ${TIP_MM6}`} /></th>
                     <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Var. MM6" chave="variacao_mm6" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Variação MM6 = NNM líq. + Rent. BRL — base do critério de burn" /></th>
-                    <th className={`${TH} text-right`}><HeaderOrdenavel titulo="PL Proj." chave="pl_projetado_fim_ano" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`PL Projetado Dez/${anoFim} — PL[t] = PL[t-1] × (1 + CDI_proj × spread) + MM6 NNM`} /></th>
+                    <th className={`${TH} text-right`}><HeaderOrdenavel titulo="PL Proj." chave="pl_projetado_fim_ano" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`PL Projetado Dez/${anoFim} — benchmark puro: PL_on × (1 + CDI_proj) + PL_off × (1 + Fed Funds) + MM6 NNM`} /></th>
                     <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Gap" chave="gap_meta_individual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Gap Meta Individual — Meta individual (= projeção com capacidade esperada) − PL projetado" /></th>
                     <th className={`${TH} text-center`}><HeaderOrdenavel titulo="Severidade" chave="severidade" alinhamento="center" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="% do PL: > -1% leve, > -3% moderado, ≤ -3% crítico" /></th>
                   </tr>
@@ -119,7 +119,7 @@ export function BurnRateModal({ clientes, periodoInicio, periodoFim, anoFim, onF
                       : c.gap_meta_individual >= 0 ? '#16a34a' : '#dc2626';
                     const corNnm = c.mm6_nnm_liquido > 0 ? '#16a34a'
                       : c.mm6_nnm_liquido < 0 ? '#dc2626' : '#6b6b8a';
-                    const tipMeses = `MM6 baseado em ${c.n_meses} mese${c.n_meses === 1 ? '' : 's'} históricos · spread ${c.spread.toFixed(2)}× CDI`;
+                    const tipMeses = `MM6 baseado em ${c.n_meses} mese${c.n_meses === 1 ? '' : 's'} históricos · spread informativo ${c.spread.toFixed(2)}× CDI (não usado no compounding)`;
                     return (
                       <tr key={c.nome_cliente}>
                         <td className="px-3 py-2 text-xs font-medium" title={tipMeses} style={{ color: '#160F41' }}>{c.nome_cliente}</td>

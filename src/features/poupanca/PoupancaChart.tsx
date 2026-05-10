@@ -10,7 +10,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
 import { formatCurrency } from '../../utils/formatters';
-import type { PontoHistorico, MetaAUM, TotaisPoupanca } from './usePoupanca';
+import type { PontoHistorico, MetaAUM, TotaisPoupanca, ModoAUM } from './usePoupanca';
 
 interface Props {
   dados: PontoHistorico[];
@@ -19,9 +19,14 @@ interface Props {
   mesFim: number;
   anoFim: number;
   /** Série mês a mês de PL projetado, agregada do usePoupanca a partir do
-   *  modelo MM6 (CDI projetado × spread + MM6 NNM líq.). Quando vazia ou
-   *  ausente, o gráfico cai no fallback MM3 antigo. */
+   *  modelo MM6 com benchmark puro (CDI onshore + Fed Funds offshore).
+   *  Quando vazia ou ausente, o gráfico cai no fallback MM3 antigo. */
   serieAumProjetadaMM6?: Array<{ ano: number; mes: number; pl: number }>;
+  /** Modo do toggle Galápagos / Sob Gestão. Em modo Galápagos a meta exibida
+   *  é descontada do AUM legado, espelhando o comportamento do PoupancaMeta. */
+  modoAUM?: ModoAUM;
+  /** Total de AUM legado — base do desconto da meta em modo Galápagos. */
+  aumLegadoTotal?: number;
 }
 
 const MESES_LABEL = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -42,7 +47,13 @@ interface PontoGrafico {
   trajetoriaMeta: number | null;
 }
 
-export function PoupancaChart({ dados, metaAUM, totais, mesFim, anoFim, serieAumProjetadaMM6 }: Props) {
+export function PoupancaChart({ dados, metaAUM, totais, mesFim, anoFim, serieAumProjetadaMM6, modoAUM, aumLegadoTotal }: Props) {
+  // Meta ajustada conforme toggle (mesmo padrão do PoupancaMeta.tsx):
+  // em Galápagos descontamos o legado p/ não inflar a referência exibida
+  // contra um AUM que não inclui custódia legado. Em Sob Gestão, meta cheia.
+  const metaAjustadaValor = metaAUM
+    ? (modoAUM === 'galapagos' ? metaAUM.valor - (aumLegadoTotal ?? 0) : metaAUM.valor)
+    : 0;
   if (dados.length === 0) {
     return (
       <div className="bg-white rounded-lg border p-6 text-center text-sm"
@@ -63,14 +74,16 @@ export function PoupancaChart({ dados, metaAUM, totais, mesFim, anoFim, serieAum
     const ultimoReal = dados[dados.length - 1];
     const ultimoRealP = pNum(ultimoReal.ano, ultimoReal.mes);
 
-    // Calcular trajetória meta: linha reta do AUM inicial ao target
+    // Calcular trajetória meta: linha reta do AUM inicial ao target.
+    // Usa metaAjustadaValor (já considera modoAUM) — em Galápagos a meta é
+    // descontada do legado para alinhar com o card Meta AUM ao lado.
     let incrementoMeta = 0;
-    const temMeta = metaAUM && metaAUM.valor > 0;
+    const temMeta = metaAUM && metaAjustadaValor > 0;
     if (temMeta) {
       const [anoAlvo, mesAlvo] = metaAUM.data_alvo.split('-').map(Number);
       const pAlvo = pNum(anoAlvo, mesAlvo);
       const mesesTotais = pAlvo - periodoInicio;
-      if (mesesTotais > 0) incrementoMeta = (metaAUM.valor - aumInicial) / mesesTotais;
+      if (mesesTotais > 0) incrementoMeta = (metaAjustadaValor - aumInicial) / mesesTotais;
     }
 
     // Indexa série MM6 por (ano, mes) para lookup O(1) na fase de projeção.
@@ -130,7 +143,7 @@ export function PoupancaChart({ dados, metaAUM, totais, mesFim, anoFim, serieAum
     }
 
     return resultado;
-  }, [dados, metaAUM, aumInicial, aumFinal, mesFim, anoFim, serieAumProjetadaMM6]);
+  }, [dados, metaAUM, metaAjustadaValor, aumInicial, aumFinal, mesFim, anoFim, serieAumProjetadaMM6]);
 
   const usaMM6 = (serieAumProjetadaMM6?.length ?? 0) > 0;
 
@@ -172,8 +185,8 @@ export function PoupancaChart({ dados, metaAUM, totais, mesFim, anoFim, serieAum
         )}
         {metaAUM && (
           <span className="text-xs" style={{ color: '#6b6b8a' }}>
-            Meta: <strong style={{ color: '#D000BB' }}>{formatCurrency(metaAUM.valor, true)}</strong>
-            <span className="ml-1">(faltam {formatCurrency(Math.max(0, metaAUM.valor - aumFinal), true)})</span>
+            Meta: <strong style={{ color: '#D000BB' }}>{formatCurrency(metaAjustadaValor, true)}</strong>
+            <span className="ml-1">(faltam {formatCurrency(Math.max(0, metaAjustadaValor - aumFinal), true)})</span>
           </span>
         )}
       </div>
