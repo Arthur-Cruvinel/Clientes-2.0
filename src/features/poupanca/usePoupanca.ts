@@ -1186,7 +1186,13 @@ export function usePoupanca(
         somaPesoSpread += v.pl_atual;
       }
     }
-    const meta_total = metaAUM?.valor ?? null;
+    // Meta ajustada conforme toggle:
+    //   - Galápagos: desconta o legado (parte do AUM Sob Gestão que vem
+    //     de outras instituições, não entra na meta puramente Galápagos)
+    //   - Sob Gestão: meta cheia (a meta global já é sobre o consolidado)
+    const meta_total = metaAUM != null
+      ? (modoAUM === 'galapagos' ? metaAUM.valor - aumLegadoTotal : metaAUM.valor)
+      : null;
     const gap_total = meta_total != null ? pl_total_projetado_fim_ano - meta_total : null;
     const meses_restantes = Math.max(0, pNum(anoFim, 12) - pNum(anoFim, mesFim));
     const spread_medio = somaPesoSpread > 0 ? somaSpread / somaPesoSpread : 1;
@@ -1197,7 +1203,7 @@ export function usePoupanca(
       n_clientes: mm6Clientes.length,
       n_clientes_com_meta,
     };
-  }, [mm6Clientes, metaAUM, anoFim, mesFim]);
+  }, [mm6Clientes, metaAUM, anoFim, mesFim, modoAUM, aumLegadoTotal]);
 
   // Série agregada de PL projetado mês a mês — alimenta a linha "Proj. (MM6)"
   // do PoupancaChart. Soma os pl_projetado_por_mes individuais por (ano, mes).
@@ -1243,15 +1249,19 @@ export function usePoupanca(
     // e a projeção Sob Gestão coincide com Galápagos.
     const chaveFim = `${anoFim}-12`;
     const legadoFim = legadoProjPorMes.get(chaveFim) ?? 0;
+    // Modo Sob Gestão: meta SEMPRE cheia. Importante sobrescrever
+    // explicitamente para não herdar a versão descontada de
+    // projecaoConsolidadaMM6 (que agora ajusta no modo Galápagos).
+    const metaSobGestao = metaAUM?.valor ?? null;
+    const plProjetadoFimSobGestao = projecaoConsolidadaMM6.pl_total_projetado_fim_ano + legadoFim;
     return {
       ...projecaoConsolidadaMM6,
       pl_total_atual: projecaoConsolidadaMM6.pl_total_atual + aumLegadoTotal,
-      pl_total_projetado_fim_ano: projecaoConsolidadaMM6.pl_total_projetado_fim_ano + legadoFim,
-      gap_total: projecaoConsolidadaMM6.meta_total != null
-        ? (projecaoConsolidadaMM6.pl_total_projetado_fim_ano + legadoFim) - projecaoConsolidadaMM6.meta_total
-        : null,
+      pl_total_projetado_fim_ano: plProjetadoFimSobGestao,
+      meta_total: metaSobGestao,
+      gap_total: metaSobGestao != null ? plProjetadoFimSobGestao - metaSobGestao : null,
     };
-  }, [projecaoConsolidadaMM6, legadoProjPorMes, aumLegadoTotal, anoFim]);
+  }, [projecaoConsolidadaMM6, legadoProjPorMes, aumLegadoTotal, metaAUM, anoFim]);
 
   // ── Cenário 1 — Orgânico Esperado ──────────────────────────────────────
   //
@@ -1346,7 +1356,11 @@ export function usePoupanca(
     const pFim = pNum(anoFim, mesFim);
     const totalMeses = pAlvo - pInicio;
     if (totalMeses <= 0) return [];
-    const incrementoMes = (metaAUM.valor - aumInicio) / totalMeses;
+    // Cenário travado em Galápagos puro por decisão de produto:
+    // capacidade individual e MM6 só fazem sentido sobre carteira sob
+    // gestão direta. Meta de referência desconta o legado.
+    const metaRef = metaAUM.valor - aumLegadoTotal;
+    const incrementoMes = (metaRef - aumInicio) / totalMeses;
     const serie: Array<{ ano: number; mes: number; pl: number }> = [];
     for (let p = pInicio; p <= pFim; p++) {
       const ano = Math.floor((p - 1) / 12);
@@ -1355,7 +1369,7 @@ export function usePoupanca(
       serie.push({ ano, mes, pl: aumInicio + incrementoMes * decorridos });
     }
     return serie;
-  }, [metaAUM, historico, anoFim, mesFim]);
+  }, [metaAUM, historico, anoFim, mesFim, aumLegadoTotal]);
 
   // Cobertura de capacidade — quantos clientes têm capacidade_poupanca_mensal
   // cadastrada manualmente (vs MM6 fallback). Alimenta o badge do header da

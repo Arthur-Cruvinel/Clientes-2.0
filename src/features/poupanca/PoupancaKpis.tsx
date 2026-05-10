@@ -140,7 +140,7 @@ export function PoupancaKpis({ totais, mesInicio, anoInicio, mesFim, anoFim, mod
       />
       {projecao && (
         <div className="sm:col-span-2 lg:col-span-2">
-          <ProjecaoCard projecao={projecao} anoFim={anoFim} onAbrir={onAbrirProjecao} />
+          <ProjecaoCard projecao={projecao} anoFim={anoFim} modoAUM={modoAUM} onAbrir={onAbrirProjecao} />
         </div>
       )}
     </div>
@@ -149,18 +149,23 @@ export function PoupancaKpis({ totais, mesInicio, anoInicio, mesFim, anoFim, mod
 
 /** Card de projeção até Dezembro do anoFim (MM6 + CDI projetado).
  *  Renderizado com largura dupla (col-span-2 no PoupancaKpis). Subtítulos:
- *    1. Gap vs meta GLOBAL (metaAUM.valor) — orientação top-down.
+ *    1. Gap vs meta — label dinâmica conforme toggle (Galápagos vs Sob Gestão).
  *    2. N clientes com meta individual definida (capacidade não-nula). */
 function ProjecaoCard(
-  { projecao, anoFim, onAbrir }:
-  { projecao: ProjecaoConsolidada; anoFim: number; onAbrir?: () => void },
+  { projecao, anoFim, modoAUM, onAbrir }:
+  { projecao: ProjecaoConsolidada; anoFim: number; modoAUM?: ModoAUM; onAbrir?: () => void },
 ) {
   const gap = projecao.gap_total;
   const semMeta = projecao.meta_total == null;
   const positivo = !semMeta && (gap ?? 0) >= 0;
+  // Label espelha o ajuste de meta: em Galápagos a meta exibida já é
+  // descontada do legado; em Sob Gestão é cheia. Sem modoAUM (compat),
+  // cai em "Meta" genérico.
+  const labelMeta = modoAUM === 'galapagos' ? 'Meta Galápagos'
+    : modoAUM === 'sob_gestao' ? 'Meta Sob Gestão' : 'Meta';
   const subGap = semMeta
-    ? 'Meta global não definida'
-    : `Meta global: ${formatCurrency(projecao.meta_total ?? 0, true)} · `
+    ? `${labelMeta} não definida`
+    : `${labelMeta}: ${formatCurrency(projecao.meta_total ?? 0, true)} · `
       + `Gap: ${positivo ? '↑' : '↓'} ${formatCurrency(Math.abs(gap ?? 0), true)}`;
   const corValor = semMeta ? 'text-gray-900'
     : positivo ? 'text-green-700' : 'text-red-700';

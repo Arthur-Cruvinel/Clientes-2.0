@@ -213,6 +213,7 @@ export function PoupancaVisao() {
           periodoInicio={{ mes: mesInicio, ano: anoInicio }}
           periodoFim={{ mes: mesFim, ano: anoFim }}
           anoFim={anoFim}
+          modoAUM={modoAUM}
           onFechar={() => setProjecaoModalAberto(false)} />
       )}
       {!loading && <PoupancaMeta metaAUM={metaAUM} setMetaAUM={setMetaAUM} metaNNM={metaNNM} setMetaNNM={setMetaNNM} metasPeriodo={metasPeriodo} setMetasPeriodo={setMetasPeriodo} totais={totais} historico={historico} historicoMeta={historicoMetaCumprimento} modoAUM={modoAUM} aumLegadoTotal={aumLegadoTotal} />}

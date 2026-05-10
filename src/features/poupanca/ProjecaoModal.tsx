@@ -20,7 +20,7 @@ import { ExportButton } from '../../components/ui/ExportButton';
 import { formatCurrency } from '../../utils/formatters';
 import { exportProjecaoExcel } from '../../utils/exporters/exportExcel';
 import { exportProjecaoPdf } from '../../utils/exporters/exportPdf';
-import type { MM6Cliente } from './usePoupanca';
+import type { MM6Cliente, ModoAUM } from './usePoupanca';
 
 const MESES_LABEL = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -44,6 +44,7 @@ interface Props {
   periodoInicio: { mes: number; ano: number };
   periodoFim: { mes: number; ano: number };
   anoFim: number;
+  modoAUM?: ModoAUM;
   onFechar: () => void;
 }
 
@@ -57,7 +58,12 @@ function statusCliente(v: MM6Cliente): StatusInfo {
 }
 
 
-export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim, anoFim, onFechar }: Props) {
+export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim, anoFim, modoAUM, onFechar }: Props) {
+  // Label espelha o ajuste de meta_total no usePoupanca: em Galápagos a
+  // meta vem descontada do legado; em Sob Gestão é cheia. Sem modoAUM
+  // (compat) cai em "Meta Total" genérico.
+  const labelMeta = modoAUM === 'galapagos' ? 'META GALÁPAGOS'
+    : modoAUM === 'sob_gestao' ? 'META SOB GESTÃO' : 'META TOTAL';
   // Default: GAP ASC = mais distantes da meta no topo. Sem meta vão p/ o fim.
   const [ordenacao, setOrdenacao] = useState<OrdenacaoState<ChaveOrd>>(
     { coluna: 'gap_meta_individual', direcao: 'asc' });
@@ -115,7 +121,7 @@ export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <CardResumo titulo="AUM Atual" valor={formatCurrency(consolidado.pl_total_atual, true)} />
           <CardResumo titulo={`AUM Projetado Dez/${anoFim}`} valor={formatCurrency(consolidado.pl_total_projetado_fim_ano, true)} />
-          <CardResumo titulo="Meta Total" valor={consolidado.meta_total != null ? formatCurrency(consolidado.meta_total, true) : '—'} />
+          <CardResumo titulo={labelMeta} valor={consolidado.meta_total != null ? formatCurrency(consolidado.meta_total, true) : '—'} />
           <CardResumo titulo="Gap Total" valor={consolidado.gap_total != null ? formatCurrency(consolidado.gap_total, true) : '—'} cor={corGap} />
         </div>
 
