@@ -170,6 +170,7 @@ export function BurnRateModal({ clientes, periodoInicio, periodoFim, anoFim, onF
           </button>
           {clientes.length > 0 && (
             <ExportButton
+              position="up"
               onExportExcel={() => exportBurnRateExcel(ordenados, periodoLabel, anoFim)}
               onExportPdf={() => exportBurnRatePdf(ordenados, periodoLabel, anoFim)}
             />

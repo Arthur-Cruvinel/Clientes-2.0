@@ -10,6 +10,11 @@ interface ExportButtonProps {
   loading?: boolean;
   label?: string;
   variant?: 'light' | 'dark';
+  /** Onde o dropdown abre em relação ao botão. 'down' (default) abre
+   *  abaixo (mt-1). 'up' abre acima (bottom-full mb-1) — necessário
+   *  quando o botão fica no rodapé de um Modal com overflow-y-auto,
+   *  caso contrário o dropdown é clipado fora do viewport. */
+  position?: 'down' | 'up';
 }
 
 export function ExportButton({
@@ -18,7 +23,13 @@ export function ExportButton({
   loading = false,
   label = 'Exportar',
   variant = 'light',
+  position = 'down',
 }: ExportButtonProps) {
+  // Classe de posicionamento do dropdown — diferença entre abrir
+  // abaixo (default) ou acima do botão.
+  const dropdownPositionClass = position === 'up'
+    ? 'bottom-full mb-1'
+    : 'top-full mt-1';
   const isDark = variant === 'dark';
   const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -62,7 +73,7 @@ export function ExportButton({
       {/* Dropdown */}
       {aberto && (
         <div
-          className="absolute right-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1"
+          className={`absolute right-0 ${dropdownPositionClass} bg-white border border-gray-100 rounded-xl shadow-xl py-1`}
           style={{ width: 192, zIndex: 50 }}
         >
           {/* Excel */}

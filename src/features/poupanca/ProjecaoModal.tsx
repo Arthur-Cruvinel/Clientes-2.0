@@ -240,6 +240,7 @@ export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim
           </button>
           {ordenados.length > 0 && (
             <ExportButton
+              position="up"
               onExportExcel={() => exportProjecaoExcel(ordenados, periodoLabel, anoFim)}
               onExportPdf={() => exportProjecaoPdf(ordenados, periodoLabel, anoFim, {
                 pl_total_atual: consolidado.pl_total_atual,
