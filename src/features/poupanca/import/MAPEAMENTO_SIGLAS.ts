@@ -364,6 +364,17 @@ export const MAPEAMENTO_SIGLAS: Record<string, string> = {
   'Wenderson Galeno': 'WRG',                    // WENDERSON GALENO
   'Wesley Ribeiro Da Silva': 'WRS',              // WESLEY RIBEIRO DA SILVA
   'William Gomes Carvalho Santos': 'WGC',        // WILLIAM GOMES CARVALHO SANTOS
+
+  // === Variantes adicionadas em 2026-05-10 (rodada de limpeza offshore) ===
+  // Fonte: varredura das lâminas Galápagos Performance Report Jan-Abr/2026.
+  // Confirmadas e aprovadas por Arthur — adicionadas só por match exato.
+  'MSAL Investments Limited': 'MLM',                       // MOISES LIMA MAGALHAES — Andbanc TAW019408
+  'OF PORTFOLIO MSAL Investments Limited': 'MLM',          // variante prefixo "OF PORTFOLIO"
+  'OF PORTFOLIO Ademilson Braga Bispo Junior': 'ABJ',      // ADEMILSON BRAGA BISPO JUNIOR — prefixo "OF PORTFOLIO"
+  'YR Ademilson Braga Bispo Junior': 'ABJ',                // ADEMILSON BRAGA BISPO JUNIOR — prefixo "YR"
+  'YR Roger Krug Guedes': 'RKG',                           // ROGER KRUG GUEDES — prefixo "YR"
+  'Wenderson R. do Nascimento Galeno': 'WRG',              // WENDERSON GALENO — Andbanc TAW019218
+  'Gabriel Pipino': 'GPI',                                 // GABRIEL PIPINO — sigla NOVA (ver SIGLA_PARA_NOME)
 };
 
 // Mapeamento inverso: sigla → nome completo (extraído dos comentários acima)
@@ -396,6 +407,7 @@ export const SIGLA_PARA_NOME: Record<string, string> = {
   'GMD': 'GABRIEL MARCATTO BENETTON',
   'GMS': 'GREGORE DE MAGALHAES SILVA FAVERO',
   'GNG': 'GUSTAVO NUNES FERNANDES GOMES',
+  'GPI': 'GABRIEL PIPINO',
   'GPS': 'GABRIEL PEREIRA DOS SANTOS',
   'HDE': 'HARIEL DENARO RIBEIRO',
   'JCS': 'JOÃO CARLOS SOLER DIAGO',

@@ -1,0 +1,626 @@
+[
+  {
+    "id": "ABJ",
+    "nome_cliente": "ADEMILSON BRAGA BISPO JUNIOR",
+    "sigla": "ABJ",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "ABJ"
+  },
+  {
+    "id": "ACM",
+    "sigla": "ACM",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "ANA CAROLINA ARANTES MIGUEL",
+    "codigo": "ACM",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "AJF",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "AJF",
+    "nome_cliente": "ALAN JAVIER FRANCO",
+    "codigo": "AJF",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "AKS",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "AKS",
+    "nome_cliente": "ALAN KARDEC",
+    "codigo": "AKS",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "AMI",
+    "codigo": "AMI",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "AMI",
+    "nome_cliente": "AMILCAR AUGUSTO LOPES JUNIOR"
+  },
+  {
+    "id": "ARM",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "ARM",
+    "nome_cliente": "ARTHUR MENDONÇA CABRAL",
+    "codigo": "ARM",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "ARV",
+    "nome_cliente": "ANA RAQUEL VICTOR GUIMARAES",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "ARV",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "ARV"
+  },
+  {
+    "id": "AVG",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "AVG",
+    "nome_cliente": "ARTUR VICTOR GUIMARÃES",
+    "codigo": "AVG",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "BBM",
+    "codigo": "BBM",
+    "registrado_por": "Arthur Cruvinel",
+    "sigla": "BBM",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "BARBARA BARLETTA MACHADO DA SILVA"
+  },
+  {
+    "id": "CLB",
+    "nome_cliente": "CAUAN LUCAS BARROS DA LUZ",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "CLB",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "CLB"
+  },
+  {
+    "id": "CSP",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "CSP",
+    "nome_cliente": "CARLOS EDUARDO FIRACE SCAPPINI",
+    "sigla": "CSP",
+    "registrado_em": "2026-05-07T16:43:01.383Z"
+  },
+  {
+    "id": "CSR",
+    "codigo": "CSR",
+    "registrado_por": "Arthur Cruvinel",
+    "sigla": "CSR",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "CASSIO RAMOS"
+  },
+  {
+    "id": "DGS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "DGS",
+    "nome_cliente": "DIEGO GABRIEL DA SILVA ROSA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "DGS"
+  },
+  {
+    "id": "DJA",
+    "nome_cliente": "DJAMILA RIBEIRO",
+    "sigla": "DJA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "DJA"
+  },
+  {
+    "id": "DSJ",
+    "nome_cliente": "DEJANE SILVA SANTANA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "DSJ",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "DSJ"
+  },
+  {
+    "id": "DSS",
+    "codigo": "DSS",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "DSS",
+    "nome_cliente": "DANIEL SAMPAIO SIMOES"
+  },
+  {
+    "id": "EMT",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "EMT",
+    "nome_cliente": "EMILIANO MARTINEZ TORANZA",
+    "sigla": "EMT",
+    "registrado_em": "2026-05-07T16:43:01.383Z"
+  },
+  {
+    "id": "ESR",
+    "nome_cliente": "ERIC DOS SANTOS RODRIGUES",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "ESR",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "ESR"
+  },
+  {
+    "id": "FAV",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "FAV",
+    "nome_cliente": "MARCO ANTONIO FAVA FIALDINI",
+    "codigo": "FAV",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "FNR",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "FNR",
+    "nome_cliente": "FUNDAÇÃO FENÔMENOS",
+    "sigla": "FNR",
+    "registrado_em": "2026-05-07T16:43:01.383Z"
+  },
+  {
+    "id": "FSP",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "FSP",
+    "nome_cliente": "FLORENCE ANDRADE GUIMARAES SCAPPINI",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "FSP"
+  },
+  {
+    "id": "GABRIEL_JESUS",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "GABRIEL JESUS",
+    "nome_cliente": "GABRIEL FERNANDO DE JESUS",
+    "codigo": "GABRIEL JESUS",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "GABRIEL_PIPINO",
+    "codigo": "GABRIEL PIPINO",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "GABRIEL PIPINO",
+    "nome_cliente": "GABRIEL PIPINO"
+  },
+  {
+    "id": "GFJ",
+    "codigo": "GFJ",
+    "registrado_por": "Arthur Cruvinel",
+    "sigla": "GFJ",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "GABRIEL FERNANDO DE JESUS"
+  },
+  {
+    "id": "GLP",
+    "codigo": "GLP",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "GLP",
+    "nome_cliente": "GABRIEL NATHAN SILVA FERNANDES"
+  },
+  {
+    "id": "GMD",
+    "nome_cliente": "GABRIEL MARCATTO BENETTON",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "GMD",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "GMD"
+  },
+  {
+    "id": "GMS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "GMS",
+    "nome_cliente": "GREGORE DE MAGALHAES SILVA FAVERO",
+    "sigla": "GMS",
+    "registrado_em": "2026-05-07T16:43:01.383Z"
+  },
+  {
+    "id": "GNG",
+    "nome_cliente": "GUSTAVO NUNES FERNANDES GOMES",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "GNG",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "GNG"
+  },
+  {
+    "id": "GPS",
+    "sigla": "GPS",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "GABRIEL PEREIRA DOS SANTOS",
+    "codigo": "GPS",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "HDE",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "HDE",
+    "nome_cliente": "HARIEL DENARO RIBEIRO",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "HDE"
+  },
+  {
+    "id": "JCS",
+    "nome_cliente": "JOÃO CARLOS SOLER DIAGO",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "JCS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "JCS"
+  },
+  {
+    "id": "JFE",
+    "codigo": "JFE",
+    "registrado_por": "Arthur Cruvinel",
+    "sigla": "JFE",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "JOAO FELIPE SCHMIDT URBANO"
+  },
+  {
+    "id": "JFF",
+    "nome_cliente": "JEAN PAULO FERNANDES FILHO",
+    "sigla": "JFF",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "JFF"
+  },
+  {
+    "id": "JLM",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "JLM",
+    "nome_cliente": "JOSE CARLOS LOPES DE MACEDO",
+    "codigo": "JLM",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "JVC",
+    "codigo": "JVC",
+    "registrado_por": "Arthur Cruvinel",
+    "sigla": "JVC",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "JOÃO VICTOR ANDRADE CAETANO"
+  },
+  {
+    "id": "JVI",
+    "nome_cliente": "JOÃO VICTOR DA SILVA MARCELINO",
+    "sigla": "JVI",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "JVI"
+  },
+  {
+    "id": "KSL",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "KSL",
+    "nome_cliente": "KEVIN SANTOS LOPES",
+    "codigo": "KSL",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "LAG",
+    "nome_cliente": "LUIZ DE ARAUJO GUIMARAES NETO",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "LAG",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "LAG"
+  },
+  {
+    "id": "LEJ",
+    "codigo": "LEJ",
+    "registrado_por": "Arthur Cruvinel",
+    "sigla": "LEJ",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "LEONARDO CESAR JARDIM"
+  },
+  {
+    "id": "LES",
+    "nome_cliente": "LUCAS ESTEVES SOUZA",
+    "sigla": "LES",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "LES"
+  },
+  {
+    "id": "LEV",
+    "nome_cliente": "LUCAS EVANGELISTA",
+    "sigla": "LEV",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "LEV"
+  },
+  {
+    "id": "LGJ",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "LGJ",
+    "nome_cliente": "LUAN GUILHERME DE JESUS VIEIRA",
+    "sigla": "LGJ",
+    "registrado_em": "2026-05-07T16:43:01.383Z"
+  },
+  {
+    "id": "LHA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "LHA",
+    "nome_cliente": "LUIZ HENRIQUE ANDRE ROSA DA SILVA",
+    "codigo": "LHA",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "LIS",
+    "nome_cliente": "LORENA IMPROTA NUNES SANTANA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "LIS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "LIS"
+  },
+  {
+    "id": "LIV",
+    "nome_cliente": "OLIVER DECESARY SANTOS",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "LIV",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "LIV"
+  },
+  {
+    "id": "LRR",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "LRR",
+    "nome_cliente": "LUCIANO RODRIGUEZ ROSALES",
+    "sigla": "LRR",
+    "registrado_em": "2026-05-07T16:43:01.383Z"
+  },
+  {
+    "id": "LSI",
+    "nome_cliente": "LEANDRO SILVA DE SANTANA IMPROTA",
+    "sigla": "LSI",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "LSI"
+  },
+  {
+    "id": "MAY",
+    "nome_cliente": "MAYCON VINICIUS FERREIRA DA CRUZ",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "MAY",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "MAY"
+  },
+  {
+    "id": "MBS",
+    "nome_cliente": "MATHEUS BONIFACIO SALDANHA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "MBS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "MBS"
+  },
+  {
+    "id": "MIS",
+    "codigo": "MIS",
+    "registrado_por": "Arthur Cruvinel",
+    "sigla": "MIS",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "MATHEUS ISAIAS DOS SANTOS"
+  },
+  {
+    "id": "MJM",
+    "codigo": "MJM",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "MJM",
+    "nome_cliente": "MAURICIO JOSE MACHADO FARIAS"
+  },
+  {
+    "id": "MLM",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "MLM",
+    "nome_cliente": "MOISES LIMA MAGALHAES",
+    "codigo": "MLM",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "MRT",
+    "sigla": "MRT",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "MATHEUS ROSSETTO",
+    "codigo": "MRT",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "MTS",
+    "nome_cliente": "MATHEUS BAHIA SANTOS",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "MTS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "MTS"
+  },
+  {
+    "id": "PCD",
+    "codigo": "PCD",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "PCD",
+    "nome_cliente": "PAULA CAROLINE DE OLIVEIRA DANTAS"
+  },
+  {
+    "id": "PHB",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "PHB",
+    "nome_cliente": "PEDRO HENRIQUE DE ALMEIDA BARBOSA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "PHB"
+  },
+  {
+    "id": "PLO",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "PLO",
+    "nome_cliente": "PATRICK DE LUCCA CHAVES DE OLIVEIRA",
+    "sigla": "PLO",
+    "registrado_em": "2026-05-07T16:43:01.383Z"
+  },
+  {
+    "id": "PSS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "PSS",
+    "nome_cliente": "PEDRO HENRIQUE SILVA DOS SANTOS",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "PSS"
+  },
+  {
+    "id": "PVI",
+    "codigo": "PVI",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "PVI",
+    "nome_cliente": "PAULO VICTOR DE ALMEIDA BARBOSA"
+  },
+  {
+    "id": "RAI",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "RAI",
+    "nome_cliente": "RAIMUNDO VICTOR SOBRINHO",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "RAI"
+  },
+  {
+    "id": "RDN",
+    "codigo": "RDN",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "RDN",
+    "nome_cliente": "RONALD DOMINGUES NAZARIO DE LIMA"
+  },
+  {
+    "id": "RII",
+    "codigo": "RII",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "RII",
+    "nome_cliente": "RAFAEL SILVA"
+  },
+  {
+    "id": "RKG",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "RKG",
+    "nome_cliente": "ROGER KRUG GUEDES",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "RKG"
+  },
+  {
+    "id": "RLN",
+    "sigla": "RLN",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "RONALDO LUIS NAZARIO DE LIMA",
+    "codigo": "RLN",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "RSS",
+    "nome_cliente": "RAFAEL SILVA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "RSS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "RSS"
+  },
+  {
+    "id": "SCS",
+    "nome_cliente": "SAMIR CAETANO DE SOUZA SANTOS",
+    "sigla": "SCS",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "SCS"
+  },
+  {
+    "id": "SMM",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "SMM",
+    "nome_cliente": "SONIA MARA DA SILVA MAGALHAES",
+    "sigla": "SMM",
+    "registrado_em": "2026-05-07T16:43:01.383Z"
+  },
+  {
+    "id": "STE",
+    "sigla": "STE",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "STEFANY FERNANDES DOS SANTOS ABREU",
+    "codigo": "STE",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "TAW01…",
+    "codigo": "TAW01…",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-08T11:39:57.004Z",
+    "sigla": "WNG",
+    "nome_cliente": "WENDERSON R. DO NASCIMENTO GALENO"
+  },
+  {
+    "id": "TCG",
+    "nome_cliente": "TAMIRES CÁSSIA DIAS DE BRITTO",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "TCG",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "TCG"
+  },
+  {
+    "id": "TME",
+    "codigo": "TME",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "TME",
+    "nome_cliente": "THIAGO HENRIQUE SANTOS MENDES"
+  },
+  {
+    "id": "TMO",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "TMO",
+    "nome_cliente": "TIAGO MACHADO DE OLIVEIRA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "TMO"
+  },
+  {
+    "id": "VIA",
+    "codigo": "VIA",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "VIA",
+    "nome_cliente": "VICTOR ALEXANDER DA SILVA"
+  },
+  {
+    "id": "VLC",
+    "codigo": "VLC",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "VLC",
+    "nome_cliente": "VIVIANE LEAL DA COSTA BARROS FREITAS"
+  },
+  {
+    "id": "WCB",
+    "sigla": "WCB",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "WILLIAM DA CONCEICAO BENTO",
+    "codigo": "WCB",
+    "registrado_por": "Arthur Cruvinel"
+  },
+  {
+    "id": "WGC",
+    "codigo": "WGC",
+    "registrado_por": "Arthur Cruvinel",
+    "sigla": "WGC",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "nome_cliente": "WILLIAM GOMES CARVALHO SANTOS"
+  },
+  {
+    "id": "WRG",
+    "codigo": "WRG",
+    "registrado_por": "Arthur Cruvinel",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "WRG",
+    "nome_cliente": "WENDERSON GALENO"
+  },
+  {
+    "id": "WRS",
+    "nome_cliente": "WESLEY RIBEIRO DA SILVA",
+    "registrado_em": "2026-05-07T16:43:01.383Z",
+    "sigla": "WRS",
+    "registrado_por": "Arthur Cruvinel",
+    "codigo": "WRS"
+  }
+]
