@@ -52,21 +52,25 @@ export function BankerCard({ b, posicao, grande, onClick }: Props) {
         </p>
       )}
 
-      {/* Métricas principais */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        <div>
+      {/* Métricas principais — formato compacto (R$ 50,0M / R$ 1,2B) para
+          evitar sobreposição entre as 3 colunas em viewports estreitos
+          (notebook ~1366px), especialmente nos cards "demais" que ficam
+          em 4 colunas. Detalhes precisos seguem na tabela comparativa
+          logo abaixo. Padrão consistente com PoupancaKpis. */}
+      <div className="grid grid-cols-3 gap-2 mb-3 min-w-0">
+        <div className="min-w-0">
           <p className="text-[9px] uppercase tracking-wider" style={{ color: '#64748b' }}>AUM</p>
-          <p className="text-xs font-bold" style={{ color: '#160F41' }}>{formatCurrency(b.aumTotal)}</p>
+          <p className="text-xs font-bold tabular-nums" style={{ color: '#160F41' }}>{formatCurrency(b.aumTotal, true)}</p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[9px] uppercase tracking-wider" style={{ color: '#64748b' }}>NNM</p>
-          <p className="text-xs font-bold" style={{ color: b.nnmTotal >= 0 ? '#16a34a' : '#dc2626' }}>
-            {formatCurrency(b.nnmTotal)}
+          <p className="text-xs font-bold tabular-nums" style={{ color: b.nnmTotal >= 0 ? '#16a34a' : '#dc2626' }}>
+            {formatCurrency(b.nnmTotal, true)}
           </p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[9px] uppercase tracking-wider" style={{ color: '#64748b' }}>Rent. %</p>
-          <p className="text-xs font-bold" style={{ color: b.rentPctPonderada >= 0 ? '#16a34a' : '#dc2626' }}>
+          <p className="text-xs font-bold tabular-nums" style={{ color: b.rentPctPonderada >= 0 ? '#16a34a' : '#dc2626' }}>
             {formatPercent(b.rentPctPonderada * 100)}
           </p>
         </div>
