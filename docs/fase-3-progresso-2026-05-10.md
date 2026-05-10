@@ -207,3 +207,26 @@ trata isso.
 Conteúdo dos 7 princípios consolidados em
 `docs/identidade-unificada-principios.md` (a criar se ainda não
 existe — ver memória da sessão original).
+
+## Sub-fase 3C — CONCLUÍDA (2026-05-10)
+
+**Resultado da aplicação:**
+- CONFIANTE: 406 ✓
+- AMBÍGUO: 10 ✓ (Kevin → kevin_santos_lopes, Tamires → tamires_cassia_dias_de_britto)
+- FANTASMA: 22 ✓ (recuperados via cross-ref docId)
+- IRRECUPERÁVEL: 0 ✓
+- Total: 438 docs
+- Validação pós-write: 438/438 ✓
+- Snapshot: backups/firestore/id-estavel-2026-05-10T23-41-12-clientes_fechamentos.json
+- Relatório: audit-results/fase-3c-aplicacao-2026-05-10T23-41-13.md
+
+**Pendências abertas (fora do escopo desta Sub-fase):**
+- colaboradores_fechamentos: rodada futura (exige auditoria de
+  regras de match por nome antes de executar)
+- custosIndiretos_fechamentos: rodada futura (junto com colaboradores)
+- Bug arquitetural #1 (docs-fantasma por setDoc merge): corrigir
+  em Fase 4 ou Fase 5
+
+**Próximo passo da Fase 3:**
+Criar docs/identidade-unificada-principios.md consolidando
+os 7 princípios aprovados da Etapa 2.
