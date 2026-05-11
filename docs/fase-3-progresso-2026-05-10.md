@@ -230,3 +230,24 @@ existe — ver memória da sessão original).
 **Próximo passo da Fase 3:**
 Criar docs/identidade-unificada-principios.md consolidando
 os 7 princípios aprovados da Etapa 2.
+
+---
+
+## Sub-fase 3D — Escopo definido (2026-05-11)
+
+Pontos a refatorar (❌ AUSENTE ou ⚠️ PARCIAL que precisam correção):
+- Ponto 4: NovoClienteModal.tsx:81-82 — UI cadastro cliente
+- Ponto 11: useColaboradores.ts:125 criarColaborador — UI cadastro colaborador
+- services/firebase.ts:693 salvarClienteBase — geração defensiva de id_estavel
+- services/firebase.ts:79 salvarColaboradorPeriodo — geração defensiva de id_estavel
+- Bug B: VisaoGeral.tsx:116 slugify inline divergente — fix 1 linha
+
+Fora do escopo da 3D (decisão 2026-05-11):
+- ETL Excel (useUploadImport.ts pontos 2, 13, 14): canal eventual/emergencial,
+  não é fluxo primário. Bug A (UUID como docId no Excel) adiado para Fase 4.
+- salvarPct / useAlocacaoEmLote (N/A): Bug Arquitetural #1, Fase 4.
+- migrarClientesBase.ts: script one-shot já executado, sem risco.
+
+Decisão registrada: novos cadastros serão feitos exclusivamente via UI.
+Excel usado apenas em eventualidade de contratação em massa — não é
+realidade atual. Simplifica Fase 4 (Princípio 2) para focar em UI.
