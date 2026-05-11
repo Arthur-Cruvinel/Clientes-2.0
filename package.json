@@ -14,7 +14,9 @@
     "id-estavel:dry": "node scripts/adicionarIdEstavel.mjs",
     "id-estavel:apply": "node scripts/adicionarIdEstavel.mjs --apply",
     "id-estavel:colab:dry": "node scripts/adicionarIdEstavel.mjs --colecao=colaboradores_fechamentos",
-    "id-estavel:colab:apply": "node scripts/adicionarIdEstavel.mjs --colecao=colaboradores_fechamentos --apply"
+    "id-estavel:colab:apply": "node scripts/adicionarIdEstavel.mjs --colecao=colaboradores_fechamentos --apply",
+    "id-estavel:custos:dry": "node scripts/adicionarIdEstavel.mjs --colecao=custosIndiretos_fechamentos",
+    "id-estavel:custos:apply": "node scripts/adicionarIdEstavel.mjs --colecao=custosIndiretos_fechamentos --apply"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

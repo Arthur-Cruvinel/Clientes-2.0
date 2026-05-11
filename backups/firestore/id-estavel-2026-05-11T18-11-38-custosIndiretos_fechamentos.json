@@ -1,0 +1,233 @@
+{
+  "timestamp": "2026-05-11T18:11:38.569Z",
+  "colecao": "custosIndiretos_fechamentos",
+  "modo": "dry-run",
+  "total_a_modificar": 25,
+  "docs": [
+    {
+      "docId": "100016b9-9741-4676-8328-536aadb459d2",
+      "path": "fechamentos/2025-12/custosIndiretos/100016b9-9741-4676-8328-536aadb459d2",
+      "dados_antes": {
+        "valor_mensal": 15000,
+        "descricao_custo": "Marketing",
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "100016b9-9741-4676-8328-536aadb459d2",
+      "path": "fechamentos/2026-01/custosIndiretos/100016b9-9741-4676-8328-536aadb459d2",
+      "dados_antes": {
+        "descricao_custo": "Marketing",
+        "valor_mensal": 15000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "100016b9-9741-4676-8328-536aadb459d2",
+      "path": "fechamentos/2026-02/custosIndiretos/100016b9-9741-4676-8328-536aadb459d2",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 15000,
+        "descricao_custo": "Marketing"
+      }
+    },
+    {
+      "docId": "100016b9-9741-4676-8328-536aadb459d2",
+      "path": "fechamentos/2026-03/custosIndiretos/100016b9-9741-4676-8328-536aadb459d2",
+      "dados_antes": {
+        "descricao_custo": "Marketing",
+        "valor_mensal": 15000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "100016b9-9741-4676-8328-536aadb459d2",
+      "path": "fechamentos/2026-04/custosIndiretos/100016b9-9741-4676-8328-536aadb459d2",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 15000,
+        "descricao_custo": "Marketing"
+      }
+    },
+    {
+      "docId": "283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "path": "fechamentos/2025-12/custosIndiretos/283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 15000,
+        "descricao_custo": "Tecnologia"
+      }
+    },
+    {
+      "docId": "283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "path": "fechamentos/2026-01/custosIndiretos/283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "dados_antes": {
+        "valor_mensal": 15000,
+        "descricao_custo": "Tecnologia",
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "path": "fechamentos/2026-02/custosIndiretos/283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "dados_antes": {
+        "descricao_custo": "Tecnologia",
+        "valor_mensal": 15000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "path": "fechamentos/2026-03/custosIndiretos/283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "dados_antes": {
+        "descricao_custo": "Tecnologia",
+        "valor_mensal": 15000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "path": "fechamentos/2026-04/custosIndiretos/283a1d93-c334-4ba7-b204-f457e7723cf6",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 15000,
+        "descricao_custo": "Tecnologia"
+      }
+    },
+    {
+      "docId": "8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "path": "fechamentos/2025-12/custosIndiretos/8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "dados_antes": {
+        "descricao_custo": "Viagens",
+        "valor_mensal": 10000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "path": "fechamentos/2026-01/custosIndiretos/8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "dados_antes": {
+        "descricao_custo": "Viagens",
+        "valor_mensal": 10000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "path": "fechamentos/2026-02/custosIndiretos/8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "dados_antes": {
+        "descricao_custo": "Viagens",
+        "valor_mensal": 10000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "path": "fechamentos/2026-03/custosIndiretos/8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "descricao_custo": "Viagens",
+        "valor_mensal": 10000
+      }
+    },
+    {
+      "docId": "8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "path": "fechamentos/2026-04/custosIndiretos/8d2f70e9-881f-4553-a9b1-cec88ef3ebfe",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 10000,
+        "descricao_custo": "Viagens"
+      }
+    },
+    {
+      "docId": "d00823cf-b021-45f3-9959-525711cd1644",
+      "path": "fechamentos/2025-12/custosIndiretos/d00823cf-b021-45f3-9959-525711cd1644",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "descricao_custo": "Administrativo/Predial",
+        "valor_mensal": 10000
+      }
+    },
+    {
+      "docId": "d00823cf-b021-45f3-9959-525711cd1644",
+      "path": "fechamentos/2026-01/custosIndiretos/d00823cf-b021-45f3-9959-525711cd1644",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "descricao_custo": "Administrativo/Predial",
+        "valor_mensal": 10000
+      }
+    },
+    {
+      "docId": "d00823cf-b021-45f3-9959-525711cd1644",
+      "path": "fechamentos/2026-02/custosIndiretos/d00823cf-b021-45f3-9959-525711cd1644",
+      "dados_antes": {
+        "descricao_custo": "Administrativo/Predial",
+        "valor_mensal": 10000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "d00823cf-b021-45f3-9959-525711cd1644",
+      "path": "fechamentos/2026-03/custosIndiretos/d00823cf-b021-45f3-9959-525711cd1644",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 10000,
+        "descricao_custo": "Administrativo/Predial"
+      }
+    },
+    {
+      "docId": "d00823cf-b021-45f3-9959-525711cd1644",
+      "path": "fechamentos/2026-04/custosIndiretos/d00823cf-b021-45f3-9959-525711cd1644",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 10000,
+        "descricao_custo": "Administrativo/Predial"
+      }
+    },
+    {
+      "docId": "fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "path": "fechamentos/2025-12/custosIndiretos/fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "dados_antes": {
+        "descricao_custo": "Contabilidade",
+        "valor_mensal": 6000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "path": "fechamentos/2026-01/custosIndiretos/fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 6000,
+        "descricao_custo": "Contabilidade"
+      }
+    },
+    {
+      "docId": "fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "path": "fechamentos/2026-02/custosIndiretos/fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "dados_antes": {
+        "descricao_custo": "Contabilidade",
+        "valor_mensal": 6000,
+        "tipo_custo": "geral"
+      }
+    },
+    {
+      "docId": "fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "path": "fechamentos/2026-03/custosIndiretos/fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "dados_antes": {
+        "tipo_custo": "geral",
+        "valor_mensal": 6000,
+        "descricao_custo": "Contabilidade"
+      }
+    },
+    {
+      "docId": "fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "path": "fechamentos/2026-04/custosIndiretos/fa1d1acc-c588-46c2-8de3-a21c8165039f",
+      "dados_antes": {
+        "descricao_custo": "Contabilidade",
+        "valor_mensal": 6000,
+        "tipo_custo": "geral"
+      }
+    }
+  ]
+}

@@ -23,6 +23,14 @@
 //     À contratar) como IGNORADO. Aplica tabela AMBIGUO manual
 //     (Luiz Nerone → Luis Eduardo Nerone, Luisa Barberio → Luisa Villa).
 //
+//   --colecao=custosIndiretos_fechamentos
+//     Visão 2 SEM coleção mestre (custosIndiretos_base/ é Fase 2 futura).
+//     Agrupa por slug(descricao_custo), gera 1 id_estavel por custo
+//     único e propaga em todos os snapshots do mesmo. Filtra docs
+//     com descricao_custo vazia como IGNORADO. Detecta VARIAÇÃO
+//     (mesmo slug, descrições diferentes) — não grava nesses grupos
+//     sem aprovação humana, apenas lista no relatório.
+//
 //   --apply
 //     Sem essa flag, todos os modos são dry-run.
 //
@@ -42,10 +50,12 @@ const BATCH_LIMIT = 400;
 const ROOT = process.cwd();
 
 const COLECOES = {
-  clientes_base:            { tipo: 'top',   nome: 'clientes_base' },
-  clientes_fechamentos:     { tipo: 'group', nome: 'clientes' },
-  colaboradores_fechamentos:{ tipo: 'group', nome: 'colaboradores' },
-  custos_fechamentos:       { tipo: 'group', nome: 'custosIndiretos' },
+  clientes_base:                { tipo: 'top',   nome: 'clientes_base' },
+  clientes_fechamentos:         { tipo: 'group', nome: 'clientes' },
+  colaboradores_fechamentos:    { tipo: 'group', nome: 'colaboradores' },
+  custosIndiretos_fechamentos:  { tipo: 'group', nome: 'custosIndiretos' },
+  // Alias retrocompat — nome originalmente curto.
+  custos_fechamentos:           { tipo: 'group', nome: 'custosIndiretos' },
 };
 
 /** Slug canônico — mesma fórmula do app (src/utils/slug.ts). */
@@ -90,12 +100,13 @@ function gravarSnapshot(colecao, docsAfetados, modo) {
   return path;
 }
 
-/** Grava relatório markdown em audit-results/fase-3c-aplicacao-{ts}.md. */
-function gravarRelatorio(conteudo) {
+/** Grava relatório markdown em audit-results/{prefixo}-{ts}.md.
+ *  Prefixo default 'fase-3c-aplicacao'. Parte 4 (custos) usa 'fase-3c-parte4'. */
+function gravarRelatorio(conteudo, prefixo = 'fase-3c-aplicacao') {
   const dir = join(ROOT, 'audit-results');
   mkdirSync(dir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const path = join(dir, `fase-3c-aplicacao-${ts}.md`);
+  const path = join(dir, `${prefixo}-${ts}.md`);
   writeFileSync(path, conteudo, 'utf8');
   return path;
 }
@@ -482,10 +493,214 @@ async function processarColaboradoresFechamentos(db, apply) {
 }
 
 // ============================================================
+// Modo: custosIndiretos_fechamentos — Visão 2 SEM coleção mestre
+// ============================================================
+
+/** Doc é IGNORADO se descricao_custo ausente ou vazia.
+ *  custosIndiretos_base/ não existe ainda (Fase 2 futura) — não há
+ *  outra fonte de verdade contra a qual validar. */
+function ehCustoIgnorado(data) {
+  const descricao = (data?.descricao_custo ?? '').trim();
+  return !descricao;
+}
+
+async function processarCustosIndiretosFechamentos(db, apply) {
+  console.log(`\n[Migrate id_estavel] === custosIndiretos_fechamentos (Visão 2 sem mestre) ===`);
+
+  // FASE A — busca todos os docs, separa IGNORADO, agrupa por slug.
+  const snap = await getDocs(collectionGroup(db, 'custosIndiretos'));
+  console.log(`[Migrate id_estavel] Total docs em fechamentos/*/custosIndiretos/: ${snap.size}`);
+
+  const ignorados = [];
+  const docsValidos = [];
+  for (const d of snap.docs) {
+    const data = d.data();
+    if (ehCustoIgnorado(data)) {
+      ignorados.push({
+        docId: d.id, path: d.ref.path,
+        periodo: d.ref.path.split('/')[1],
+        descricao: data?.descricao_custo ?? '(vazio)',
+      });
+    } else {
+      docsValidos.push(d);
+    }
+  }
+  console.log(`[Migrate id_estavel] IGNORADO (descricao_custo vazia): ${ignorados.length}`);
+  console.log(`[Migrate id_estavel] Docs reais: ${docsValidos.length}`);
+
+  // Agrupa por slug(descricao_custo). Para cada grupo coletamos as
+  // descrições distintas encontradas — divergência indica VARIAÇÃO.
+  const grupos = new Map(); // slug → { slug, descricoes: Set, id_estavel, docs[], variacao }
+  for (const d of docsValidos) {
+    const data = d.data();
+    const descricaoOriginal = String(data.descricao_custo).trim();
+    const slug = slugify(descricaoOriginal);
+    if (!slug) {
+      // Slug vazio mesmo com descricao_custo não-vazia → empurra para IGNORADO
+      ignorados.push({
+        docId: d.id, path: d.ref.path,
+        periodo: d.ref.path.split('/')[1],
+        descricao: descricaoOriginal,
+      });
+      continue;
+    }
+    if (!grupos.has(slug)) {
+      grupos.set(slug, {
+        slug,
+        descricoes: new Set(),
+        id_estavel: null,
+        docs: [],
+      });
+    }
+    const g = grupos.get(slug);
+    g.descricoes.add(descricaoOriginal);
+    g.docs.push({ d, descricao_original: descricaoOriginal });
+  }
+  console.log(`[Migrate id_estavel] Custos únicos (grupos): ${grupos.size}`);
+
+  // Detecta VARIAÇÃO: grupos cujo slug coincide mas têm descrições distintas.
+  let nVariacao = 0;
+  for (const g of grupos.values()) {
+    g.variacao = g.descricoes.size > 1;
+    if (g.variacao) nVariacao++;
+    // Reaproveita id_estavel se algum doc do grupo já tem; senão gera UUID.
+    const idExistente = g.docs
+      .map((x) => x.d.data().id_estavel)
+      .find((v) => typeof v === 'string' && v.length > 0);
+    g.id_estavel = idExistente ?? randomUUID();
+    // Descrição canônica = a mais frequente (ou primeira em caso de empate).
+    if (g.variacao) {
+      const cont = new Map();
+      for (const x of g.docs) cont.set(x.descricao_original, (cont.get(x.descricao_original) ?? 0) + 1);
+      let max = -1, canonica = '';
+      for (const [desc, n] of cont) if (n > max) { max = n; canonica = desc; }
+      g.descricao_canonica = canonica;
+    } else {
+      g.descricao_canonica = [...g.descricoes][0];
+    }
+  }
+  console.log(`[Migrate id_estavel] Grupos com VARIAÇÃO: ${nVariacao}`);
+
+  // FASE B — classifica cada doc e prepara writes.
+  const buckets = { CONFIANTE: [], VARIACAO: [], JA_TEM: [], IGNORADO: ignorados };
+  const writes = [];
+  for (const g of grupos.values()) {
+    for (const x of g.docs) {
+      const d = x.d;
+      const data = d.data();
+      const periodo = d.ref.path.split('/')[1];
+
+      // JA_TEM: id_estavel já preenchido (idempotência — não regrava).
+      if (!precisaIdEstavel(data)) {
+        buckets.JA_TEM.push({
+          docId: d.id, path: d.ref.path, periodo,
+          descricao_atual: x.descricao_original,
+        });
+        continue;
+      }
+
+      // VARIAÇÃO bloqueia writes — exige aprovação humana.
+      if (g.variacao) {
+        buckets.VARIACAO.push({
+          docId: d.id, path: d.ref.path, periodo, ref: d.ref,
+          descricao_atual: x.descricao_original,
+          descricao_canonica: g.descricao_canonica,
+          id_estavel: g.id_estavel,
+          slug: g.slug,
+        });
+        continue;
+      }
+
+      // CONFIANTE: grupo sem variação → grava id_estavel.
+      buckets.CONFIANTE.push({
+        docId: d.id, path: d.ref.path, periodo, ref: d.ref,
+        descricao: x.descricao_original,
+        id_estavel: g.id_estavel,
+      });
+      writes.push({ ref: d.ref, payload: { id_estavel: g.id_estavel } });
+    }
+  }
+
+  console.log('\n[Migrate id_estavel] === Distribuição ===');
+  console.log(`  CONFIANTE  → ${buckets.CONFIANTE.length} docs`);
+  console.log(`  VARIAÇÃO   → ${buckets.VARIACAO.length} docs (NÃO serão escritos)`);
+  console.log(`  JA_TEM     → ${buckets.JA_TEM.length} docs`);
+  console.log(`  IGNORADO   → ${buckets.IGNORADO.length} docs`);
+
+  // Snapshot pré-write — captura apenas os docs CONFIANTE (os que serão modificados).
+  const docsAfetadosBruto = buckets.CONFIANTE
+    .map((x) => snap.docs.find((d) => d.ref.path === x.path));
+  const pathSnap = gravarSnapshot('custosIndiretos_fechamentos', docsAfetadosBruto, apply ? 'apply' : 'dry-run');
+  console.log(`[Migrate id_estavel] Snapshot: ${pathSnap}`);
+
+  // FASE C — APPLY (apenas com --apply).
+  let aplicados = 0, batches = 0, erros = 0;
+  if (apply && writes.length > 0) {
+    console.log('\n[Migrate id_estavel] APLICANDO writes (writeBatch em chunks de 400)...');
+    for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      const chunk = writes.slice(i, i + BATCH_LIMIT);
+      for (const w of chunk) batch.update(w.ref, w.payload);
+      try {
+        await batch.commit();
+        aplicados += chunk.length;
+        batches++;
+        console.log(`[Migrate id_estavel] Batch ${batches}: ${chunk.length} docs escritos.`);
+      } catch (e) {
+        erros++;
+        console.error(`[Migrate id_estavel] Batch ${batches + 1} ERRO:`, e.message);
+      }
+    }
+
+    // Validação pós-write: docs CONFIANTE devem ter id_estavel.
+    console.log('[Migrate id_estavel] Validando pós-write...');
+    const valSnap = await getDocs(collectionGroup(db, 'custosIndiretos'));
+    const restantesConfiante = valSnap.docs.filter((d) => {
+      const data = d.data();
+      if (ehCustoIgnorado(data)) return false;
+      // Se está sem id_estavel mas pertence a grupo VARIAÇÃO, é esperado.
+      if (!precisaIdEstavel(data)) return false;
+      const slug = slugify(String(data.descricao_custo).trim());
+      const g = grupos.get(slug);
+      if (g && g.variacao) return false;
+      return true;
+    });
+    if (restantesConfiante.length > 0) {
+      console.error(`[Migrate id_estavel] ERRO: ${restantesConfiante.length} docs CONFIANTE sem id_estavel:`);
+      for (const d of restantesConfiante.slice(0, 5)) console.error(`  - ${d.ref.path}`);
+      throw new Error('Validação pós-write falhou');
+    }
+    console.log(`[Migrate id_estavel] ✓ Validação OK: 0 docs CONFIANTE sem id_estavel.`);
+  }
+
+  return {
+    totalDocs: snap.size,
+    ignorados: ignorados.length,
+    docsValidos: docsValidos.length,
+    gruposUnicos: grupos.size,
+    gruposVariacao: nVariacao,
+    confiante: buckets.CONFIANTE.length,
+    variacao: buckets.VARIACAO.length,
+    jaTem: buckets.JA_TEM.length,
+    aplicados, batches, erros,
+    snapshot: pathSnap,
+    detalhes: buckets,
+    grupos: [...grupos.values()].map((g) => ({
+      slug: g.slug,
+      descricao_canonica: g.descricao_canonica,
+      descricoes_variantes: [...g.descricoes],
+      id_estavel: g.id_estavel,
+      n_snapshots: g.docs.length,
+      variacao: g.variacao,
+    })),
+  };
+}
+
+// ============================================================
 // Relatório markdown
 // ============================================================
 
-function montarRelatorio(resBase, resFech, resColab, modo) {
+function montarRelatorio(resBase, resFech, resColab, resCustos, modo) {
   const linhas = [];
   linhas.push('# Fase 3 Sub-fase 3C — Aplicação de id_estavel (Visão 2)');
   linhas.push('');
@@ -607,6 +822,61 @@ function montarRelatorio(resBase, resFech, resColab, modo) {
     linhas.push(`- Snapshots atualizados: ${resColab.aplicados}`);
     linhas.push(`- Batches executados: ${resColab.batches}`);
   }
+  linhas.push('');
+  linhas.push('## custosIndiretos_fechamentos/');
+  linhas.push('');
+  if (!resCustos) {
+    linhas.push('Não processado nesta execução.');
+  } else {
+    linhas.push('### Agrupamento');
+    linhas.push('');
+    linhas.push(`- Total docs analisados: ${resCustos.totalDocs}`);
+    linhas.push(`- IGNORADO (descricao_custo vazia): ${resCustos.ignorados}`);
+    linhas.push(`- Docs reais: ${resCustos.docsValidos}`);
+    linhas.push(`- Custos únicos (grupos): ${resCustos.gruposUnicos}`);
+    linhas.push(`- Grupos com VARIAÇÃO: ${resCustos.gruposVariacao}`);
+    linhas.push('');
+    linhas.push('### Classificação');
+    linhas.push('');
+    linhas.push(`- CONFIANTE: ${resCustos.confiante} docs`);
+    linhas.push(`- VARIAÇÃO: ${resCustos.variacao} docs (requer aprovação humana — detalhes abaixo)`);
+    linhas.push(`- JA_TEM: ${resCustos.jaTem} docs`);
+    linhas.push(`- IGNORADO: ${resCustos.detalhes.IGNORADO.length} docs`);
+    linhas.push('');
+    if (resCustos.detalhes.VARIACAO.length > 0) {
+      linhas.push('### Detalhes VARIAÇÃO (requer aprovação humana)');
+      linhas.push('');
+      linhas.push('| slug | Período | docId | descricao_atual | descricao_canonica (sugerida) | id_estavel proposto |');
+      linhas.push('|---|---|---|---|---|---|');
+      for (const x of resCustos.detalhes.VARIACAO) {
+        linhas.push(`| \`${x.slug}\` | ${x.periodo} | \`${x.docId}\` | ${x.descricao_atual} | **${x.descricao_canonica}** | \`${x.id_estavel}\` |`);
+      }
+      linhas.push('');
+    }
+    if (resCustos.detalhes.IGNORADO.length > 0) {
+      linhas.push('### Detalhes IGNORADO');
+      linhas.push('');
+      linhas.push('| Período | docId | descricao (raw) |');
+      linhas.push('|---|---|---|');
+      for (const x of resCustos.detalhes.IGNORADO) {
+        linhas.push(`| ${x.periodo} | \`${x.docId}\` | ${x.descricao} |`);
+      }
+      linhas.push('');
+    }
+    linhas.push('### Grupos gerados');
+    linhas.push('');
+    linhas.push('| slug | descrição canônica | n snapshots | variação? | id_estavel |');
+    linhas.push('|---|---|---:|:---:|---|');
+    for (const g of resCustos.grupos.sort((a, b) => a.slug.localeCompare(b.slug))) {
+      linhas.push(`| \`${g.slug}\` | ${g.descricao_canonica} | ${g.n_snapshots} | ${g.variacao ? '⚠️' : ''} | \`${g.id_estavel}\` |`);
+    }
+    linhas.push('');
+    linhas.push('### Writes');
+    linhas.push('');
+    linhas.push(`- Snapshots atualizados: ${resCustos.aplicados}`);
+    linhas.push(`- Batches executados: ${resCustos.batches}`);
+    linhas.push(`- Erros (batches que falharam): ${resCustos.erros}`);
+  }
   return linhas.join('\n');
 }
 
@@ -621,14 +891,11 @@ async function main() {
     console.error(`Coleção desconhecida: ${args.colecao}`);
     process.exit(1);
   }
-  // Bloqueia coleções que ainda não têm tratamento Visão 2.
-  if (args.colecao === 'custos_fechamentos') {
-    console.error(`Coleção ${args.colecao} ainda não implementada em Visão 2 (escopo Sub-fase 3C parte 4).`);
-    process.exit(1);
-  }
+  const ehCustos = args.colecao === 'custosIndiretos_fechamentos'
+                || args.colecao === 'custos_fechamentos';
 
   const db = initDb();
-  let resBase = null, resFech = null, resColab = null;
+  let resBase = null, resFech = null, resColab = null, resCustos = null;
 
   if (args.colecao === 'clientes_base' || args.colecao === 'todas') {
     resBase = await processarClientesBase(db, args.apply);
@@ -639,19 +906,27 @@ async function main() {
   if (args.colecao === 'colaboradores_fechamentos' || args.colecao === 'todas') {
     resColab = await processarColaboradoresFechamentos(db, args.apply);
   }
+  if (ehCustos || args.colecao === 'todas') {
+    resCustos = await processarCustosIndiretosFechamentos(db, args.apply);
+  }
 
   const modo = args.apply ? 'apply' : 'dry-run';
-  const relatorioMd = montarRelatorio(resBase, resFech, resColab, modo);
-  const relatorioPath = gravarRelatorio(relatorioMd);
+  const relatorioMd = montarRelatorio(resBase, resFech, resColab, resCustos, modo);
+  // Parte 4 (só custos) usa prefixo dedicado; demais usam o prefixo histórico.
+  const prefixo = ehCustos ? 'fase-3c-parte4' : 'fase-3c-aplicacao';
+  const relatorioPath = gravarRelatorio(relatorioMd, prefixo);
   console.log(`\n[Migrate id_estavel] Relatório salvo: ${relatorioPath}`);
 
   console.log('\n=== Resumo final ===');
-  if (resBase) console.log(`  clientes_base:             total=${resBase.totalDocs}, ja_tinham=${resBase.jaTinham}, adicionados=${resBase.adicionados}`);
+  if (resBase) console.log(`  clientes_base:                total=${resBase.totalDocs}, ja_tinham=${resBase.jaTinham}, adicionados=${resBase.adicionados}`);
   if (resFech) {
-    console.log(`  clientes_fechamentos:      total=${resFech.totalDocs}, confiante=${resFech.confiante}, ambiguo=${resFech.ambiguo}, fantasma=${resFech.fantasma}, irrecuperavel=${resFech.irrecuperavel}, aplicados=${resFech.aplicados}${args.apply ? '' : ' (DRY-RUN)'}`);
+    console.log(`  clientes_fechamentos:         total=${resFech.totalDocs}, confiante=${resFech.confiante}, ambiguo=${resFech.ambiguo}, fantasma=${resFech.fantasma}, irrecuperavel=${resFech.irrecuperavel}, aplicados=${resFech.aplicados}${args.apply ? '' : ' (DRY-RUN)'}`);
   }
   if (resColab) {
-    console.log(`  colaboradores_fechamentos: total=${resColab.totalDocs}, ignorados=${resColab.ignorados}, grupos=${resColab.gruposUnicos}, confiante=${resColab.confiante}, ambiguo=${resColab.ambiguo}, ja_tem=${resColab.jaTem}, aplicados=${resColab.aplicados}${args.apply ? '' : ' (DRY-RUN)'}`);
+    console.log(`  colaboradores_fechamentos:    total=${resColab.totalDocs}, ignorados=${resColab.ignorados}, grupos=${resColab.gruposUnicos}, confiante=${resColab.confiante}, ambiguo=${resColab.ambiguo}, ja_tem=${resColab.jaTem}, aplicados=${resColab.aplicados}${args.apply ? '' : ' (DRY-RUN)'}`);
+  }
+  if (resCustos) {
+    console.log(`  custosIndiretos_fechamentos:  total=${resCustos.totalDocs}, ignorados=${resCustos.ignorados}, grupos=${resCustos.gruposUnicos}, variacao_grupos=${resCustos.gruposVariacao}, confiante=${resCustos.confiante}, variacao=${resCustos.variacao}, ja_tem=${resCustos.jaTem}, aplicados=${resCustos.aplicados}${args.apply ? '' : ' (DRY-RUN)'}`);
   }
 }
 
