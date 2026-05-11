@@ -3,9 +3,11 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { DadosCliente, RegistroPoupanca } from '../../types';
+import type { DadosCliente } from '../../types';
 import type { MM6Cliente } from '../../features/poupanca/usePoupanca';
-import { nnmReal } from '../financials';
+import type { LinhaDetalhe } from '../../features/poupanca/PoupancaClienteDetalhe';
+import type { Visao } from '../../features/poupanca/PoupancaTabela';
+import { pickR, tombVisao } from '../../features/poupanca/DetalheTabela';
 
 // ============================================================
 // Constantes visuais
@@ -315,8 +317,11 @@ export function exportAumPdf(
 
 export function exportClienteAumPdf(
   nomeCliente: string,
-  registros: RegistroPoupanca[],
+  linhas: LinhaDetalhe[],
   periodoLabel: string,
+  visao: Visao,
+  benchmarkPorMes: Record<string, number | null>,
+  metaAutoFillGlobal: number | null,
   metricas: {
     rentAcumulada: number;
     cdiAcumulado: number | null;
@@ -324,39 +329,41 @@ export function exportClienteAumPdf(
     rentAbsoluta: number;
   },
 ): void {
-  // Portrait — relatório individual
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const mostrarGC = visao !== 'onshore';
+  const mostrarImp = visao !== 'offshore';
+  const isOff = visao === 'offshore';
+  const benchmarkNome = isOff ? 'Fed Funds' : 'CDI';
+  const visaoLabel = visao === 'consolidado' ? 'Consolidado'
+    : visao === 'onshore' ? 'Onshore' : 'Offshore';
+
+  // Landscape — offshore tem muitas colunas (incl. USD); landscape também
+  // acomoda confortavelmente onshore/consolidado sem aperto.
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
 
   let startY = desenharHeader(
     doc,
     nomeCliente,
-    'Histórico de Patrimônio e Rentabilidade',
+    `Histórico de Patrimônio e Rentabilidade — ${visaoLabel}`,
     periodoLabel,
   );
 
-  // Bloco de métricas (4 cards em 2 colunas)
   const cards = [
-    { label: 'Rent. Acumulada', valor: pct(metricas.rentAcumulada, 2) },
-    { label: 'CDI Acumulado', valor: metricas.cdiAcumulado != null ? pct(metricas.cdiAcumulado, 2) : '—' },
-    { label: 'Spread', valor: metricas.spread != null ? pct(metricas.spread, 2) : '—' },
+    { label: 'Rent. Acumulada', valor: pct(metricas.rentAcumulada * 100, 2) },
+    { label: `${benchmarkNome} Acumulado`, valor: metricas.cdiAcumulado != null ? pct(metricas.cdiAcumulado * 100, 2) : '—' },
+    { label: 'Spread', valor: metricas.spread != null ? pct(metricas.spread * 100, 2) : '—' },
     { label: 'Rent. R$', valor: brl(metricas.rentAbsoluta) },
   ];
 
-  const cardW = (pageW - 20 - 10) / 2; // 2 colunas
+  const cardW = (pageW - 20 - 30) / 4;
   cards.forEach((card, i) => {
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    const x = 10 + col * (cardW + 10);
-    const y = startY + row * 18;
-
+    const x = 10 + i * (cardW + 10);
+    const y = startY;
     doc.setFillColor('#f8f9fc');
     doc.roundedRect(x, y, cardW, 14, 2, 2, 'F');
-
     doc.setFontSize(7);
     doc.setTextColor('#6b7280');
     doc.text(card.label, x + 4, y + 5);
-
     doc.setFontSize(11);
     doc.setTextColor('#1f2937');
     doc.setFont('helvetica', 'bold');
@@ -364,64 +371,200 @@ export function exportClienteAumPdf(
     doc.setFont('helvetica', 'normal');
   });
 
-  startY += 42;
+  startY += 22;
 
-  // Tabela histórica
   const meses = [
     '', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
   ];
 
-  const head = [[
-    'Mês/Ano', 'AUM Inicial', 'NNM', 'Tombamento', 'Rent. R$',
-    'Rent. %', 'CDI %', 'Spread', 'G. Cambial', 'AUM Final', 'Meta',
-  ]];
+  // Cabeçalho dinâmico conforme visão (espelha exatamente as colunas da tabela).
+  const head: string[] = ['Mês/Ano', 'AUM Inicial'];
+  if (isOff) head.push('AUM Ini USD');
+  head.push('NNM');
+  if (isOff) head.push('NNM USD');
+  head.push('Tomb.', 'Poup. Líq.', 'Rent. R$');
+  if (isOff) head.push('Rent. USD');
+  if (mostrarImp) head.push('Impostos');
+  head.push('Rent. %', `${benchmarkNome} %`, 'Spread');
+  if (mostrarGC) head.push('G. Cambial');
+  if (isOff) head.push('PTAX Ini', 'PTAX Fin');
+  head.push('Meta', 'Progr.', 'AUM Final');
+  if (isOff) head.push('AUM Final USD');
 
-  const body = registros.map((r) => [
-    `${meses[r.mes] ?? r.mes}/${r.ano}`,
-    brl(r.pl_inicial_total ?? 0),
-    brl(nnmReal(r)),  // NNM Real (desconta transferência interna)
-    brl(r.nnm_tombamento ?? 0),
-    brl(r.rentabilidade_total ?? 0),
-    pct(r.rentabilidade_pct ?? 0, 2),
-    '', // CDI — preenchido pelo consumidor se disponível
-    '', // Spread
-    '', // Ganho cambial
-    brl(r.pl_total),
-    brl(r.meta_poupanca_mensal ?? 0),
-  ]);
+  let colIdx = 0;
+  const idx = {
+    mesAno: colIdx++,
+    aumIni: colIdx++,
+    aumIniUsd: isOff ? colIdx++ : -1,
+    nnm: colIdx++,
+    nnmUsd: isOff ? colIdx++ : -1,
+    tomb: colIdx++,
+    poupLiq: colIdx++,
+    rentBrl: colIdx++,
+    rentUsd: isOff ? colIdx++ : -1,
+    imp: mostrarImp ? colIdx++ : -1,
+    rentPct: colIdx++,
+    benchmark: colIdx++,
+    spread: colIdx++,
+    gc: mostrarGC ? colIdx++ : -1,
+    ptaxIni: isOff ? colIdx++ : -1,
+    ptaxFin: isOff ? colIdx++ : -1,
+    meta: colIdx++,
+    progresso: colIdx++,
+    aumFinal: colIdx++,
+    aumFinalUsd: isOff ? colIdx++ : -1,
+  };
+
+  const fmtUsd = (v: number | null | undefined): string => {
+    if (v == null || Math.abs(v) < 0.005) return '—';
+    return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const fmtBrlOrDash = (v: number | null | undefined): string => {
+    if (v == null || Math.abs(v) < 0.005) return '—';
+    return brl(v);
+  };
+  const fmtPctOrDash = (v: number | null | undefined): string => {
+    if (v == null) return '—';
+    return pct(v * 100, 2);
+  };
+  const fmtPtax = (v: number | null | undefined): string => {
+    if (v == null || v === 0) return '—';
+    return v.toFixed(4);
+  };
+
+  let nnmTot = 0, tombTot = 0, rbTot = 0, gcTot = 0, metaTot = 0;
+  let sumRp = 0, cRp = 0, sumBm = 0, cBm = 0, sumSp = 0, cSp = 0;
+  let impTot = 0, temImp = false;
+  let rentUsdTot = 0, nnmUsdTot = 0;
+
+  const linhasCalc = linhas.map((l, i) => {
+    const r = l.r;
+    const prevR = i > 0 ? linhas[i - 1].r : null;
+    const d = pickR(r, visao, prevR);
+    const chave = `${r.ano}-${String(r.mes).padStart(2, '0')}`;
+    const bm = benchmarkPorMes[chave] ?? null;
+    const sp = bm != null && d.rp != null ? d.rp - bm : null;
+    const tomb = tombVisao(r, visao);
+    const poupLiq = d.nnm - tomb;
+    const meta = r.meta_poupanca_mensal ?? metaAutoFillGlobal ?? null;
+    const prog = meta && meta > 0 ? poupLiq / meta : null;
+    return { l, r, d, bm, sp, tomb, poupLiq, meta, prog };
+  });
+
+  const body: string[][] = linhasCalc.map(({ l, r, d, bm, sp, tomb, poupLiq, meta, prog }) => {
+    const row: string[] = [];
+    row[idx.mesAno] = `${meses[r.mes] ?? r.mes}/${r.ano}`;
+    row[idx.aumIni] = fmtBrlOrDash(d.pi);
+    if (isOff) row[idx.aumIniUsd] = fmtUsd('piUsd' in d ? d.piUsd : 0);
+    row[idx.nnm] = brl(d.nnm);
+    if (isOff) row[idx.nnmUsd] = fmtUsd('nnmUsd' in d ? d.nnmUsd : 0);
+    row[idx.tomb] = fmtBrlOrDash(tomb);
+    row[idx.poupLiq] = brl(poupLiq);
+    row[idx.rentBrl] = brl(d.rb);
+    if (isOff) row[idx.rentUsd] = fmtUsd('rentUsd' in d ? d.rentUsd : 0);
+    if (mostrarImp) row[idx.imp] = r.impostos_mes != null ? brl(r.impostos_mes) : '—';
+    row[idx.rentPct] = fmtPctOrDash(d.rp);
+    row[idx.benchmark] = fmtPctOrDash(bm);
+    row[idx.spread] = sp != null ? `${sp >= 0 ? '+' : ''}${pct(sp * 100, 2)}` : '—';
+    if (mostrarGC) row[idx.gc] = l.ganhoCambial != null ? brl(l.ganhoCambial) : '—';
+    if (isOff) {
+      row[idx.ptaxIni] = fmtPtax('ptaxIni' in d ? d.ptaxIni : null);
+      row[idx.ptaxFin] = fmtPtax('ptaxFin' in d ? d.ptaxFin : null);
+    }
+    row[idx.meta] = meta ? brl(meta) : '—';
+    row[idx.progresso] = prog != null ? pct(prog * 100, 0) : '—';
+    row[idx.aumFinal] = brl(d.pf);
+    if (isOff) row[idx.aumFinalUsd] = fmtUsd(r.pl_offshore_usd);
+
+    nnmTot += d.nnm;
+    tombTot += tomb;
+    rbTot += d.rb;
+    if (mostrarGC && l.ganhoCambial != null) gcTot += l.ganhoCambial;
+    if (meta) metaTot += meta;
+    if (d.rp != null) { sumRp += d.rp; cRp++; }
+    if (bm != null) { sumBm += bm; cBm++; }
+    if (sp != null) { sumSp += sp; cSp++; }
+    if (mostrarImp && r.impostos_mes != null) { impTot += r.impostos_mes; temImp = true; }
+    if (isOff) {
+      if ('rentUsd' in d) rentUsdTot += d.rentUsd ?? 0;
+      if ('nnmUsd' in d) nnmUsdTot += d.nnmUsd ?? 0;
+    }
+
+    return row;
+  });
+
+  const totalRow: string[] = [];
+  totalRow[idx.mesAno] = `TOTAL / MÉDIA (${linhas.length})`;
+  totalRow[idx.aumIni] = '—';
+  if (isOff) totalRow[idx.aumIniUsd] = '—';
+  totalRow[idx.nnm] = brl(nnmTot);
+  if (isOff) totalRow[idx.nnmUsd] = fmtUsd(nnmUsdTot);
+  totalRow[idx.tomb] = fmtBrlOrDash(tombTot);
+  totalRow[idx.poupLiq] = brl(nnmTot - tombTot);
+  totalRow[idx.rentBrl] = brl(rbTot);
+  if (isOff) totalRow[idx.rentUsd] = fmtUsd(rentUsdTot);
+  if (mostrarImp) totalRow[idx.imp] = temImp ? brl(impTot) : '—';
+  totalRow[idx.rentPct] = cRp > 0 ? pct((sumRp / cRp) * 100, 2) : '—';
+  totalRow[idx.benchmark] = cBm > 0 ? pct((sumBm / cBm) * 100, 2) : '—';
+  totalRow[idx.spread] = cSp > 0 ? `${(sumSp / cSp) >= 0 ? '+' : ''}${pct((sumSp / cSp) * 100, 2)}` : '—';
+  if (mostrarGC) totalRow[idx.gc] = brl(gcTot);
+  if (isOff) { totalRow[idx.ptaxIni] = '—'; totalRow[idx.ptaxFin] = '—'; }
+  totalRow[idx.meta] = metaTot > 0 ? brl(metaTot) : '—';
+  totalRow[idx.progresso] = metaTot > 0 ? pct(((nnmTot - tombTot) / metaTot) * 100, 0) : '—';
+  totalRow[idx.aumFinal] = '—';
+  if (isOff) totalRow[idx.aumFinalUsd] = '—';
+  body.push(totalRow);
+
+  const totalRowIndex = body.length - 1;
 
   autoTable(doc, {
     startY,
-    head,
+    head: [head],
     body,
     theme: 'grid',
-    styles: { fontSize: 7, cellPadding: 1.5 },
+    styles: { fontSize: 6.5, cellPadding: 1.2, overflow: 'linebreak' },
     headStyles: {
       fillColor: COR_HEADER,
       textColor: '#ffffff',
       fontStyle: 'bold',
-      fontSize: 7,
+      fontSize: 6.5,
+      halign: 'center',
     },
     alternateRowStyles: { fillColor: COR_LINHA_ALT },
     didParseCell(data) {
-      // Colorir rentabilidade negativa
-      if (data.section === 'body') {
-        const reg = registros[data.row.index];
-        if (!reg) return;
-
-        // Rent. R$ (col 3) e Rent. % (col 4)
-        if (data.column.index === 3 || data.column.index === 4) {
-          const rentPct = reg.rentabilidade_pct ?? 0;
-          if (rentPct < 0) {
-            data.cell.styles.textColor = COR_NEGATIVO;
-          }
-        }
+      if (data.section !== 'body') return;
+      const i = data.row.index;
+      const c = data.column.index;
+      const isTotal = i === totalRowIndex;
+      if (isTotal) {
+        data.cell.styles.fillColor = COR_TOTAL_BG;
+        data.cell.styles.fontStyle = 'bold';
+        return;
+      }
+      const calc = linhasCalc[i];
+      if (!calc) return;
+      const { d, sp, l, r } = calc;
+      if (c === idx.rentBrl || c === idx.rentPct) {
+        if (d.rb < 0 || (d.rp != null && d.rp < 0)) data.cell.styles.textColor = COR_NEGATIVO;
+        else if (d.rb > 0) data.cell.styles.textColor = COR_POSITIVO;
+      }
+      if (c === idx.nnm) {
+        if (d.nnm < 0) data.cell.styles.textColor = COR_NEGATIVO;
+        else if (d.nnm > 0) data.cell.styles.textColor = COR_POSITIVO;
+      }
+      if (c === idx.spread && sp != null) {
+        data.cell.styles.textColor = sp >= 0 ? COR_POSITIVO : COR_NEGATIVO;
+      }
+      if (mostrarGC && c === idx.gc && l.ganhoCambial != null) {
+        data.cell.styles.textColor = l.ganhoCambial >= 0 ? COR_POSITIVO : COR_NEGATIVO;
+      }
+      if (mostrarImp && c === idx.imp && r.impostos_mes != null && r.impostos_mes !== 0) {
+        data.cell.styles.textColor = COR_NEGATIVO;
       }
     },
   });
 
-  // Footer com nota de confidencialidade
   desenharFooter(doc);
 
   const slugNome = nomeCliente
@@ -431,7 +574,7 @@ export function exportClienteAumPdf(
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
 
-  doc.save(`${slugNome}_aum_${Date.now()}.pdf`);
+  doc.save(`${slugNome}_${visao}_aum_${Date.now()}.pdf`);
 }
 
 // ============================================================

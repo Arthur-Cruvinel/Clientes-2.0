@@ -442,13 +442,18 @@ export function PoupancaClienteDetalhe({
             {metricas && (
               <ExportButton
                 variant="dark"
-                onExportExcel={() => exportClienteAumExcel(nome, registrosLocal, periodoInfo)}
-                onExportPdf={() => exportClienteAumPdf(nome, registrosLocal, periodoInfo, {
-                  rentAcumulada: metricas.rentAcumulada,
-                  cdiAcumulado: metricas.cdiAcumulado,
-                  spread: metricas.spread,
-                  rentAbsoluta: metricas.rentAbsoluta,
-                })}
+                onExportExcel={() => exportClienteAumExcel(
+                  nome, linhas, periodoInfo, visao, benchmarkAtivo, metaAutoFillGlobal,
+                )}
+                onExportPdf={() => exportClienteAumPdf(
+                  nome, linhas, periodoInfo, visao, benchmarkAtivo, metaAutoFillGlobal,
+                  {
+                    rentAcumulada: metricas.rentAcumulada,
+                    cdiAcumulado: metricas.cdiAcumulado,
+                    spread: metricas.spread,
+                    rentAbsoluta: metricas.rentAbsoluta,
+                  },
+                )}
               />
             )}
             {cdiLoading && <Loader2 size={14} className="animate-spin" style={{ color: '#94a3b8' }} />}

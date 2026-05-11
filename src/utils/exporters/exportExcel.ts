@@ -3,9 +3,11 @@
 // permitindo somas, validações e fórmulas no Excel.
 
 import * as XLSX from 'xlsx';
-import type { DadosCliente, RegistroPoupanca } from '../../types';
+import type { DadosCliente } from '../../types';
 import type { MM6Cliente } from '../../features/poupanca/usePoupanca';
-import { nnmReal } from '../financials';
+import type { LinhaDetalhe } from '../../features/poupanca/PoupancaClienteDetalhe';
+import type { Visao } from '../../features/poupanca/PoupancaTabela';
+import { pickR, tombVisao } from '../../features/poupanca/DetalheTabela';
 
 // ============================================================
 // Helpers
@@ -195,15 +197,66 @@ export function exportAumExcel(
 
 export function exportClienteAumExcel(
   nomeCliente: string,
-  registros: RegistroPoupanca[],
+  linhas: LinhaDetalhe[],
   periodoLabel: string,
+  visao: Visao,
+  benchmarkPorMes: Record<string, number | null>,
+  metaAutoFillGlobal: number | null,
 ): void {
   const wb = XLSX.utils.book_new();
 
-  const headers = [
-    'MÊS/ANO', 'AUM INICIAL', 'NNM', 'TOMBAMENTO', 'RENT. R$',
-    'RENT. %', 'CDI %', 'SPREAD', 'G. CAMBIAL', 'AUM FINAL', 'META',
-  ];
+  const mostrarGC = visao !== 'onshore';
+  const mostrarImp = visao !== 'offshore';
+  const isOff = visao === 'offshore';
+  const benchmarkNome = isOff ? 'FED FUNDS %' : 'CDI %';
+  const visaoLabel = visao === 'consolidado' ? 'Consolidado'
+    : visao === 'onshore' ? 'Onshore' : 'Offshore';
+
+  // Monta o cabeçalho conforme visão (espelha exatamente as colunas da tabela).
+  const headers: string[] = ['MÊS/ANO', 'AUM INICIAL'];
+  if (isOff) headers.push('AUM INICIAL USD');
+  headers.push('NNM');
+  if (isOff) headers.push('NNM USD');
+  headers.push('TOMBAMENTO', 'POUP. LÍQ.', 'RENT. R$');
+  if (isOff) headers.push('RENT. USD');
+  if (mostrarImp) headers.push('IMPOSTOS');
+  headers.push('RENT. %', benchmarkNome, 'SPREAD');
+  if (mostrarGC) headers.push('G. CAMBIAL');
+  if (isOff) headers.push('PTAX INI', 'PTAX FIN');
+  headers.push('META', 'PROGRESSO');
+  headers.push('AUM FINAL');
+  if (isOff) headers.push('AUM FINAL USD');
+
+  // Índices dinâmicos para formatação (percent vs moeda).
+  const colsPct = new Set<number>();
+  const colsTexto = new Set<number>([0]);  // Mês/Ano sempre texto
+  let colIdx = 0;
+  const idx = {
+    mesAno: colIdx++,
+    aumIni: colIdx++,
+    aumIniUsd: isOff ? colIdx++ : -1,
+    nnm: colIdx++,
+    nnmUsd: isOff ? colIdx++ : -1,
+    tomb: colIdx++,
+    poupLiq: colIdx++,
+    rentBrl: colIdx++,
+    rentUsd: isOff ? colIdx++ : -1,
+    imp: mostrarImp ? colIdx++ : -1,
+    rentPct: colIdx++,
+    benchmark: colIdx++,
+    spread: colIdx++,
+    gc: mostrarGC ? colIdx++ : -1,
+    ptaxIni: isOff ? colIdx++ : -1,
+    ptaxFin: isOff ? colIdx++ : -1,
+    meta: colIdx++,
+    progresso: colIdx++,
+    aumFinal: colIdx++,
+    aumFinalUsd: isOff ? colIdx++ : -1,
+  };
+  colsPct.add(idx.rentPct);
+  colsPct.add(idx.benchmark);
+  colsPct.add(idx.spread);
+  colsPct.add(idx.progresso);
 
   const meses = [
     '', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
@@ -211,51 +264,100 @@ export function exportClienteAumExcel(
   ];
 
   const rows: (string | number | null)[][] = [];
-
   rows.push([`GALÁCTICOS CAPITAL — ${nomeCliente}`]);
-  rows.push([`Período: ${periodoLabel}`]);
+  rows.push([`Período: ${periodoLabel} | Visão: ${visaoLabel}`]);
   rows.push([]);
   rows.push(headers);
 
-  for (const r of registros) {
-    rows.push([
-      `${meses[r.mes] ?? r.mes}/${r.ano}`,
-      r.pl_inicial_total ?? 0,
-      nnmReal(r),  // NNM Real (desconta transferência interna)
-      r.nnm_tombamento ?? 0,
-      r.rentabilidade_total ?? 0,
-      (r.rentabilidade_pct ?? 0) * 100 / 100,  // já é decimal → manter pra Excel %
-      null, // CDI
-      null, // Spread
-      null, // Ganho cambial
-      r.pl_total,
-      r.meta_poupanca_mensal ?? 0,
-    ]);
+  // Agregadores para a linha de TOTAL/MÉDIA (espelha o tfoot da tabela).
+  let nnmTot = 0, tombTot = 0, rbTot = 0, gcTot = 0, metaTot = 0;
+  let sumRp = 0, cRp = 0, sumBm = 0, cBm = 0, sumSp = 0, cSp = 0;
+  let impTot = 0, temImp = false;
+  let rentUsdTot = 0, nnmUsdTot = 0;
+
+  for (let i = 0; i < linhas.length; i++) {
+    const l = linhas[i];
+    const r = l.r;
+    const prevR = i > 0 ? linhas[i - 1].r : null;
+    const d = pickR(r, visao, prevR);
+    const chave = `${r.ano}-${String(r.mes).padStart(2, '0')}`;
+    const bm = benchmarkPorMes[chave] ?? null;
+    const sp = bm != null && d.rp != null ? d.rp - bm : null;
+    const tomb = tombVisao(r, visao);
+    const poupLiq = d.nnm - tomb;
+    const meta = r.meta_poupanca_mensal ?? metaAutoFillGlobal ?? null;
+    const prog = meta && meta > 0 ? poupLiq / meta : null;
+
+    const row: (string | number | null)[] = [];
+    row[idx.mesAno] = `${meses[r.mes] ?? r.mes}/${r.ano}`;
+    row[idx.aumIni] = d.pi || null;
+    if (isOff) row[idx.aumIniUsd] = ('piUsd' in d ? d.piUsd : 0) || null;
+    row[idx.nnm] = d.nnm;
+    if (isOff) row[idx.nnmUsd] = ('nnmUsd' in d ? d.nnmUsd : 0) || null;
+    row[idx.tomb] = tomb || null;
+    row[idx.poupLiq] = poupLiq;
+    row[idx.rentBrl] = d.rb;
+    if (isOff) row[idx.rentUsd] = ('rentUsd' in d ? d.rentUsd : 0) || null;
+    if (mostrarImp) row[idx.imp] = r.impostos_mes ?? null;
+    row[idx.rentPct] = d.rp;
+    row[idx.benchmark] = bm;
+    row[idx.spread] = sp;
+    if (mostrarGC) row[idx.gc] = l.ganhoCambial;
+    if (isOff) {
+      row[idx.ptaxIni] = ('ptaxIni' in d ? d.ptaxIni : null) ?? null;
+      row[idx.ptaxFin] = ('ptaxFin' in d ? d.ptaxFin : null) ?? null;
+    }
+    row[idx.meta] = meta;
+    row[idx.progresso] = prog;
+    row[idx.aumFinal] = d.pf;
+    if (isOff) row[idx.aumFinalUsd] = r.pl_offshore_usd ?? null;
+    rows.push(row);
+
+    nnmTot += d.nnm;
+    tombTot += tomb;
+    rbTot += d.rb;
+    if (mostrarGC && l.ganhoCambial != null) gcTot += l.ganhoCambial;
+    if (meta) metaTot += meta;
+    if (d.rp != null) { sumRp += d.rp; cRp++; }
+    if (bm != null) { sumBm += bm; cBm++; }
+    if (sp != null) { sumSp += sp; cSp++; }
+    if (mostrarImp && r.impostos_mes != null) { impTot += r.impostos_mes; temImp = true; }
+    if (isOff) {
+      if ('rentUsd' in d) rentUsdTot += d.rentUsd ?? 0;
+      if ('nnmUsd' in d) nnmUsdTot += d.nnmUsd ?? 0;
+    }
   }
 
-  // Totais
-  const somaNum = (campo: keyof RegistroPoupanca) =>
-    registros.reduce((acc, r) => acc + (Number(r[campo]) || 0), 0);
-
-  rows.push([
-    'TOTAL',
-    null,
-    registros.reduce((acc, r) => acc + nnmReal(r), 0),
-    somaNum('nnm_tombamento'),
-    somaNum('rentabilidade_total'),
-    null, null, null, null,
-    null,
-    null,
-  ]);
+  // Linha TOTAL / MÉDIA
+  const totalRow: (string | number | null)[] = [];
+  totalRow[idx.mesAno] = `TOTAL / MÉDIA (${linhas.length} ${linhas.length === 1 ? 'mês' : 'meses'})`;
+  totalRow[idx.aumIni] = null;
+  if (isOff) totalRow[idx.aumIniUsd] = null;
+  totalRow[idx.nnm] = nnmTot;
+  if (isOff) totalRow[idx.nnmUsd] = nnmUsdTot || null;
+  totalRow[idx.tomb] = tombTot || null;
+  totalRow[idx.poupLiq] = nnmTot - tombTot;
+  totalRow[idx.rentBrl] = rbTot;
+  if (isOff) totalRow[idx.rentUsd] = rentUsdTot || null;
+  if (mostrarImp) totalRow[idx.imp] = temImp ? impTot : null;
+  totalRow[idx.rentPct] = cRp > 0 ? sumRp / cRp : null;
+  totalRow[idx.benchmark] = cBm > 0 ? sumBm / cBm : null;
+  totalRow[idx.spread] = cSp > 0 ? sumSp / cSp : null;
+  if (mostrarGC) totalRow[idx.gc] = gcTot;
+  if (isOff) { totalRow[idx.ptaxIni] = null; totalRow[idx.ptaxFin] = null; }
+  totalRow[idx.meta] = metaTot || null;
+  totalRow[idx.progresso] = metaTot > 0 ? (nnmTot - tombTot) / metaTot : null;
+  totalRow[idx.aumFinal] = null;
+  if (isOff) totalRow[idx.aumFinalUsd] = null;
+  rows.push(totalRow);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   autoWidth(ws, headers);
-  // Colunas %: 5=Rent%, 6=CDI%, 7=Spread  |  Texto: 0=Mês/Ano
-  formatarCelulas(ws, 4, new Set([5, 6, 7]), new Set([0]));
+  formatarCelulas(ws, 4, colsPct, colsTexto);
 
-  const nomeAba = nomeCliente.substring(0, 31);
+  const nomeAba = `${nomeCliente.substring(0, 25)} ${visaoLabel.substring(0, 4)}`.substring(0, 31);
   XLSX.utils.book_append_sheet(wb, ws, nomeAba);
-  salvarWorkbook(wb, `${slugify(nomeCliente)}_aum_${Date.now()}.xlsx`);
+  salvarWorkbook(wb, `${slugify(nomeCliente)}_${visao}_aum_${Date.now()}.xlsx`);
 }
 
 // ============================================================

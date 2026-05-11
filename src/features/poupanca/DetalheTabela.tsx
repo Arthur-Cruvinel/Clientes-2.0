@@ -206,6 +206,28 @@ function acessorDetalhe(visao: Visao, cdiPorMes: Record<string, number | null>, 
   };
 }
 
+/** Tombamento por visão: PRIORIDADE = valor gravado (manual ou auto do import).
+ *  Só cai no cálculo automático quando não há tombamento salvo positivo.
+ *  Exportado para reuso pelos exportadores (Excel/PDF). */
+export function tombVisao(r: RegistroPoupanca, visao: Visao): number {
+  const tombOn = r.nnm_tombamento_onshore ?? 0;
+  const tombOff = r.nnm_tombamento_offshore ?? 0;
+  if (tombOn > 0 || tombOff > 0) {
+    if (visao === 'onshore') return tombOn;
+    if (visao === 'offshore') return tombOff;
+    return tombOn + tombOff;
+  }
+  const tomb = r.nnm_tombamento ?? 0;
+  if (tomb <= 0) return 0;
+  const nnmOn = Math.abs(r.aporte_mes_onshore ?? 0);
+  const nnmOff = Math.abs(r.aporte_mes_offshore ?? 0);
+  const total = nnmOn + nnmOff;
+  if (total < 0.01) return visao === 'consolidado' ? tomb : 0;
+  if (visao === 'onshore') return tomb * (nnmOn / total);
+  if (visao === 'offshore') return tomb * (nnmOff / total);
+  return tomb;
+}
+
 /** Recorte do mês quando dia_inicio > 1 ou dia_corte definido. null = mês completo. */
 function recortePeriodo(r: RegistroPoupanca): { diaIni: number; diaFim: number; diasPeriodo: number; diasMes: number } | null {
   const ult = ultimoDiaDoMes(r.ano, r.mes);
@@ -244,28 +266,6 @@ export function DetalheTabela({ linhas, cdiPorMes, fedPorMes, cdiCheioPorMes, fe
   const acessor = useCallback(acessorDetalhe(visao, benchmarkPorMes, linhas), [visao, benchmarkPorMes, linhas]);
   const { ordenados, coluna, direcao, alternar } = useOrdenacao(filtradas, acessor);
 
-  // Tombamento por visão: PRIORIDADE = valor gravado (manual ou auto do import).
-  // Só cai no cálculo automático quando não há tombamento salvo positivo.
-  function tombVisao(r: RegistroPoupanca): number {
-    const tombOn = r.nnm_tombamento_onshore ?? 0;
-    const tombOff = r.nnm_tombamento_offshore ?? 0;
-    if (tombOn > 0 || tombOff > 0) {
-      if (visao === 'onshore') return tombOn;
-      if (visao === 'offshore') return tombOff;
-      return tombOn + tombOff;
-    }
-    // Fallback: campo legado consolidado com alocação proporcional
-    const tomb = r.nnm_tombamento ?? 0;
-    if (tomb <= 0) return 0;
-    const nnmOn = Math.abs(r.aporte_mes_onshore ?? 0);
-    const nnmOff = Math.abs(r.aporte_mes_offshore ?? 0);
-    const total = nnmOn + nnmOff;
-    if (total < 0.01) return visao === 'consolidado' ? tomb : 0;
-    if (visao === 'onshore') return tomb * (nnmOn / total);
-    if (visao === 'offshore') return tomb * (nnmOff / total);
-    return tomb;
-  }
-
   const totais = useMemo(() => {
     let nnm = 0, rb = 0, sRp = 0, cRp = 0, gc = 0, sCdi = 0, cCdi = 0, sSp = 0, cSp = 0, meta = 0, nnmT = 0, tombT = 0;
     let imp = 0, temImp = false;
@@ -274,7 +274,7 @@ export function DetalheTabela({ linhas, cdiPorMes, fedPorMes, cdiCheioPorMes, fe
       const prevR = origIdx > 0 ? linhas[origIdx - 1]?.r : null;
       const d = pickR(l.r, visao, prevR);
       nnm += d.nnm; rb += d.rb; nnmT += d.nnm;
-      tombT += tombVisao(l.r);
+      tombT += tombVisao(l.r, visao);
       meta += l.r.meta_poupanca_mensal ?? metaAutoFill ?? 0;
       if (d.rp) { sRp += d.rp; cRp++; }
       if (l.ganhoCambial != null) gc += l.ganhoCambial;
@@ -358,8 +358,8 @@ export function DetalheTabela({ linhas, cdiPorMes, fedPorMes, cdiCheioPorMes, fe
                 <td className="px-3 py-2 text-right" style={{ ...CS, ...cor(d.nnm) }}>
                   <span className="inline-flex items-center gap-0.5 justify-end">
                     {formatCurrency(d.nnm)}
-                    {tombVisao(l.r) > 0 && (
-                      <span title={`NNM: ${formatCurrency(d.nnm)} | Tombamento: ${formatCurrency(tombVisao(l.r))} | Poup. liq.: ${formatCurrency(d.nnm - tombVisao(l.r))}`}>
+                    {tombVisao(l.r, visao) > 0 && (
+                      <span title={`NNM: ${formatCurrency(d.nnm)} | Tombamento: ${formatCurrency(tombVisao(l.r, visao))} | Poup. liq.: ${formatCurrency(d.nnm - tombVisao(l.r, visao))}`}>
                         <Info size={12} style={{ color: '#6b6b8a' }} />
                       </span>
                     )}
@@ -416,8 +416,8 @@ export function DetalheTabela({ linhas, cdiPorMes, fedPorMes, cdiCheioPorMes, fe
                       : <span style={DASH}>—</span>}
                 </td>
                 <td className="px-2 py-2" style={{ width: 160 }}>
-                  <TabelaStatusBar nnm={d.nnm - tombVisao(l.r)} meta={l.r.meta_poupanca_mensal ?? metaAutoFill ?? null}
-                    tombamento={tombVisao(l.r) > 0 && (d.nnm - tombVisao(l.r)) <= 0 && d.nnm > 0}
+                  <TabelaStatusBar nnm={d.nnm - tombVisao(l.r, visao)} meta={l.r.meta_poupanca_mensal ?? metaAutoFill ?? null}
+                    tombamento={tombVisao(l.r, visao) > 0 && (d.nnm - tombVisao(l.r, visao)) <= 0 && d.nnm > 0}
                     capacidade={l.r.capacidade_poupanca_mensal}
                     semCapacidade={l.r.sem_capacidade_poupanca} />
                 </td>
