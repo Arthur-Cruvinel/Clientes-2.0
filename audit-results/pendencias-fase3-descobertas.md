@@ -66,3 +66,15 @@ Tratar este caso ao implementar:
 **Tratamento interino (Fase 3):** os 22 docs serão recuperados ao mesmo tempo que recebem `id_estavel`, herdando `nome_cliente` e `id_estavel` de `clientes_base/{docId}`. **NÃO** é a correção do bug — apenas saneamento do estado atual para que a migração id_estavel funcione. O bug em si permanece para nova rodada.
 
 ---
+
+## Manual operacional da Fase 3
+
+- Arquivo pendente: `docs/fase-3-implementacao-principios-tecnicos.md`
+- Conteúdo: regras operacionais e restrições de código da Fase 3
+  (Visão 2, classificação CONFIANTE/AMBÍGUO/FANTASMA, restrições
+  de write, slugify canônico, snapshot pré-write, formato de relatório)
+- Como recuperar: conteúdo gerado no chat de planejamento de
+  2026-05-11 (Project GAL · Plataforma), disponível no histórico
+- Impacto: nenhum — não bloqueia execução das fases futuras
+
+---
