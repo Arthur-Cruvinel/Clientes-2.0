@@ -15,6 +15,14 @@
 //     classifica cada snapshot em CONFIANTE / AMBIGUO / FANTASMA /
 //     IRRECUPERAVEL e aplica herança via updateDoc.
 //
+//   --colecao=colaboradores_fechamentos
+//     Visão 2 SEM coleção mestre (colaboradores_base/ é Fase 2 futura).
+//     Agrupa os 110 docs reais por slug(nome_colaborador), gera 1
+//     id_estavel por colaborador único e propaga em todos os snapshots
+//     do mesmo. Filtra 16 docs de template (LEGENDA, Cinza, Amarelo,
+//     À contratar) como IGNORADO. Aplica tabela AMBIGUO manual
+//     (Luiz Nerone → Luis Eduardo Nerone, Luisa Barberio → Luisa Villa).
+//
 //   --apply
 //     Sem essa flag, todos os modos são dry-run.
 //
@@ -293,10 +301,191 @@ async function processarClientesFechamentos(db, apply) {
 }
 
 // ============================================================
+// Modo: colaboradores_fechamentos — Visão 2 SEM coleção mestre
+// ============================================================
+
+/** Tabela explícita de mapeamento AMBIGUO para colaboradores.
+ *  Chave: slug(nome_no_snapshot). Valor: slug + nome canônico de destino.
+ *  Casos identificados pela auditoria audit:colaboradores-nomes (2026-05-11):
+ *  mesmo colaborador com grafias distintas em períodos diferentes. */
+const AMBIGUO_COLABORADORES = new Map([
+  ['luiz_nerone',    { slug_canonico: 'luis_eduardo_nerone', nome_canonico: 'Luis Eduardo Nerone' }],
+  ['luisa_barberio', { slug_canonico: 'luisa_villa',          nome_canonico: 'Luisa Villa' }],
+]);
+
+/** Slugs explicitamente ignorados (placeholders/templates).
+ *  `a_contratar` aparece com cargo + funcao_principal preenchidos
+ *  (passa pelo filtro de campos vazios), mas não é um colaborador real. */
+const SLUGS_IGNORADOS_EXPLICITOS = new Set([
+  'a_contratar',
+]);
+
+/** Doc é IGNORADO se faltar qualquer um dos 3 campos obrigatórios
+ *  (template/legenda do Excel poluiu a coleção com docs sem cargo
+ *  ou sem funcao_principal), OU se o slug do nome estiver na lista
+ *  explícita de placeholders. */
+function ehColabIgnorado(data) {
+  const nome = (data?.nome_colaborador ?? '').trim();
+  const cargo = (data?.cargo ?? '').trim();
+  const funcao = (data?.funcao_principal ?? '').trim();
+  if (!nome || !cargo || !funcao) return true;
+  if (SLUGS_IGNORADOS_EXPLICITOS.has(slugify(nome))) return true;
+  return false;
+}
+
+async function processarColaboradoresFechamentos(db, apply) {
+  console.log(`\n[Migrate id_estavel] === colaboradores_fechamentos (Visão 2 sem mestre) ===`);
+
+  // FASE A — busca todos os docs, separa IGNORADO, agrupa por slug_alvo.
+  const snap = await getDocs(collectionGroup(db, 'colaboradores'));
+  console.log(`[Migrate id_estavel] Total docs em fechamentos/*/colaboradores/: ${snap.size}`);
+
+  const ignorados = [];
+  const docsValidos = [];
+  for (const d of snap.docs) {
+    const data = d.data();
+    if (ehColabIgnorado(data)) {
+      ignorados.push({
+        docId: d.id, path: d.ref.path,
+        periodo: d.ref.path.split('/')[1],
+        nome: data?.nome_colaborador ?? '(vazio)',
+      });
+    } else {
+      docsValidos.push(d);
+    }
+  }
+  console.log(`[Migrate id_estavel] IGNORADO (template): ${ignorados.length}`);
+  console.log(`[Migrate id_estavel] Docs reais: ${docsValidos.length}`);
+
+  // Agrupa por slug_alvo (aplicando AMBIGUO antes de agrupar).
+  const grupos = new Map(); // slug_alvo → { slug, nome_canonico, id_estavel, docs[] }
+  for (const d of docsValidos) {
+    const data = d.data();
+    const nomeOriginal = data.nome_colaborador;
+    const slugOriginal = slugify(nomeOriginal);
+    const mapAmb = AMBIGUO_COLABORADORES.get(slugOriginal);
+    const slugAlvo = mapAmb ? mapAmb.slug_canonico : slugOriginal;
+    const nomeCanonicoInicial = mapAmb ? mapAmb.nome_canonico : nomeOriginal;
+
+    if (!grupos.has(slugAlvo)) {
+      grupos.set(slugAlvo, {
+        slug: slugAlvo,
+        nome_canonico: nomeCanonicoInicial,
+        id_estavel: null, // resolvido após coletar todos os docs do grupo
+        docs: [],
+      });
+    }
+    grupos.get(slugAlvo).docs.push({ d, eh_ambiguo: !!mapAmb });
+  }
+  console.log(`[Migrate id_estavel] Colaboradores únicos (grupos): ${grupos.size}`);
+
+  // Para cada grupo: reaproveita id_estavel se algum doc já tem; senão gera.
+  for (const g of grupos.values()) {
+    const idExistente = g.docs
+      .map((x) => x.d.data().id_estavel)
+      .find((v) => typeof v === 'string' && v.length > 0);
+    g.id_estavel = idExistente ?? randomUUID();
+  }
+
+  // FASE B — classifica cada doc e prepara writes.
+  const buckets = { CONFIANTE: [], AMBIGUO: [], JA_TEM: [], IGNORADO: ignorados };
+  const writes = [];
+  for (const g of grupos.values()) {
+    for (const x of g.docs) {
+      const d = x.d;
+      const data = d.data();
+      const periodo = d.ref.path.split('/')[1];
+
+      // JA_TEM: id_estavel já preenchido (idempotência — não regrava).
+      if (!precisaIdEstavel(data)) {
+        buckets.JA_TEM.push({ docId: d.id, path: d.ref.path, periodo });
+        continue;
+      }
+
+      if (x.eh_ambiguo) {
+        const entry = {
+          docId: d.id, path: d.ref.path, periodo, ref: d.ref,
+          nome_atual: data.nome_colaborador,
+          nome_canonico: g.nome_canonico,
+          id_estavel: g.id_estavel,
+        };
+        buckets.AMBIGUO.push(entry);
+        writes.push({ ref: d.ref, payload: { id_estavel: g.id_estavel, nome_colaborador: g.nome_canonico } });
+      } else {
+        const entry = {
+          docId: d.id, path: d.ref.path, periodo, ref: d.ref,
+          id_estavel: g.id_estavel,
+        };
+        buckets.CONFIANTE.push(entry);
+        writes.push({ ref: d.ref, payload: { id_estavel: g.id_estavel } });
+      }
+    }
+  }
+
+  console.log('\n[Migrate id_estavel] === Distribuição ===');
+  console.log(`  CONFIANTE  → ${buckets.CONFIANTE.length} docs`);
+  console.log(`  AMBIGUO    → ${buckets.AMBIGUO.length} docs`);
+  console.log(`  JA_TEM     → ${buckets.JA_TEM.length} docs`);
+  console.log(`  IGNORADO   → ${buckets.IGNORADO.length} docs`);
+
+  // Snapshot pré-write — captura docs que serão modificados.
+  const docsAfetadosBruto = [...buckets.CONFIANTE, ...buckets.AMBIGUO]
+    .map((x) => snap.docs.find((d) => d.ref.path === x.path));
+  const pathSnap = gravarSnapshot('colaboradores_fechamentos', docsAfetadosBruto, apply ? 'apply' : 'dry-run');
+  console.log(`[Migrate id_estavel] Snapshot: ${pathSnap}`);
+
+  // FASE C — APPLY (apenas com --apply).
+  let aplicados = 0, batches = 0;
+  if (apply && writes.length > 0) {
+    console.log('\n[Migrate id_estavel] APLICANDO writes (writeBatch em chunks de 400)...');
+    for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      const chunk = writes.slice(i, i + BATCH_LIMIT);
+      for (const w of chunk) batch.update(w.ref, w.payload);
+      await batch.commit();
+      aplicados += chunk.length;
+      batches++;
+      console.log(`[Migrate id_estavel] Batch ${batches}: ${chunk.length} docs escritos.`);
+    }
+
+    // Validação pós-write: docs válidos (não-IGNORADO) devem ter id_estavel.
+    console.log('[Migrate id_estavel] Validando pós-write...');
+    const valSnap = await getDocs(collectionGroup(db, 'colaboradores'));
+    const restantesValidos = valSnap.docs.filter((d) => {
+      const data = d.data();
+      return !ehColabIgnorado(data) && precisaIdEstavel(data);
+    });
+    if (restantesValidos.length > 0) {
+      console.error(`[Migrate id_estavel] ERRO: ${restantesValidos.length} docs válidos sem id_estavel:`);
+      for (const d of restantesValidos.slice(0, 5)) console.error(`  - ${d.ref.path}`);
+      throw new Error('Validação pós-write falhou');
+    }
+    console.log(`[Migrate id_estavel] ✓ Validação OK: 0 docs válidos sem id_estavel.`);
+  }
+
+  return {
+    totalDocs: snap.size,
+    ignorados: ignorados.length,
+    docsValidos: docsValidos.length,
+    gruposUnicos: grupos.size,
+    confiante: buckets.CONFIANTE.length,
+    ambiguo: buckets.AMBIGUO.length,
+    jaTem: buckets.JA_TEM.length,
+    aplicados, batches,
+    snapshot: pathSnap,
+    detalhes: buckets,
+    grupos: [...grupos.values()].map((g) => ({
+      slug: g.slug, nome_canonico: g.nome_canonico, id_estavel: g.id_estavel,
+      n_snapshots: g.docs.length,
+    })),
+  };
+}
+
+// ============================================================
 // Relatório markdown
 // ============================================================
 
-function montarRelatorio(resBase, resFech, modo) {
+function montarRelatorio(resBase, resFech, resColab, modo) {
   const linhas = [];
   linhas.push('# Fase 3 Sub-fase 3C — Aplicação de id_estavel (Visão 2)');
   linhas.push('');
@@ -365,6 +554,59 @@ function montarRelatorio(resBase, resFech, modo) {
     linhas.push(`- Snapshots atualizados: ${resFech.aplicados}`);
     linhas.push(`- Batches executados: ${resFech.batches}`);
   }
+  linhas.push('');
+  linhas.push('## colaboradores_fechamentos/');
+  linhas.push('');
+  if (!resColab) {
+    linhas.push('Não processado nesta execução.');
+  } else {
+    linhas.push('### Agrupamento');
+    linhas.push('');
+    linhas.push(`- Total docs analisados: ${resColab.totalDocs}`);
+    linhas.push(`- IGNORADO (template/legenda): ${resColab.ignorados}`);
+    linhas.push(`- Docs reais: ${resColab.docsValidos}`);
+    linhas.push(`- Colaboradores únicos (grupos): ${resColab.gruposUnicos}`);
+    linhas.push('');
+    linhas.push('### Classificação');
+    linhas.push('');
+    linhas.push(`- CONFIANTE: ${resColab.confiante} docs`);
+    linhas.push(`- AMBÍGUO: ${resColab.ambiguo} docs (detalhes abaixo)`);
+    linhas.push(`- JA_TEM: ${resColab.jaTem} docs`);
+    linhas.push(`- IGNORADO: ${resColab.detalhes.IGNORADO.length} docs`);
+    linhas.push('');
+    if (resColab.detalhes.AMBIGUO.length > 0) {
+      linhas.push('### Detalhes AMBÍGUO');
+      linhas.push('');
+      linhas.push('| Período | docId | nome_atual → nome_canônico | id_estavel |');
+      linhas.push('|---|---|---|---|');
+      for (const x of resColab.detalhes.AMBIGUO) {
+        linhas.push(`| ${x.periodo} | \`${x.docId}\` | ${x.nome_atual} → **${x.nome_canonico}** | \`${x.id_estavel}\` |`);
+      }
+      linhas.push('');
+    }
+    if (resColab.detalhes.IGNORADO.length > 0) {
+      linhas.push('### Detalhes IGNORADO');
+      linhas.push('');
+      linhas.push('| Período | docId | nome (raw) |');
+      linhas.push('|---|---|---|');
+      for (const x of resColab.detalhes.IGNORADO) {
+        linhas.push(`| ${x.periodo} | \`${x.docId}\` | ${x.nome} |`);
+      }
+      linhas.push('');
+    }
+    linhas.push('### Grupos gerados');
+    linhas.push('');
+    linhas.push('| slug | nome canônico | n snapshots | id_estavel |');
+    linhas.push('|---|---|---:|---|');
+    for (const g of resColab.grupos.sort((a, b) => a.slug.localeCompare(b.slug))) {
+      linhas.push(`| \`${g.slug}\` | ${g.nome_canonico} | ${g.n_snapshots} | \`${g.id_estavel}\` |`);
+    }
+    linhas.push('');
+    linhas.push('### Writes');
+    linhas.push('');
+    linhas.push(`- Snapshots atualizados: ${resColab.aplicados}`);
+    linhas.push(`- Batches executados: ${resColab.batches}`);
+  }
   return linhas.join('\n');
 }
 
@@ -380,13 +622,13 @@ async function main() {
     process.exit(1);
   }
   // Bloqueia coleções que ainda não têm tratamento Visão 2.
-  if (args.colecao === 'colaboradores_fechamentos' || args.colecao === 'custos_fechamentos') {
-    console.error(`Coleção ${args.colecao} ainda não implementada em Visão 2 (escopo Fase 3 futura).`);
+  if (args.colecao === 'custos_fechamentos') {
+    console.error(`Coleção ${args.colecao} ainda não implementada em Visão 2 (escopo Sub-fase 3C parte 4).`);
     process.exit(1);
   }
 
   const db = initDb();
-  let resBase = null, resFech = null;
+  let resBase = null, resFech = null, resColab = null;
 
   if (args.colecao === 'clientes_base' || args.colecao === 'todas') {
     resBase = await processarClientesBase(db, args.apply);
@@ -394,16 +636,22 @@ async function main() {
   if (args.colecao === 'clientes_fechamentos' || args.colecao === 'todas') {
     resFech = await processarClientesFechamentos(db, args.apply);
   }
+  if (args.colecao === 'colaboradores_fechamentos' || args.colecao === 'todas') {
+    resColab = await processarColaboradoresFechamentos(db, args.apply);
+  }
 
   const modo = args.apply ? 'apply' : 'dry-run';
-  const relatorioMd = montarRelatorio(resBase, resFech, modo);
+  const relatorioMd = montarRelatorio(resBase, resFech, resColab, modo);
   const relatorioPath = gravarRelatorio(relatorioMd);
   console.log(`\n[Migrate id_estavel] Relatório salvo: ${relatorioPath}`);
 
   console.log('\n=== Resumo final ===');
-  if (resBase) console.log(`  clientes_base:        total=${resBase.totalDocs}, ja_tinham=${resBase.jaTinham}, adicionados=${resBase.adicionados}`);
+  if (resBase) console.log(`  clientes_base:             total=${resBase.totalDocs}, ja_tinham=${resBase.jaTinham}, adicionados=${resBase.adicionados}`);
   if (resFech) {
-    console.log(`  clientes_fechamentos: total=${resFech.totalDocs}, confiante=${resFech.confiante}, ambiguo=${resFech.ambiguo}, fantasma=${resFech.fantasma}, irrecuperavel=${resFech.irrecuperavel}, aplicados=${resFech.aplicados}${args.apply ? '' : ' (DRY-RUN)'}`);
+    console.log(`  clientes_fechamentos:      total=${resFech.totalDocs}, confiante=${resFech.confiante}, ambiguo=${resFech.ambiguo}, fantasma=${resFech.fantasma}, irrecuperavel=${resFech.irrecuperavel}, aplicados=${resFech.aplicados}${args.apply ? '' : ' (DRY-RUN)'}`);
+  }
+  if (resColab) {
+    console.log(`  colaboradores_fechamentos: total=${resColab.totalDocs}, ignorados=${resColab.ignorados}, grupos=${resColab.gruposUnicos}, confiante=${resColab.confiante}, ambiguo=${resColab.ambiguo}, ja_tem=${resColab.jaTem}, aplicados=${resColab.aplicados}${args.apply ? '' : ' (DRY-RUN)'}`);
   }
 }
 

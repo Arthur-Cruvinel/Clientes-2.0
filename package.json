@@ -10,8 +10,11 @@
     "preview": "vite preview",
     "deploy": "npm run build && netlify deploy --prod --dir=dist",
     "audit:moises": "node scripts/auditoria-moises.mjs",
+    "audit:colaboradores-nomes": "node scripts/auditoria-colaboradores-nomes.mjs",
     "id-estavel:dry": "node scripts/adicionarIdEstavel.mjs",
-    "id-estavel:apply": "node scripts/adicionarIdEstavel.mjs --apply"
+    "id-estavel:apply": "node scripts/adicionarIdEstavel.mjs --apply",
+    "id-estavel:colab:dry": "node scripts/adicionarIdEstavel.mjs --colecao=colaboradores_fechamentos",
+    "id-estavel:colab:apply": "node scripts/adicionarIdEstavel.mjs --colecao=colaboradores_fechamentos --apply"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
