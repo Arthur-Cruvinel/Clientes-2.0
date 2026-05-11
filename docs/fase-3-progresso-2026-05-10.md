@@ -251,3 +251,43 @@ Fora do escopo da 3D (decisão 2026-05-11):
 Decisão registrada: novos cadastros serão feitos exclusivamente via UI.
 Excel usado apenas em eventualidade de contratação em massa — não é
 realidade atual. Simplifica Fase 4 (Princípio 2) para focar em UI.
+
+---
+
+## Fase 3 — CONCLUÍDA (2026-05-11)
+
+### Resultado da Sub-fase 3E (validação final)
+
+| Verificação | Resultado |
+|---|---|
+| V1 — Cobertura Firestore (4 coleções) | ✅ 100% em todas |
+| V2 — Consistência cross-coleção | ✅ 0 órfãos |
+| V3 — Unicidade id_estavel | ✅ 0 duplicatas |
+| V4 — Pontos de criação refatorados | ✅ 5/5 |
+| V5 — Slug único | ✅ |
+
+**657 documentos reais com id_estavel:**
+- clientes_base/: 84/84
+- fechamentos/*/clientes/: 438/438
+- colaboradores_fechamentos: 110/110 (16 templates ignorados)
+- custosIndiretos_fechamentos: 25/25
+
+### Estado final das sub-fases
+
+- 3A ✅ auditoria
+- 3B ✅ tipos TypeScript
+- 3C ✅ migração das 4 coleções
+- 3D ✅ pontos de criação refatorados
+- 3E ✅ validação final aprovada
+
+### Pontos abertos para fases futuras
+
+- Bug A (UUID como docId no ETL Excel) → Fase 4 ou 6
+- Bug Arquitetural #1 (docs-fantasma por setDoc merge) → Fase 4
+- ETL Excel sem id_estavel → Fase 6
+- docs/fase-3-implementacao-principios-tecnicos.md → pendente
+
+### Próxima fase
+
+Fase 2 — Princípio 3: criar colaboradores_base/ e
+custosIndiretos_base/ análogas a clientes_base/.
