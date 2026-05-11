@@ -59,6 +59,9 @@ export function NovoClienteModal({ periodo, onFechar, onCriado }: Props) {
       }
 
       const novo: Cliente = {
+        // Princípio 5: id_estavel imutável gerado na criação. Propaga para
+        // todos os snapshots em fechamentos/{periodo}/clientes/ via match.
+        id_estavel: crypto.randomUUID(),
         nome_cliente: trimmed,
         receita_fee: receitaFee,
         percentual_rebate_anual_onshore: rebateOn / 100,

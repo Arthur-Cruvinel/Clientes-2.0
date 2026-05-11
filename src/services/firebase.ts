@@ -70,13 +70,20 @@ export async function buscarColaboradores(anoMes: string): Promise<Colaborador[]
 /**
  * Salva (merge) um colaborador no período.
  * Caminho: fechamentos/{anoMes}/colaboradores/{id}
+ *
+ * Princípio 5 (geração defensiva): se o objeto não tiver `id_estavel`,
+ * gera UUID v4 antes de gravar — garante que nenhum doc nasça sem o campo
+ * por qualquer caminho de código que chegue aqui.
  */
 export async function salvarColaboradorPeriodo(
   anoMes: string, colaborador: Colaborador,
 ): Promise<void> {
   if (!colaborador.id) throw new Error('Colaborador sem id — impossível salvar.');
+  const dados = colaborador.id_estavel
+    ? colaborador
+    : { ...colaborador, id_estavel: crypto.randomUUID() };
   try {
-    await setDoc(doc(db, 'fechamentos', anoMes, 'colaboradores', colaborador.id), colaborador);
+    await setDoc(doc(db, 'fechamentos', anoMes, 'colaboradores', dados.id!), dados);
   } catch (error) {
     console.error(`[Firebase] Erro ao salvar colaborador ${colaborador.id}:`, error);
     throw error;
@@ -686,11 +693,18 @@ export async function buscarClientesBase(): Promise<Cliente[]> {
 
 /**
  * Salva (ou atualiza) um cliente em clientes_base/{slug}.
+ *
+ * Princípio 5 (geração defensiva): se o objeto não tiver `id_estavel`,
+ * gera UUID v4 antes de gravar — garante que nenhum cliente nasça sem
+ * identidade lógica por qualquer caminho de código.
  */
 export async function salvarClienteBase(cliente: Cliente): Promise<void> {
   const slugCliente = slug(cliente.nome_cliente ?? '');
+  const dados = cliente.id_estavel
+    ? cliente
+    : { ...cliente, id_estavel: crypto.randomUUID() };
   try {
-    await setDoc(doc(db, 'clientes_base', slugCliente), cliente);
+    await setDoc(doc(db, 'clientes_base', slugCliente), dados);
   } catch (error) {
     console.error('[Firebase] Erro ao salvar cliente_base:', error);
     throw error;

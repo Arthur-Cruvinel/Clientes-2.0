@@ -122,7 +122,13 @@ export function useColaboradores() {
     if (colaboradoresValidos.some(c => c.id === id || c.nome_colaborador === novo.nome_colaborador))
       throw new Error('Já existe um colaborador com esse nome no período.');
     setSalvando(true);
-    try { await salvarColaboradorPeriodo(periodoSelecionado, { ...novo, id }); recarregar(); }
+    try {
+      // Princípio 5: id_estavel imutável gerado na criação. Propaga para
+      // todos os snapshots em fechamentos/*/colaboradores/ via match.
+      const id_estavel = novo.id_estavel ?? crypto.randomUUID();
+      await salvarColaboradorPeriodo(periodoSelecionado, { ...novo, id, id_estavel });
+      recarregar();
+    }
     finally { setSalvando(false); }
   }, [periodoSelecionado, colaboradoresValidos, recarregar]);
 

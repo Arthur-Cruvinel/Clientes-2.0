@@ -21,6 +21,7 @@ import { fecharPeriodo, reabrirPeriodo, buscarClientes, db } from '../../service
 import { AgenteValidacao } from '../agente/AgenteValidacao';
 import { writeBatch, doc as firestoreDoc } from 'firebase/firestore';
 import { BATCH_LIMIT } from '../../utils/constants';
+import { slug } from '../../utils/slug';
 import type { DadosCliente } from '../../types';
 
 const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -113,8 +114,11 @@ export function VisaoGeral() {
         const batch = writeBatch(db);
         const chunk = clientesAnterior.slice(i, i + BATCH_LIMIT);
         for (const c of chunk) {
-          const slug = c.id ?? c.nome_cliente.toLowerCase().replace(/\s+/g, '_');
-          batch.set(firestoreDoc(db, 'fechamentos', periodoSelecionado, 'clientes', slug), c as unknown as Record<string, unknown>);
+          // Fonte única de slug: utils/slug.ts (normaliza acento + filtra
+          // [^a-z0-9_]). Antes era inline divergente — risco de criar doc
+          // duplicado em chave divergente quando c.id era ausente.
+          const docId = c.id ?? slug(c.nome_cliente);
+          batch.set(firestoreDoc(db, 'fechamentos', periodoSelecionado, 'clientes', docId), c as unknown as Record<string, unknown>);
         }
         await batch.commit();
       }
