@@ -1,0 +1,828 @@
+{
+  "timestamp": "2026-05-12T15:37:49.910Z",
+  "total": 21,
+  "docs": [
+    {
+      "docId": "amilcar_junior",
+      "path": "colaboradores_base/amilcar_junior",
+      "dados_antes": {
+        "origem": "extracao_jan_2026",
+        "cargo": "Sócio",
+        "funcao_principal": "",
+        "percentual_alocavel": 0,
+        "qtd_dependentes": 0,
+        "salario_teto_cargo": 13466.1,
+        "percentual_institucional": 1,
+        "liquido_acordado": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "id_estavel": "14ee0914-5d97-4260-9565-9f8f13a23d1d",
+        "ativo": true,
+        "cadastro_completo": false,
+        "localidade": "SP",
+        "slug": "amilcar_junior",
+        "nome_colaborador": "Amilcar Junior",
+        "beneficios_fixos": 0,
+        "historico_reajustes": [
+          {
+            "observacao": "Reajuste automático",
+            "registrado_por": "Arthur Cruvinel",
+            "salario_teto_cargo": 13466.1,
+            "liquido_acordado": 0,
+            "vigencia": "2026-01",
+            "registrado_em": "2026-05-06T22:15:47.081Z"
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": false,
+        "tipo_vinculo": "clt",
+        "salario_base": 10000
+      }
+    },
+    {
+      "docId": "arthur_cruvinel",
+      "path": "colaboradores_base/arthur_cruvinel",
+      "dados_antes": {
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Arthur Cruvinel",
+        "slug": "arthur_cruvinel",
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "historico_reajustes": [
+          {
+            "observacao": "Reajuste automático",
+            "registrado_por": "Arthur Cruvinel",
+            "salario_teto_cargo": 9000.65,
+            "liquido_acordado": 0,
+            "vigencia": "2026-01",
+            "registrado_em": "2026-05-08T10:48:16.049Z"
+          }
+        ],
+        "tipo_vinculo": "clt",
+        "salario_base": 11500,
+        "cargo": "Coordenador Financeiro",
+        "origem": "extracao_jan_2026",
+        "percentual_alocavel": 0.2,
+        "funcao_principal": "",
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "liquido_acordado": 0,
+        "percentual_institucional": 0.8,
+        "salario_teto_cargo": 9000.65,
+        "qtd_dependentes": 0,
+        "localidade": "SP",
+        "cadastro_completo": false,
+        "ativo": true,
+        "id_estavel": "171207fb-638d-4c89-9fcb-8590feceddc1"
+      }
+    },
+    {
+      "docId": "cintia_de_jesus_alves",
+      "path": "colaboradores_base/cintia_de_jesus_alves",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "salario_base": 7000,
+        "nome_colaborador": "Cintia De Jesus Alves",
+        "slug": "cintia_de_jesus_alves",
+        "beneficios_fixos": 1426.83,
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 5515.28,
+            "liquido_acordado": 0,
+            "vigencia": "2026-01",
+            "registrado_em": "2026-05-08T10:48:42.810Z",
+            "registrado_por": "Arthur Cruvinel",
+            "observacao": "Reajuste automático"
+          }
+        ],
+        "liquido_acordado": 0,
+        "salario_teto_cargo": 5515.28,
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "ativo": true,
+        "id_estavel": "d7becf48-a363-429d-a5a7-ca992816f00a",
+        "localidade": "RJ",
+        "cadastro_completo": false,
+        "cargo": "Assistente Administrativo",
+        "origem": "extracao_jan_2026",
+        "percentual_alocavel": 1,
+        "funcao_principal": ""
+      }
+    },
+    {
+      "docId": "daniel_gama",
+      "path": "colaboradores_base/daniel_gama",
+      "dados_antes": {
+        "liquido_acordado": 10000,
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 8500,
+        "qtd_dependentes": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "ativo": true,
+        "id_estavel": "cf38ae97-49e6-4039-a6e9-69cc8e6074ef",
+        "localidade": "RJ",
+        "cadastro_completo": false,
+        "cargo": "Coordenador de Gestão de Atletas",
+        "origem": "extracao_jan_2026",
+        "percentual_alocavel": 1,
+        "funcao_principal": "",
+        "tipo_vinculo": "clt",
+        "salario_base": 13466.1,
+        "nome_colaborador": "Daniel Gama",
+        "slug": "daniel_gama",
+        "beneficios_fixos": 1426.83,
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "historico_reajustes": [
+          {
+            "registrado_por": "Arthur Cruvinel",
+            "observacao": "Reajuste automático",
+            "registrado_em": "2026-05-06T22:15:25.826Z",
+            "salario_teto_cargo": 8500,
+            "vigencia": "2026-01",
+            "liquido_acordado": 10000
+          }
+        ]
+      }
+    },
+    {
+      "docId": "erika_freitas",
+      "path": "colaboradores_base/erika_freitas",
+      "dados_antes": {
+        "cadastro_completo": false,
+        "localidade": "RJ",
+        "id_estavel": "3770fa22-9978-4081-9f37-ff635ea09968",
+        "ativo": true,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 577000000
+        },
+        "qtd_dependentes": 0,
+        "salario_teto_cargo": 10500,
+        "percentual_institucional": 0.3,
+        "liquido_acordado": 12000,
+        "funcao_principal": "",
+        "percentual_alocavel": 0.7,
+        "origem": "extracao_jan_2026",
+        "cargo": "Superintendente Administrativo",
+        "salario_base": 16224.73,
+        "tipo_vinculo": "clt",
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 12000,
+            "observacao": "Entrada inicial (migração)",
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 10500
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Erika Freitas",
+        "slug": "erika_freitas"
+      }
+    },
+    {
+      "docId": "fernanda_cassa",
+      "path": "colaboradores_base/fernanda_cassa",
+      "dados_antes": {
+        "salario_base": 16224.73,
+        "tipo_vinculo": "clt",
+        "historico_reajustes": [
+          {
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)",
+            "liquido_acordado": 12000,
+            "salario_teto_cargo": 9500
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Fernanda Cassa",
+        "slug": "fernanda_cassa",
+        "cadastro_completo": false,
+        "localidade": "SP",
+        "id_estavel": "adcd1156-8c6e-44f4-8d61-58d7a56fbf3d",
+        "ativo": true,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 577000000
+        },
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 9500,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 12000,
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "origem": "extracao_jan_2026",
+        "cargo": "Gerente de Gestão de Atletas"
+      }
+    },
+    {
+      "docId": "fernanda_da_silva_soares",
+      "path": "colaboradores_base/fernanda_da_silva_soares",
+      "dados_antes": {
+        "origem": "extracao_jan_2026",
+        "cargo": "Assistente Administrativo",
+        "funcao_principal": "",
+        "percentual_alocavel": 0,
+        "percentual_institucional": 1,
+        "salario_teto_cargo": 6882.85,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 579000000
+        },
+        "id_estavel": "f6d466c2-9866-4dae-bfa5-249658ec44bb",
+        "ativo": true,
+        "cadastro_completo": false,
+        "localidade": "RJ",
+        "nome_colaborador": "Fernanda da Silva Soares",
+        "slug": "fernanda_da_silva_soares",
+        "beneficios_fixos": 1426.83,
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "vigencia": "2026-01",
+            "salario_teto_cargo": 6882.85,
+            "registrado_em": "2026-05-08T10:53:34.316Z",
+            "registrado_por": "Arthur Cruvinel",
+            "observacao": "Reajuste automático"
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "salario_base": 7000
+      }
+    },
+    {
+      "docId": "flavia_santos_romeu",
+      "path": "colaboradores_base/flavia_santos_romeu",
+      "dados_antes": {
+        "salario_base": 10019.08,
+        "tipo_vinculo": "clt",
+        "historico_reajustes": [
+          {
+            "registrado_em": "2026-05-08T10:53:56.052Z",
+            "liquido_acordado": 0,
+            "vigencia": "2026-01",
+            "salario_teto_cargo": 10059.55,
+            "observacao": "Reajuste automático",
+            "registrado_por": "Arthur Cruvinel"
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Flávia Santos Romeu",
+        "slug": "flavia_santos_romeu",
+        "cadastro_completo": false,
+        "localidade": "SP",
+        "id_estavel": "a063e11b-b8dd-4c4a-868c-f15289e5919c",
+        "ativo": true,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 579000000
+        },
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 10059.55,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 0,
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "origem": "extracao_jan_2026",
+        "cargo": "Analista de Gestão"
+      }
+    },
+    {
+      "docId": "giovanna_pargoli",
+      "path": "colaboradores_base/giovanna_pargoli",
+      "dados_antes": {
+        "cadastro_completo": false,
+        "localidade": "SP",
+        "id_estavel": "ed67478f-2c9d-4b27-9a8b-aabd7073b861",
+        "ativo": true,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 576000000
+        },
+        "qtd_dependentes": 2,
+        "salario_teto_cargo": 5041,
+        "percentual_institucional": 0,
+        "liquido_acordado": 8000,
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "origem": "extracao_jan_2026",
+        "cargo": "Analista Administrativo",
+        "salario_base": 11346.11,
+        "tipo_vinculo": "clt",
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 5041,
+            "liquido_acordado": 8000,
+            "vigencia": "2026-01",
+            "registrado_em": "2026-05-08T10:54:20.412Z",
+            "observacao": "Reajuste automático",
+            "registrado_por": "Arthur Cruvinel"
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Giovanna Pargoli",
+        "slug": "giovanna_pargoli"
+      }
+    },
+    {
+      "docId": "julia_pereira",
+      "path": "colaboradores_base/julia_pereira",
+      "dados_antes": {
+        "ativo": true,
+        "id_estavel": "9cb609bb-2746-479a-96d9-233e2d150cd5",
+        "localidade": "RJ",
+        "cadastro_completo": false,
+        "liquido_acordado": 0,
+        "salario_teto_cargo": 3800,
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 576000000
+        },
+        "percentual_alocavel": 1,
+        "funcao_principal": "",
+        "cargo": "Operador Financeiro",
+        "origem": "extracao_jan_2026",
+        "salario_base": 3800,
+        "tipo_vinculo": "clt",
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 3800,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)",
+            "liquido_acordado": 0
+          }
+        ],
+        "nome_colaborador": "Julia Pereira",
+        "slug": "julia_pereira",
+        "beneficios_fixos": 1426.83
+      }
+    },
+    {
+      "docId": "lucas_henrique",
+      "path": "colaboradores_base/lucas_henrique",
+      "dados_antes": {
+        "id_estavel": "a5a8437d-6bd3-47f4-bd7a-8fd925fe6595",
+        "ativo": true,
+        "cadastro_completo": false,
+        "localidade": "RJ",
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 4191.61,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "origem": "extracao_jan_2026",
+        "cargo": "Operador Financeiro",
+        "salario_base": 5800.52,
+        "tipo_vinculo": "clt",
+        "historico_reajustes": [
+          {
+            "registrado_por": "Arthur Cruvinel",
+            "observacao": "Reajuste automático",
+            "registrado_em": "2026-05-08T10:55:41.975Z",
+            "vigencia": "2026-01",
+            "liquido_acordado": 0,
+            "salario_teto_cargo": 4191.61
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "nome_colaborador": "Lucas Henrique",
+        "slug": "lucas_henrique",
+        "beneficios_fixos": 1426.83
+      }
+    },
+    {
+      "docId": "luis_eduardo_nerone",
+      "path": "colaboradores_base/luis_eduardo_nerone",
+      "dados_antes": {
+        "cargo": "Supervisor Financeiro",
+        "origem": "extracao_jan_2026",
+        "percentual_alocavel": 1,
+        "funcao_principal": "",
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "liquido_acordado": 0,
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 6882.85,
+        "qtd_dependentes": 0,
+        "localidade": "SP",
+        "cadastro_completo": false,
+        "ativo": true,
+        "id_estavel": "ac6922ca-d464-4743-b125-51e8d0ec26c1",
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Luis Eduardo Nerone",
+        "slug": "luis_eduardo_nerone",
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "historico_reajustes": [
+          {
+            "registrado_em": "2026-05-08T10:56:05.212Z",
+            "vigencia": "2026-01",
+            "liquido_acordado": 0,
+            "salario_teto_cargo": 6882.85,
+            "observacao": "Reajuste automático",
+            "registrado_por": "Arthur Cruvinel"
+          }
+        ],
+        "tipo_vinculo": "clt",
+        "salario_base": 6855.16
+      }
+    },
+    {
+      "docId": "luisa_villa",
+      "path": "colaboradores_base/luisa_villa",
+      "dados_antes": {
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "origem": "extracao_jan_2026",
+        "cargo": "Assistente Administrativo",
+        "id_estavel": "5c89d401-a589-49e6-857e-59fd2676eb8f",
+        "ativo": true,
+        "cadastro_completo": false,
+        "localidade": "SP",
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 4023.45,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 4023.45,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)",
+            "liquido_acordado": 0
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "slug": "luisa_villa",
+        "nome_colaborador": "Luisa Villa",
+        "beneficios_fixos": 1426.83,
+        "salario_base": 3815,
+        "tipo_vinculo": "clt"
+      }
+    },
+    {
+      "docId": "maria_eduarda_cruz",
+      "path": "colaboradores_base/maria_eduarda_cruz",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "salario_base": 2300,
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Maria Eduarda Cruz",
+        "slug": "maria_eduarda_cruz",
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 2300,
+            "liquido_acordado": 0,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)"
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 577000000
+        },
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 2300,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 0,
+        "cadastro_completo": false,
+        "localidade": "RJ",
+        "id_estavel": "b8174275-a638-46b3-90b5-73c4fc0cfdb1",
+        "ativo": true,
+        "origem": "extracao_jan_2026",
+        "cargo": "Estágio Administrativo",
+        "funcao_principal": "",
+        "percentual_alocavel": 1
+      }
+    },
+    {
+      "docId": "mariah_assbu",
+      "path": "colaboradores_base/mariah_assbu",
+      "dados_antes": {
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Mariah Assbu",
+        "slug": "mariah_assbu",
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 2300,
+            "observacao": "Entrada inicial (migração)",
+            "vigencia": "2025-12",
+            "liquido_acordado": 0
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "salario_base": 2300,
+        "origem": "extracao_jan_2026",
+        "cargo": "Estágio Administrativo",
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 2300,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 0,
+        "cadastro_completo": false,
+        "localidade": "RJ",
+        "id_estavel": "88680a4d-b4e6-426f-83e5-a3f22ddcfad9",
+        "ativo": true
+      }
+    },
+    {
+      "docId": "matheus_tripoli",
+      "path": "colaboradores_base/matheus_tripoli",
+      "dados_antes": {
+        "origem": "extracao_jan_2026",
+        "cargo": "Assistente Financeiro",
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 4023.82,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 0,
+        "cadastro_completo": false,
+        "localidade": "SP",
+        "id_estavel": "ad77ac7e-22fa-4fae-81ca-416109d7a5be",
+        "ativo": true,
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Matheus Tripoli",
+        "slug": "matheus_tripoli",
+        "historico_reajustes": [
+          {
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)",
+            "liquido_acordado": 0,
+            "salario_teto_cargo": 4023.82
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "salario_base": 4023.82
+      }
+    },
+    {
+      "docId": "priscilla_rocha",
+      "path": "colaboradores_base/priscilla_rocha",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "salario_base": 10000,
+        "nome_colaborador": "Priscilla Rocha",
+        "slug": "priscilla_rocha",
+        "beneficios_fixos": 0,
+        "funcoes_secundarias": [],
+        "alocavel": false,
+        "historico_reajustes": [
+          {
+            "registrado_em": "2026-05-08T10:57:10.583Z",
+            "liquido_acordado": 0,
+            "vigencia": "2026-01",
+            "salario_teto_cargo": 13466.1,
+            "observacao": "Reajuste automático",
+            "registrado_por": "Arthur Cruvinel"
+          }
+        ],
+        "liquido_acordado": 0,
+        "qtd_dependentes": 0,
+        "salario_teto_cargo": 13466.1,
+        "percentual_institucional": 1,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 577000000
+        },
+        "ativo": true,
+        "id_estavel": "f7940cec-f54a-478e-8983-a60147aa1324",
+        "localidade": "SP",
+        "cadastro_completo": false,
+        "cargo": "Sócio",
+        "origem": "extracao_jan_2026",
+        "percentual_alocavel": 0,
+        "funcao_principal": ""
+      }
+    },
+    {
+      "docId": "rafael_parolise",
+      "path": "colaboradores_base/rafael_parolise",
+      "dados_antes": {
+        "salario_base": 7000,
+        "tipo_vinculo": "clt",
+        "historico_reajustes": [
+          {
+            "registrado_em": "2026-05-08T10:57:29.615Z",
+            "salario_teto_cargo": 5515.28,
+            "vigencia": "2026-01",
+            "liquido_acordado": 0,
+            "observacao": "Reajuste automático",
+            "registrado_por": "Arthur Cruvinel"
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Rafael Parolise",
+        "slug": "rafael_parolise",
+        "cadastro_completo": false,
+        "localidade": "RJ",
+        "id_estavel": "a4409d3d-bed3-467c-8cf4-989d53a80c53",
+        "ativo": true,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 5515.28,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 0,
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "origem": "extracao_jan_2026",
+        "cargo": "Supervisor Financeiro"
+      }
+    },
+    {
+      "docId": "rafaela_correggiari",
+      "path": "colaboradores_base/rafaela_correggiari",
+      "dados_antes": {
+        "salario_base": 10710.24,
+        "tipo_vinculo": "clt",
+        "historico_reajustes": [
+          {
+            "registrado_por": "Arthur Cruvinel",
+            "observacao": "Reajuste automático",
+            "registrado_em": "2026-05-08T10:57:53.119Z",
+            "salario_teto_cargo": 5041,
+            "vigencia": "2026-01",
+            "liquido_acordado": 8000
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "beneficios_fixos": 1426.83,
+        "nome_colaborador": "Rafaela Correggiari",
+        "slug": "rafaela_correggiari",
+        "cadastro_completo": false,
+        "localidade": "RJ",
+        "id_estavel": "f5e82fbf-a457-4a08-85da-311a31f785e9",
+        "ativo": true,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 578000000
+        },
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 5041,
+        "qtd_dependentes": 0,
+        "liquido_acordado": 8000,
+        "funcao_principal": "",
+        "percentual_alocavel": 1,
+        "origem": "extracao_jan_2026",
+        "cargo": "Analista Administrativo"
+      }
+    },
+    {
+      "docId": "thayna_ribeiro",
+      "path": "colaboradores_base/thayna_ribeiro",
+      "dados_antes": {
+        "funcoes_secundarias": [],
+        "alocavel": true,
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 4191.61,
+            "liquido_acordado": 0,
+            "observacao": "Entrada inicial (migração)",
+            "vigencia": "2025-12"
+          }
+        ],
+        "nome_colaborador": "Thayna Ribeiro",
+        "slug": "thayna_ribeiro",
+        "beneficios_fixos": 1426.83,
+        "salario_base": 4191.61,
+        "tipo_vinculo": "clt",
+        "percentual_alocavel": 1,
+        "funcao_principal": "",
+        "cargo": "Assistente Administrativo",
+        "origem": "extracao_jan_2026",
+        "ativo": true,
+        "id_estavel": "aad757c6-8a8c-44f1-8d3d-d776144ccada",
+        "localidade": "RJ",
+        "cadastro_completo": false,
+        "liquido_acordado": 0,
+        "percentual_institucional": 0,
+        "salario_teto_cargo": 4191.61,
+        "qtd_dependentes": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 577000000
+        }
+      }
+    },
+    {
+      "docId": "viviane_leal",
+      "path": "colaboradores_base/viviane_leal",
+      "dados_antes": {
+        "salario_teto_cargo": 13466.1,
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0.3,
+        "liquido_acordado": 0,
+        "data_extracao": {
+          "type": "firestore/timestamp/1.0",
+          "seconds": 1778588401,
+          "nanoseconds": 577000000
+        },
+        "id_estavel": "233c4c24-3afb-4d2e-8ee9-10e2b1a9ec81",
+        "ativo": true,
+        "cadastro_completo": false,
+        "localidade": "SP",
+        "origem": "extracao_jan_2026",
+        "cargo": "CEO",
+        "funcao_principal": "",
+        "percentual_alocavel": 0.7,
+        "tipo_vinculo": "clt",
+        "salario_base": 10000,
+        "nome_colaborador": "Viviane Leal",
+        "slug": "viviane_leal",
+        "beneficios_fixos": 0,
+        "historico_reajustes": [
+          {
+            "registrado_em": "2026-05-06T20:42:24.606Z",
+            "liquido_acordado": 0,
+            "vigencia": "2026-01",
+            "salario_teto_cargo": 13466.1
+          }
+        ],
+        "funcoes_secundarias": [],
+        "alocavel": true
+      }
+    }
+  ]
+}

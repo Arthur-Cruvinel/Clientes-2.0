@@ -202,3 +202,26 @@ export const FUNCOES_ALOCACAO: FuncaoAlocacao[] = [
   'serv_adm',
   'serv_aux_adm',
 ];
+
+/**
+ * Funções principais dos colaboradores no Galácticos CFO.
+ *
+ * Vinculadas aos 6 tipos de serviço oferecidos + 'institucional'
+ * para sócios (papel principal é institucional, mas podem ter
+ * alocação parcial em clientes específicos via campos pct_* do cliente).
+ *
+ * Esta lista é fechada e canônica. Qualquer mudança aqui exige
+ * coordenação com Princípio 7 (cliente refere colaborador por id_estavel)
+ * e com a lógica de alocação em Perfil/Colaboradores.
+ */
+export const FUNCOES_PRINCIPAIS = [
+  'consultoria_gestao',
+  'consultoria_planejamento',
+  'consultoria_financeira',
+  'operacional_financeiro',
+  'serv_adm',
+  'serv_aux_adm',
+  'institucional',
+] as const;
+
+export type FuncaoPrincipal = typeof FUNCOES_PRINCIPAIS[number];
