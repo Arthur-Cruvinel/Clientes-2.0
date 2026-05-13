@@ -58,7 +58,7 @@ export function FolhaTab({ modo, inicial, periodo, salvando, onSalvar, onCancela
     return {
       nome_colaborador: inicial.nome_colaborador, cargo: inicial.cargo,
       funcao_principal: inicial.funcao_principal,
-      tipo_vinculo: inicial.tipo_vinculo ?? 'clt', localidade: inicial.localidade ?? 'SP',
+      tipo_vinculo: inicial.tipo_vinculo === 'pro_labore' ? 'pro_labore' : 'clt', localidade: inicial.localidade ?? 'SP',
       alocavel: inicial.alocavel ?? true,
       percentual_alocavel: inicial.percentual_alocavel ?? 0.7,
       percentual_institucional: inicial.percentual_institucional ?? 0.3,
@@ -89,7 +89,7 @@ export function FolhaTab({ modo, inicial, periodo, salvando, onSalvar, onCancela
     setForm({
       nome_colaborador: inicial.nome_colaborador, cargo: inicial.cargo,
       funcao_principal: inicial.funcao_principal,
-      tipo_vinculo: inicial.tipo_vinculo ?? 'clt', localidade: inicial.localidade ?? 'SP',
+      tipo_vinculo: inicial.tipo_vinculo === 'pro_labore' ? 'pro_labore' : 'clt', localidade: inicial.localidade ?? 'SP',
       alocavel: inicial.alocavel ?? true,
       percentual_alocavel: inicial.percentual_alocavel ?? 0.7,
       percentual_institucional: inicial.percentual_institucional ?? 0.3,

@@ -78,3 +78,40 @@ Tratar este caso ao implementar:
 - Impacto: nenhum — não bloqueia execução das fases futuras
 
 ---
+
+## Pendência Fase 5 — Suporte completo a `tipo_vinculo='estagio'` na UI
+
+**Contexto:** Sub-etapa 2A.5.b ampliou o tipo `Colaborador.tipo_vinculo`
+para incluir `'estagio'`. Para manter o build TypeScript funcionando
+sem refatorar a UI agora (decisão consciente para manter momentum
+no Ato 2), foram aplicados narrowings em 2 lugares (`ColaboradorCard`
+e `FolhaTab`) que mapeiam `'estagio'` silenciosamente para `'clt'`.
+
+**Trabalhos pendentes para Fase 5:**
+
+1. `src/features/colaboradores/columns.ts:27` — expandir `COR_VINCULO`
+   adicionando entrada `'estagio'` com cor própria.
+2. `src/features/colaboradores/ColaboradorCard.tsx:20-22` — reverter
+   narrowing, usar `tipo` direto após expansão de `COR_VINCULO`.
+3. `src/features/colaboradores/FolhaTab.tsx:28` — expandir
+   `FolhaForm.tipo_vinculo` de `'clt' | 'pro_labore'` para
+   `'clt' | 'pro_labore' | 'estagio'`.
+4. `src/features/colaboradores/FolhaTab.tsx:61, 92` — reverter
+   narrowings, usar `tipo_vinculo` direto.
+5. `src/features/colaboradores/FolhaTab.tsx:205-207` — adicionar
+   opção `['estagio', 'Estágio']` no select, remover cast.
+6. `src/features/colaboradores/ColaboradorModal.tsx:41` — revisar
+   default; manter `'clt'` provavelmente OK, mas avaliar se há contexto
+   onde deveria iniciar como `'estagio'` (ex: novo colaborador de
+   estágio).
+7. `src/features/upload/useUploadImport.ts` — adicionar suporte de
+   parsing `'estagio'` no Excel se necessário.
+8. Considerar campos visuais adicionais para estagiário (ex: data
+   início do estágio, instituição de ensino, etc. — não obrigatório).
+
+**Status:** pendência arquitetural conhecida, não bloqueia operação
+atual (no Firestore não há colaborador com `tipo_vinculo='estagio'`
+ainda — os 2 estagiários serão atualizados em sub-etapa 2A.5.d
+e a UI continuará mostrando-os como CLT até refatoração da Fase 5).
+
+---

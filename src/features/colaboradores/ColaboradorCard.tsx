@@ -17,7 +17,10 @@ interface Props {
 export function ColaboradorCard({ derivado, clientes, onAbrirModal }: Props) {
   const [expandido, setExpandido] = useState(false);
   const { colaborador: c, custoTotalMensal, ocupacao, statusOcupacao, funcao, somaPctClientes } = derivado;
-  const tipo = c.tipo_vinculo ?? 'clt';
+  // Narrowing temporário: 'estagio' mapeado para 'clt' visualmente
+  // (badge "CLT") até Fase 5 expandir COR_VINCULO. Pendência registrada
+  // em audit-results/pendencias-fase3-descobertas.md.
+  const tipo: 'clt' | 'pro_labore' = c.tipo_vinculo === 'pro_labore' ? 'pro_labore' : 'clt';
   const local = c.localidade ?? 'SP';
   const corV = COR_VINCULO[tipo];
   const corL = COR_LOCALIDADE[local];

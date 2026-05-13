@@ -107,6 +107,22 @@ export function calcularFolhaColaborador(
 ): ResultadoFolha {
   const horasProd = HORAS_PRODUTIVAS_POR_LOCALIDADE[c.localidade ?? 'SP'] ?? HORAS_PRODUTIVAS_POR_LOCALIDADE.SP;
 
+  // Estagiário (Lei 11.788/2008): sem encargos patronais, sem 13º/férias,
+  // sem PLR, sem INSS/IRRF (bolsa isenta). Custo total = bolsa + benefícios.
+  // Cast temporário: `tipo_vinculo` ainda é 'clt' | 'pro_labore' no tipo
+  // (sub-etapa 2A.5.b vai alargar para incluir 'estagio' formalmente).
+  if ((c.tipo_vinculo as string) === 'estagio') {
+    const base = c.salario_base ?? 0;
+    const custoMensal = base + (c.beneficios_fixos ?? 0);
+    return {
+      salario_teto_cargo: 0, liquido_acordado: 0, qtd_dependentes: 0,
+      inss: 0, irrf: 0, redutor_ir_2026: 0, irrf_liquido: 0,
+      liquido_do_teto: base, complemento_plr: 0, reflexos_plr_mensal: 0,
+      encargos_patronais: 0, decimo_terceiro_ferias: 0,
+      custo_total_mensal: custoMensal, custo_hora: (custoMensal * 12) / horasProd,
+    };
+  }
+
   if (c.tipo_vinculo === 'pro_labore') {
     // Pro-labore: sem PLR, sem 13º/férias; encargo simplificado 20% INSS patronal.
     // Histórico de reajustes não se aplica — pro_labore usa salario_base direto.

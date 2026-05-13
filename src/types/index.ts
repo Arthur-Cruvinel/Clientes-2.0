@@ -209,7 +209,7 @@ export interface Colaborador {
   localidade?: 'SP' | 'RJ';             // default tratado como 'SP' quando ausente
   funcao_principal: string;
   alocavel: boolean;
-  tipo_vinculo?: 'clt' | 'pro_labore';  // default tratado como 'clt' quando ausente
+  tipo_vinculo?: 'clt' | 'pro_labore' | 'estagio';  // default tratado como 'clt' quando ausente
 
   // Percentuais de alocação
   percentual_alocavel: number;
