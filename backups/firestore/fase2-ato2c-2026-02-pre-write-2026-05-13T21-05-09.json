@@ -1,0 +1,881 @@
+{
+  "timestamp": "2026-05-13T21:05:09.178Z",
+  "modo": "APLICADO",
+  "periodo": "2026-02",
+  "total": 24,
+  "docs": [
+    {
+      "docId": "0377a6f5-6d86-4cf8-a29d-5f159d9daba6",
+      "path": "fechamentos/2026-02/colaboradores/0377a6f5-6d86-4cf8-a29d-5f159d9daba6",
+      "dados_antes": {
+        "localidade": "RJ",
+        "liquido_acordado": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "historico_reajustes": [
+          {
+            "observacao": "Entrada inicial (migração)",
+            "salario_teto_cargo": 3800,
+            "vigencia": "2025-12",
+            "liquido_acordado": 0
+          }
+        ],
+        "nome_colaborador": "Julia Pereira",
+        "decimo_terceiro_ferias": 422.22222222222223,
+        "percentual_alocavel": 1,
+        "reflexos_plr_mensal": 0,
+        "funcao_principal": "operacional_financeiro",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "complemento_plr": 0,
+        "cargo": "Operador Financeiro",
+        "tipo_vinculo": "clt",
+        "salario_teto_cargo": 3800,
+        "irrf": 0,
+        "alocavel": true,
+        "encargos_patronais": 1064,
+        "custo_hora": 40.94513408848872,
+        "salario_base": 3800,
+        "id_estavel": "9cb609bb-2746-479a-96d9-233e2d150cd5",
+        "inss": 344.6,
+        "id": "0377a6f5-6d86-4cf8-a29d-5f159d9daba6",
+        "custo_total_mensal": 6713.052222222223
+      }
+    },
+    {
+      "docId": "075808b4-907e-43b7-bf5c-a3583450dc09",
+      "path": "fechamentos/2026-02/colaboradores/075808b4-907e-43b7-bf5c-a3583450dc09",
+      "dados_antes": {
+        "alocavel": true,
+        "irrf": 0,
+        "salario_teto_cargo": 5041,
+        "tipo_vinculo": "clt",
+        "custo_hora": 74.96573046761544,
+        "encargos_patronais": 1411.4800000000002,
+        "id_estavel": "ed67478f-2c9d-4b27-9a8b-aabd7073b861",
+        "salario_base": 11346.11,
+        "custo_total_mensal": 12290.81,
+        "id": "075808b4-907e-43b7-bf5c-a3583450dc09",
+        "inss": 507.25,
+        "reflexos_plr_mensal": 385.1388888888889,
+        "percentual_alocavel": 1,
+        "decimo_terceiro_ferias": 560.1111111111111,
+        "funcao_principal": "consultoria_gestao",
+        "percentual_institucional": 0,
+        "qtd_dependentes": 2,
+        "cargo": "Analista Administrativo",
+        "complemento_plr": 3466.25,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 8000,
+        "nome_colaborador": "Giovanna Pargoli",
+        "historico_reajustes": [
+          {
+            "observacao": "Entrada inicial (migração)",
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 5041,
+            "liquido_acordado": 7999.99
+          }
+        ],
+        "localidade": "SP"
+      }
+    },
+    {
+      "docId": "0d7d9c99-f803-4abc-a79c-13891bba5263",
+      "path": "fechamentos/2026-02/colaboradores/0d7d9c99-f803-4abc-a79c-13891bba5263",
+      "dados_antes": {
+        "alocavel": false,
+        "irrf": 0,
+        "salario_teto_cargo": 13466.1,
+        "tipo_vinculo": "pro_labore",
+        "custo_hora": 73.19198373511472,
+        "encargos_patronais": 2000,
+        "id_estavel": "f7940cec-f54a-478e-8983-a60147aa1324",
+        "salario_base": 10000,
+        "custo_total_mensal": 12000,
+        "id": "0d7d9c99-f803-4abc-a79c-13891bba5263",
+        "liquido_do_teto": 0,
+        "inss": 0,
+        "reflexos_plr_mensal": 0,
+        "percentual_alocavel": 0,
+        "decimo_terceiro_ferias": 0,
+        "irrf_liquido": 0,
+        "funcao_principal": "consultoria_gestao",
+        "percentual_institucional": 1,
+        "qtd_dependentes": 0,
+        "cargo": "Sócio",
+        "complemento_plr": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 0,
+        "liquido_acordado": 0,
+        "nome_colaborador": "Priscilla Rocha",
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "salario_teto_cargo": 10000,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)"
+          }
+        ],
+        "redutor_ir_2026": 0,
+        "localidade": "SP"
+      }
+    },
+    {
+      "docId": "1ec502f6-d070-4483-ab9d-35f48c1bdea1",
+      "path": "fechamentos/2026-02/colaboradores/1ec502f6-d070-4483-ab9d-35f48c1bdea1",
+      "dados_antes": {
+        "tipo_vinculo": "pro_labore",
+        "alocavel": true,
+        "salario_teto_cargo": 13466.1,
+        "irrf": 0,
+        "encargos_patronais": 2000,
+        "custo_hora": 73.19198373511472,
+        "salario_base": 10000,
+        "id_estavel": "233c4c24-3afb-4d2e-8ee9-10e2b1a9ec81",
+        "liquido_do_teto": 0,
+        "id": "1ec502f6-d070-4483-ab9d-35f48c1bdea1",
+        "inss": 0,
+        "custo_total_mensal": 12000,
+        "percentual_alocavel": 0.7,
+        "decimo_terceiro_ferias": 0,
+        "reflexos_plr_mensal": 0,
+        "irrf_liquido": 0,
+        "funcao_principal": "consultoria_gestao",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0.3,
+        "complemento_plr": 0,
+        "cargo": "CEO",
+        "liquido_acordado": 0,
+        "beneficios_fixos": 0,
+        "diferenca_teto": 0,
+        "nome_colaborador": "Viviane Leal",
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "salario_teto_cargo": 10000,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)"
+          }
+        ],
+        "redutor_ir_2026": 0,
+        "localidade": "SP"
+      }
+    },
+    {
+      "docId": "319ca8de-a7c6-4443-a01d-c444f43af428",
+      "path": "fechamentos/2026-02/colaboradores/319ca8de-a7c6-4443-a01d-c444f43af428",
+      "dados_antes": {
+        "historico_reajustes": [
+          {
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 4191.61,
+            "observacao": "Entrada inicial (migração)",
+            "liquido_acordado": 0
+          }
+        ],
+        "nome_colaborador": "Thayna Ribeiro",
+        "liquido_acordado": 0,
+        "beneficios_fixos": 1426.83,
+        "diferenca_teto": 0,
+        "localidade": "RJ",
+        "inss": 344.6,
+        "id": "319ca8de-a7c6-4443-a01d-c444f43af428",
+        "custo_total_mensal": 6713.052222222223,
+        "salario_base": 4191.61,
+        "id_estavel": "aad757c6-8a8c-44f1-8d3d-d776144ccada",
+        "encargos_patronais": 1064,
+        "custo_hora": 40.94513408848872,
+        "tipo_vinculo": "clt",
+        "salario_teto_cargo": 3800,
+        "irrf": 0,
+        "alocavel": true,
+        "complemento_plr": 0,
+        "cargo": "Assistente Administrativo",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "funcao_principal": "serv_adm",
+        "decimo_terceiro_ferias": 422.22222222222223,
+        "percentual_alocavel": 1,
+        "reflexos_plr_mensal": 0
+      }
+    },
+    {
+      "docId": "35e54b7c-32a4-4877-9afd-24e581d8fc04",
+      "path": "fechamentos/2026-02/colaboradores/35e54b7c-32a4-4877-9afd-24e581d8fc04",
+      "dados_antes": {
+        "localidade": "SP",
+        "liquido_acordado": 12000,
+        "beneficios_fixos": 1426.83,
+        "diferenca_teto": 6724.73,
+        "nome_colaborador": "Fernanda Cassa",
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 12000,
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 9500,
+            "observacao": "Entrada inicial (migração)"
+          }
+        ],
+        "percentual_alocavel": 1,
+        "decimo_terceiro_ferias": 1055.5555555555554,
+        "reflexos_plr_mensal": 546.6822222222222,
+        "funcao_principal": "consultoria_gestao",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "complemento_plr": 4920.14,
+        "cargo": "Gerente de Gestão de Atletas",
+        "tipo_vinculo": "clt",
+        "alocavel": true,
+        "irrf": 1432.05,
+        "salario_teto_cargo": 9500,
+        "encargos_patronais": 2660.0000000000005,
+        "custo_hora": 122.6527340497628,
+        "salario_base": 16224.73,
+        "id_estavel": "adcd1156-8c6e-44f4-8d61-58d7a56fbf3d",
+        "id": "35e54b7c-32a4-4877-9afd-24e581d8fc04",
+        "inss": 988.09,
+        "custo_total_mensal": 20109.207777777778
+      }
+    },
+    {
+      "docId": "35f7fe61-031e-4548-ba3a-5fb742a4905b",
+      "path": "fechamentos/2026-02/colaboradores/35f7fe61-031e-4548-ba3a-5fb742a4905b",
+      "dados_antes": {
+        "encargos_patronais": 0,
+        "beneficios_fixos": 0,
+        "custo_hora": 0,
+        "diferenca_teto": 0,
+        "salario_teto_cargo": 0,
+        "alocavel": false,
+        "nome_colaborador": "Cinza = calculado automaticamente (não editar)",
+        "custo_total_mensal": 0,
+        "salario_base": 0,
+        "funcao_principal": "",
+        "decimo_terceiro_ferias": 0,
+        "percentual_alocavel": 0,
+        "cargo": "",
+        "percentual_institucional": 0
+      }
+    },
+    {
+      "docId": "37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "path": "fechamentos/2026-02/colaboradores/37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "dados_antes": {
+        "reflexos_plr_mensal": 0,
+        "percentual_alocavel": 1,
+        "decimo_terceiro_ferias": 0,
+        "funcao_principal": "serv_aux_adm",
+        "irrf_liquido": 0,
+        "percentual_institucional": 0,
+        "qtd_dependentes": 0,
+        "cargo": "Estágio Administrativo",
+        "complemento_plr": 0,
+        "alocavel": true,
+        "irrf": 0,
+        "salario_teto_cargo": 2300,
+        "tipo_vinculo": "estagio",
+        "custo_hora": 22.7311733952948,
+        "encargos_patronais": 0,
+        "id_estavel": "b8174275-a638-46b3-90b5-73c4fc0cfdb1",
+        "salario_base": 2300,
+        "custo_total_mensal": 3726.83,
+        "liquido_do_teto": 2300,
+        "id": "37cbf278-be1a-492a-bd32-1ecdd6953a29",
+        "inss": 0,
+        "redutor_ir_2026": 0,
+        "localidade": "RJ",
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 0,
+        "nome_colaborador": "Maria Eduarda Cruz",
+        "historico_reajustes": [
+          {
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 2300,
+            "observacao": "Entrada inicial (migração)",
+            "liquido_acordado": 0
+          }
+        ]
+      }
+    },
+    {
+      "docId": "3b2143db-d83a-4c3b-b399-4564d478e11a",
+      "path": "fechamentos/2026-02/colaboradores/3b2143db-d83a-4c3b-b399-4564d478e11a",
+      "dados_antes": {
+        "localidade": "RJ",
+        "historico_reajustes": [
+          {
+            "observacao": "Entrada inicial (migração)",
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 10500,
+            "liquido_acordado": 12000
+          }
+        ],
+        "nome_colaborador": "Erika Freitas",
+        "liquido_acordado": 12000,
+        "beneficios_fixos": 1426.83,
+        "diferenca_teto": 5724.73,
+        "complemento_plr": 4195.14,
+        "cargo": "Superintendente Administrativo",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0.3,
+        "funcao_principal": "consultoria_gestao",
+        "decimo_terceiro_ferias": 1166.6666666666665,
+        "percentual_alocavel": 0.7,
+        "reflexos_plr_mensal": 466.12666666666667,
+        "inss": 988.09,
+        "id": "3b2143db-d83a-4c3b-b399-4564d478e11a",
+        "custo_total_mensal": 20694.763333333332,
+        "salario_base": 16224.73,
+        "id_estavel": "3770fa22-9978-4081-9f37-ff635ea09968",
+        "encargos_patronais": 2940.0000000000005,
+        "custo_hora": 126.22423177461513,
+        "tipo_vinculo": "clt",
+        "irrf": 1707.05,
+        "salario_teto_cargo": 10500,
+        "alocavel": true
+      }
+    },
+    {
+      "docId": "4a21a2db-e191-40b6-9014-33f31d780392",
+      "path": "fechamentos/2026-02/colaboradores/4a21a2db-e191-40b6-9014-33f31d780392",
+      "dados_antes": {
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 8500,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)",
+            "liquido_acordado": 0
+          }
+        ],
+        "nome_colaborador": "Daniel Gama",
+        "diferenca_teto": 4966.1,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 10000,
+        "localidade": "RJ",
+        "id_estavel": "cf38ae97-49e6-4039-a6e9-69cc8e6074ef",
+        "salario_base": 13466.1,
+        "custo_total_mensal": 17301.43,
+        "inss": 988.09,
+        "id": "4a21a2db-e191-40b6-9014-33f31d780392",
+        "irrf": 1157.05,
+        "salario_teto_cargo": 8500,
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "custo_hora": 105.52716526285217,
+        "encargos_patronais": 2380,
+        "percentual_institucional": 0,
+        "qtd_dependentes": 0,
+        "cargo": "Coordenador de Gestão de Atletas",
+        "complemento_plr": 3645.1400000000003,
+        "reflexos_plr_mensal": 405.0155555555556,
+        "decimo_terceiro_ferias": 944.4444444444445,
+        "percentual_alocavel": 1,
+        "funcao_principal": "consultoria_gestao"
+      }
+    },
+    {
+      "docId": "4c6c7edd-3f93-452e-bfe6-c43bea61d39f",
+      "path": "fechamentos/2026-02/colaboradores/4c6c7edd-3f93-452e-bfe6-c43bea61d39f",
+      "dados_antes": {
+        "localidade": "SP",
+        "liquido_acordado": 0,
+        "beneficios_fixos": 1426.83,
+        "diferenca_teto": 0,
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "observacao": "Entrada inicial (migração)",
+            "salario_teto_cargo": 4023.45,
+            "vigencia": "2025-12"
+          }
+        ],
+        "nome_colaborador": "Luisa Villa",
+        "decimo_terceiro_ferias": 422.22222222222223,
+        "percentual_alocavel": 1,
+        "reflexos_plr_mensal": 0,
+        "funcao_principal": "serv_adm",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "complemento_plr": 0,
+        "cargo": "Assistente Administrativo",
+        "tipo_vinculo": "clt",
+        "irrf": 0,
+        "salario_teto_cargo": 3800,
+        "alocavel": true,
+        "encargos_patronais": 1064,
+        "custo_hora": 40.94513408848872,
+        "salario_base": 3815,
+        "id_estavel": "5c89d401-a589-49e6-857e-59fd2676eb8f",
+        "inss": 344.6,
+        "id": "4c6c7edd-3f93-452e-bfe6-c43bea61d39f",
+        "custo_total_mensal": 6713.052222222223
+      }
+    },
+    {
+      "docId": "53236d21-ea5f-4b64-9f4a-a7c027130d67",
+      "path": "fechamentos/2026-02/colaboradores/53236d21-ea5f-4b64-9f4a-a7c027130d67",
+      "dados_antes": {
+        "cargo": "",
+        "percentual_institucional": 0,
+        "funcao_principal": "",
+        "percentual_alocavel": 0,
+        "decimo_terceiro_ferias": 0,
+        "nome_colaborador": "LEGENDA:",
+        "custo_total_mensal": 0,
+        "salario_base": 0,
+        "encargos_patronais": 0,
+        "diferenca_teto": 0,
+        "custo_hora": 0,
+        "beneficios_fixos": 0,
+        "alocavel": false,
+        "salario_teto_cargo": 0
+      }
+    },
+    {
+      "docId": "53c461ee-1895-4872-a092-fdccccd1bab8",
+      "path": "fechamentos/2026-02/colaboradores/53c461ee-1895-4872-a092-fdccccd1bab8",
+      "dados_antes": {
+        "custo_hora": 55.499024997579625,
+        "encargos_patronais": 1544.2784000000001,
+        "irrf": 205.93,
+        "salario_teto_cargo": 5515.28,
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "custo_total_mensal": 9099.197288888889,
+        "inss": 573.65,
+        "id": "53c461ee-1895-4872-a092-fdccccd1bab8",
+        "id_estavel": "d7becf48-a363-429d-a5a7-ca992816f00a",
+        "salario_base": 7000,
+        "funcao_principal": "serv_adm",
+        "reflexos_plr_mensal": 0,
+        "decimo_terceiro_ferias": 612.8088888888888,
+        "percentual_alocavel": 1,
+        "cargo": "Assistente Administrativo",
+        "complemento_plr": 0,
+        "percentual_institucional": 0,
+        "qtd_dependentes": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 0,
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "observacao": "Entrada inicial (migração)",
+            "salario_teto_cargo": 7000,
+            "vigencia": "2025-12"
+          }
+        ],
+        "nome_colaborador": "Cintia De Jesus Alves",
+        "localidade": "RJ"
+      }
+    },
+    {
+      "docId": "755e79c9-cb26-41d0-b48c-32b501160787",
+      "path": "fechamentos/2026-02/colaboradores/755e79c9-cb26-41d0-b48c-32b501160787",
+      "dados_antes": {
+        "nome_colaborador": "Rafael Parolise",
+        "historico_reajustes": [
+          {
+            "observacao": "Entrada inicial (migração)",
+            "salario_teto_cargo": 7000,
+            "vigencia": "2025-12",
+            "liquido_acordado": 0
+          }
+        ],
+        "liquido_acordado": 0,
+        "beneficios_fixos": 1426.83,
+        "diferenca_teto": 0,
+        "localidade": "RJ",
+        "id": "755e79c9-cb26-41d0-b48c-32b501160787",
+        "inss": 529.51,
+        "custo_total_mensal": 8660.607777777777,
+        "salario_base": 7000,
+        "id_estavel": "a4409d3d-bed3-467c-8cf4-989d53a80c53",
+        "encargos_patronais": 1456.0000000000002,
+        "custo_hora": 52.8239219672766,
+        "tipo_vinculo": "clt",
+        "alocavel": true,
+        "irrf": 89.39,
+        "salario_teto_cargo": 5200,
+        "complemento_plr": 0,
+        "cargo": "Supervisor Financeiro",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "funcao_principal": "consultoria_financeira",
+        "percentual_alocavel": 1,
+        "decimo_terceiro_ferias": 577.7777777777777,
+        "reflexos_plr_mensal": 0
+      }
+    },
+    {
+      "docId": "7ef26d35-153b-4639-bf11-598ba935e924",
+      "path": "fechamentos/2026-02/colaboradores/7ef26d35-153b-4639-bf11-598ba935e924",
+      "dados_antes": {
+        "localidade": "RJ",
+        "redutor_ir_2026": 0,
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "observacao": "Entrada inicial (migração)",
+            "salario_teto_cargo": 2300,
+            "vigencia": "2025-12"
+          }
+        ],
+        "nome_colaborador": "Mariah Assbu",
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 0,
+        "percentual_institucional": 0,
+        "qtd_dependentes": 0,
+        "cargo": "Estágio Administrativo",
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "decimo_terceiro_ferias": 0,
+        "percentual_alocavel": 1,
+        "irrf_liquido": 0,
+        "funcao_principal": "serv_aux_adm",
+        "id_estavel": "88680a4d-b4e6-426f-83e5-a3f22ddcfad9",
+        "salario_base": 2300,
+        "custo_total_mensal": 3726.83,
+        "inss": 0,
+        "liquido_do_teto": 2300,
+        "id": "7ef26d35-153b-4639-bf11-598ba935e924",
+        "salario_teto_cargo": 2300,
+        "irrf": 0,
+        "alocavel": true,
+        "tipo_vinculo": "estagio",
+        "custo_hora": 22.7311733952948,
+        "encargos_patronais": 0
+      }
+    },
+    {
+      "docId": "874f50bf-e28c-449d-9648-27a5398598e7",
+      "path": "fechamentos/2026-02/colaboradores/874f50bf-e28c-449d-9648-27a5398598e7",
+      "dados_antes": {
+        "irrf": 1294.72,
+        "salario_teto_cargo": 9000.65,
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "custo_hora": 85.071861361216,
+        "encargos_patronais": 2520.1820000000002,
+        "id_estavel": "171207fb-638d-4c89-9fcb-8590feceddc1",
+        "salario_base": 11500,
+        "custo_total_mensal": 13947.734222222223,
+        "inss": 988.09,
+        "id": "874f50bf-e28c-449d-9648-27a5398598e7",
+        "reflexos_plr_mensal": 0,
+        "decimo_terceiro_ferias": 1000.0722222222222,
+        "percentual_alocavel": 0.6,
+        "funcao_principal": "consultoria_planejamento",
+        "percentual_institucional": 0.4,
+        "qtd_dependentes": 0,
+        "cargo": "Coordenador Financeiro",
+        "complemento_plr": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 0,
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "observacao": "Entrada inicial (migração)",
+            "salario_teto_cargo": 8500,
+            "vigencia": "2025-12"
+          }
+        ],
+        "nome_colaborador": "Arthur Cruvinel",
+        "localidade": "SP"
+      }
+    },
+    {
+      "docId": "8aba1578-97b9-4f7b-bf9a-d3653dca704d",
+      "path": "fechamentos/2026-02/colaboradores/8aba1578-97b9-4f7b-bf9a-d3653dca704d",
+      "dados_antes": {
+        "liquido_acordado": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "salario_teto_cargo": 6855.16,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)"
+          }
+        ],
+        "nome_colaborador": "Luis Eduardo Nerone",
+        "localidade": "SP",
+        "tipo_vinculo": "clt",
+        "irrf": 701.21,
+        "salario_teto_cargo": 6855.16,
+        "alocavel": true,
+        "encargos_patronais": 1919.4448000000002,
+        "custo_hora": 66.8677037854584,
+        "salario_base": 6855.16,
+        "id_estavel": "ac6922ca-d464-4743-b125-51e8d0ec26c1",
+        "inss": 761.24,
+        "id": "8aba1578-97b9-4f7b-bf9a-d3653dca704d",
+        "custo_total_mensal": 10963.119244444444,
+        "decimo_terceiro_ferias": 761.6844444444444,
+        "percentual_alocavel": 1,
+        "reflexos_plr_mensal": 0,
+        "funcao_principal": "consultoria_financeira",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "complemento_plr": 0,
+        "cargo": "Supervisor Financeiro"
+      }
+    },
+    {
+      "docId": "9cb18cb6-fe16-4256-85c8-5377813db9cc",
+      "path": "fechamentos/2026-02/colaboradores/9cb18cb6-fe16-4256-85c8-5377813db9cc",
+      "dados_antes": {
+        "cargo": "",
+        "percentual_institucional": 0,
+        "funcao_principal": "",
+        "percentual_alocavel": 0,
+        "decimo_terceiro_ferias": 0,
+        "nome_colaborador": "Amarelo = campo a preencher manualmente",
+        "custo_total_mensal": 0,
+        "salario_base": 0,
+        "encargos_patronais": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 0,
+        "custo_hora": 0,
+        "alocavel": false,
+        "salario_teto_cargo": 0
+      }
+    },
+    {
+      "docId": "b158bf44-0248-420f-87f9-4ab073e4e6c0",
+      "path": "fechamentos/2026-02/colaboradores/b158bf44-0248-420f-87f9-4ab073e4e6c0",
+      "dados_antes": {
+        "funcao_principal": "institucional",
+        "irrf_liquido": 0,
+        "percentual_alocavel": 0,
+        "decimo_terceiro_ferias": 0,
+        "reflexos_plr_mensal": 0,
+        "complemento_plr": 0,
+        "cargo": "Sócio",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 1,
+        "encargos_patronais": 2000,
+        "custo_hora": 73.19198373511472,
+        "tipo_vinculo": "pro_labore",
+        "alocavel": false,
+        "irrf": 0,
+        "salario_teto_cargo": 13466.1,
+        "id": "b158bf44-0248-420f-87f9-4ab073e4e6c0",
+        "liquido_do_teto": 0,
+        "inss": 0,
+        "custo_total_mensal": 12000,
+        "salario_base": 10000,
+        "id_estavel": "14ee0914-5d97-4260-9565-9f8f13a23d1d",
+        "redutor_ir_2026": 0,
+        "localidade": "SP",
+        "liquido_acordado": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 0,
+        "nome_colaborador": "Amilcar Junior",
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 10000,
+            "observacao": "Entrada inicial (migração)"
+          }
+        ]
+      }
+    },
+    {
+      "docId": "b36faa87-43b0-441d-968a-8d48f7f0c6e1",
+      "path": "fechamentos/2026-02/colaboradores/b36faa87-43b0-441d-968a-8d48f7f0c6e1",
+      "dados_antes": {
+        "localidade": "RJ",
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 5041,
+            "observacao": "Entrada inicial (migração)"
+          }
+        ],
+        "nome_colaborador": "Rafaela Correggiari",
+        "diferenca_teto": 5669.24,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 8000,
+        "percentual_institucional": 0,
+        "qtd_dependentes": 0,
+        "cargo": "Analista Administrativo",
+        "complemento_plr": 3503.42,
+        "reflexos_plr_mensal": 389.26888888888885,
+        "decimo_terceiro_ferias": 560.1111111111111,
+        "percentual_alocavel": 1,
+        "funcao_principal": "consultoria_gestao",
+        "id_estavel": "f5e82fbf-a457-4a08-85da-311a31f785e9",
+        "salario_base": 10710.24,
+        "custo_total_mensal": 12332.11,
+        "inss": 507.25,
+        "id": "b36faa87-43b0-441d-968a-8d48f7f0c6e1",
+        "irrf": 37.17,
+        "salario_teto_cargo": 5041,
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "custo_hora": 75.2176328783038,
+        "encargos_patronais": 1411.4800000000002
+      }
+    },
+    {
+      "docId": "b55c68e4-f0da-4f40-8029-aaf4a1989a06",
+      "path": "fechamentos/2026-02/colaboradores/b55c68e4-f0da-4f40-8029-aaf4a1989a06",
+      "dados_antes": {
+        "irrf": 0,
+        "salario_teto_cargo": 3958.46,
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "custo_hora": 42.28964317939781,
+        "encargos_patronais": 1108.3688000000002,
+        "id_estavel": "a5a8437d-6bd3-47f4-bd7a-8fd925fe6595",
+        "salario_base": 5800.52,
+        "custo_total_mensal": 6933.487688888889,
+        "inss": 363.62,
+        "id": "b55c68e4-f0da-4f40-8029-aaf4a1989a06",
+        "reflexos_plr_mensal": 0,
+        "decimo_terceiro_ferias": 439.82888888888886,
+        "percentual_alocavel": 1,
+        "funcao_principal": "operacional_financeiro",
+        "percentual_institucional": 0,
+        "qtd_dependentes": 0,
+        "cargo": "Operador Financeiro",
+        "complemento_plr": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 0,
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 5800.52,
+            "observacao": "Entrada inicial (migração)"
+          }
+        ],
+        "nome_colaborador": "Lucas Henrique",
+        "localidade": "RJ"
+      }
+    },
+    {
+      "docId": "b959bf25-9851-448d-a76a-a7df4e8e62c2",
+      "path": "fechamentos/2026-02/colaboradores/b959bf25-9851-448d-a76a-a7df4e8e62c2",
+      "dados_antes": {
+        "localidade": "SP",
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "liquido_acordado": 0,
+        "historico_reajustes": [
+          {
+            "observacao": "Entrada inicial (migração)",
+            "vigencia": "2025-12",
+            "salario_teto_cargo": 4023.82,
+            "liquido_acordado": 0
+          }
+        ],
+        "nome_colaborador": "Matheus Tripoli",
+        "funcao_principal": "consultoria_financeira",
+        "reflexos_plr_mensal": 0,
+        "decimo_terceiro_ferias": 422.22222222222223,
+        "percentual_alocavel": 1,
+        "cargo": "Assistente Financeiro",
+        "complemento_plr": 0,
+        "percentual_institucional": 0,
+        "qtd_dependentes": 0,
+        "custo_hora": 40.94513408848872,
+        "encargos_patronais": 1064,
+        "irrf": 0,
+        "salario_teto_cargo": 3800,
+        "alocavel": true,
+        "tipo_vinculo": "clt",
+        "custo_total_mensal": 6713.052222222223,
+        "inss": 344.6,
+        "id": "b959bf25-9851-448d-a76a-a7df4e8e62c2",
+        "id_estavel": "ad77ac7e-22fa-4fae-81ca-416109d7a5be",
+        "salario_base": 4023.82
+      }
+    },
+    {
+      "docId": "eb4f1641-4211-432d-a1aa-a687deff482e",
+      "path": "fechamentos/2026-02/colaboradores/eb4f1641-4211-432d-a1aa-a687deff482e",
+      "dados_antes": {
+        "localidade": "SP",
+        "historico_reajustes": [
+          {
+            "liquido_acordado": 0,
+            "salario_teto_cargo": 10019.08,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)"
+          }
+        ],
+        "nome_colaborador": "Flávia Santos Romeu",
+        "liquido_acordado": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "complemento_plr": 0,
+        "cargo": "Analista de Gestão",
+        "qtd_dependentes": 0,
+        "percentual_institucional": 0,
+        "funcao_principal": "consultoria_gestao",
+        "decimo_terceiro_ferias": 1117.7277777777776,
+        "percentual_alocavel": 1,
+        "reflexos_plr_mensal": 0,
+        "inss": 988.09,
+        "id": "eb4f1641-4211-432d-a1aa-a687deff482e",
+        "custo_total_mensal": 15420.781777777778,
+        "salario_base": 10019.08,
+        "id_estavel": "a063e11b-b8dd-4c4a-868c-f15289e5919c",
+        "encargos_patronais": 2816.674,
+        "custo_hora": 94.05646742182205,
+        "tipo_vinculo": "clt",
+        "salario_teto_cargo": 10059.55,
+        "irrf": 1585.92,
+        "alocavel": true
+      }
+    },
+    {
+      "docId": "eea5d81c-d1ec-4338-806b-b44d26b1ffa0",
+      "path": "fechamentos/2026-02/colaboradores/eea5d81c-d1ec-4338-806b-b44d26b1ffa0",
+      "dados_antes": {
+        "salario_base": 7000,
+        "id_estavel": "f6d466c2-9866-4dae-bfa5-249658ec44bb",
+        "id": "eea5d81c-d1ec-4338-806b-b44d26b1ffa0",
+        "inss": 765.11,
+        "custo_total_mensal": 11001.639111111112,
+        "tipo_vinculo": "clt",
+        "alocavel": true,
+        "irrf": 711.45,
+        "salario_teto_cargo": 6882.85,
+        "encargos_patronais": 1927.1980000000003,
+        "custo_hora": 67.10264924000387,
+        "qtd_dependentes": 0,
+        "percentual_institucional": 1,
+        "complemento_plr": 0,
+        "cargo": "Assistente Administrativo",
+        "percentual_alocavel": 0,
+        "decimo_terceiro_ferias": 764.7611111111111,
+        "reflexos_plr_mensal": 0,
+        "funcao_principal": "serv_adm",
+        "nome_colaborador": "Fernanda da Silva Soares",
+        "historico_reajustes": [
+          {
+            "salario_teto_cargo": 7000,
+            "vigencia": "2025-12",
+            "observacao": "Entrada inicial (migração)",
+            "liquido_acordado": 0
+          }
+        ],
+        "liquido_acordado": 0,
+        "diferenca_teto": 0,
+        "beneficios_fixos": 1426.83,
+        "localidade": "RJ"
+      }
+    }
+  ]
+}
