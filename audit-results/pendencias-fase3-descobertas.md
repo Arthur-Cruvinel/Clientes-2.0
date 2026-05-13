@@ -115,3 +115,43 @@ ainda — os 2 estagiários serão atualizados em sub-etapa 2A.5.d
 e a UI continuará mostrando-os como CLT até refatoração da Fase 5).
 
 ---
+
+## Pendência infraestrutura — duplicação de lógica de folha em scripts `.mjs`
+
+**Origem:** Sub-etapa 2A.5.c (Fase 2 Ato 2A.5).
+
+**Problema:** O script `scripts/corrigirTipoVinculo.mjs` replica inline a
+lógica de `calcularFolhaColaborador` (`src/utils/financials.custos.ts`)
+em vez de importar a função canônica. Também aplicável a outros
+scripts em `scripts/` que façam recálculo de folha (verificar pelo
+menos `scripts/seedFuncaoPrincipal.mjs`).
+
+**Causa provável:** scripts `.mjs` (Node ESM puro) não importam diretamente
+arquivos `.ts` (TypeScript) sem build intermediário. Solução adotada
+foi duplicação inline da lógica.
+
+**Estado atual:** tabelas INSS, IRRF, encargos patronais e fórmulas
+estão sincronizadas entre função canônica e cópias nos scripts
+(validado por amostragem na Sub-etapa 2A.5.c).
+
+**Risco:** divergência futura silenciosa. Se alguém atualizar tabelas
+fiscais ou regras de cálculo em `src/utils/financials.custos.ts` sem
+auditar os scripts, motor financeiro e scripts de correção produzirão
+resultados diferentes para o mesmo input.
+
+**Mitigação imediata:** ao mexer em `calcularFolhaColaborador`, fazer
+audit nos arquivos do diretório `scripts/` que façam recálculo de
+folha. Procurar por palavras-chave: `TABELA_INSS`, `TABELA_IRRF`,
+`DEDUCAO_DEPENDENTE_IRRF`, `REDUTOR_IR`, `encargos_patronais`.
+
+**Resolução estrutural** (a decidir em Fase 5 ou após):
+
+- (i) Migrar scripts para `.ts` + transpilação via `tsx` ou `ts-node`
+- (ii) Extrair lógica de folha para módulo compartilhado em `.mjs`
+  que tanto função canônica `.ts` quanto scripts `.mjs` importem
+- (iii) Build intermediário que gere `.mjs` a partir de `.ts`
+
+**Prioridade:** BAIXA enquanto tabelas estiverem sincronizadas.
+Sobe para ALTA quando uma das tabelas fiscais for atualizada.
+
+---

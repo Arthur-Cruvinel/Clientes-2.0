@@ -22,7 +22,9 @@
     "fase2:colab:ato2": "node scripts/fase2ColaboradoresBase.mjs --ato=2 --apply",
     "fase2:colab:ato3": "node scripts/fase2ColaboradoresBase.mjs --ato=3 --apply",
     "seed:funcao:dry": "node scripts/seedFuncaoPrincipal.mjs",
-    "seed:funcao:apply": "node scripts/seedFuncaoPrincipal.mjs --apply"
+    "seed:funcao:apply": "node scripts/seedFuncaoPrincipal.mjs --apply",
+    "corrigir:tipo:dry": "node scripts/corrigirTipoVinculo.mjs",
+    "corrigir:tipo:apply": "node scripts/corrigirTipoVinculo.mjs --apply"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
