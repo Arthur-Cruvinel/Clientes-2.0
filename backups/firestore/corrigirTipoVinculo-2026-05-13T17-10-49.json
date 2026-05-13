@@ -1,0 +1,161 @@
+{
+  "timestamp": "2026-05-13T17:10:49.865Z",
+  "modo": "apply",
+  "total": 12,
+  "docs": [
+    {
+      "docId": "maria_eduarda_cruz",
+      "path": "colaboradores_base/maria_eduarda_cruz",
+      "dados_antes": {
+        "tipo_vinculo": "clt"
+      }
+    },
+    {
+      "docId": "37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "path": "fechamentos/2025-12/colaboradores/37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "dados_antes": {
+        "encargos_patronais": 0,
+        "decimo_terceiro_ferias": 0,
+        "custo_total_mensal": 3726.83,
+        "custo_hora": 22.183511904761904
+      }
+    },
+    {
+      "docId": "37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "path": "fechamentos/2026-01/colaboradores/37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "inss": 182.69,
+        "irrf": 0,
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "encargos_patronais": 644.0000000000001,
+        "decimo_terceiro_ferias": 255.55555555555554,
+        "custo_total_mensal": 4626.385555555556,
+        "custo_hora": 28.21786136121599
+      }
+    },
+    {
+      "docId": "37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "path": "fechamentos/2026-02/colaboradores/37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "inss": 182.69,
+        "irrf": 0,
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "encargos_patronais": 644.0000000000001,
+        "decimo_terceiro_ferias": 255.55555555555554,
+        "custo_total_mensal": 4626.385555555556,
+        "custo_hora": 28.21786136121599
+      }
+    },
+    {
+      "docId": "37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "path": "fechamentos/2026-03/colaboradores/37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "inss": 182.69,
+        "irrf": 0,
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "encargos_patronais": 644.0000000000001,
+        "decimo_terceiro_ferias": 255.55555555555554,
+        "custo_total_mensal": 4626.385555555556,
+        "custo_hora": 28.21786136121599
+      }
+    },
+    {
+      "docId": "37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "path": "fechamentos/2026-04/colaboradores/37cbf278-be1a-492a-bd32-1ecdd6953a29",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "inss": 182.69,
+        "irrf": 0,
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "encargos_patronais": 644.0000000000001,
+        "decimo_terceiro_ferias": 255.55555555555554,
+        "custo_total_mensal": 4626.385555555556,
+        "custo_hora": 28.21786136121599
+      }
+    },
+    {
+      "docId": "mariah_assbu",
+      "path": "colaboradores_base/mariah_assbu",
+      "dados_antes": {
+        "tipo_vinculo": "clt"
+      }
+    },
+    {
+      "docId": "7ef26d35-153b-4639-bf11-598ba935e924",
+      "path": "fechamentos/2025-12/colaboradores/7ef26d35-153b-4639-bf11-598ba935e924",
+      "dados_antes": {
+        "encargos_patronais": 0,
+        "decimo_terceiro_ferias": 0,
+        "custo_total_mensal": 3726.83,
+        "custo_hora": 22.183511904761904
+      }
+    },
+    {
+      "docId": "7ef26d35-153b-4639-bf11-598ba935e924",
+      "path": "fechamentos/2026-01/colaboradores/7ef26d35-153b-4639-bf11-598ba935e924",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "inss": 182.69,
+        "irrf": 0,
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "encargos_patronais": 644.0000000000001,
+        "decimo_terceiro_ferias": 255.55555555555554,
+        "custo_total_mensal": 4626.385555555556,
+        "custo_hora": 28.21786136121599
+      }
+    },
+    {
+      "docId": "7ef26d35-153b-4639-bf11-598ba935e924",
+      "path": "fechamentos/2026-02/colaboradores/7ef26d35-153b-4639-bf11-598ba935e924",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "inss": 182.69,
+        "irrf": 0,
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "encargos_patronais": 644.0000000000001,
+        "decimo_terceiro_ferias": 255.55555555555554,
+        "custo_total_mensal": 4626.385555555556,
+        "custo_hora": 28.21786136121599
+      }
+    },
+    {
+      "docId": "7ef26d35-153b-4639-bf11-598ba935e924",
+      "path": "fechamentos/2026-03/colaboradores/7ef26d35-153b-4639-bf11-598ba935e924",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "inss": 182.69,
+        "irrf": 0,
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "encargos_patronais": 644.0000000000001,
+        "decimo_terceiro_ferias": 255.55555555555554,
+        "custo_total_mensal": 4626.385555555556,
+        "custo_hora": 28.21786136121599
+      }
+    },
+    {
+      "docId": "7ef26d35-153b-4639-bf11-598ba935e924",
+      "path": "fechamentos/2026-04/colaboradores/7ef26d35-153b-4639-bf11-598ba935e924",
+      "dados_antes": {
+        "tipo_vinculo": "clt",
+        "inss": 182.69,
+        "irrf": 0,
+        "complemento_plr": 0,
+        "reflexos_plr_mensal": 0,
+        "encargos_patronais": 644.0000000000001,
+        "decimo_terceiro_ferias": 255.55555555555554,
+        "custo_total_mensal": 4626.385555555556,
+        "custo_hora": 28.21786136121599
+      }
+    }
+  ]
+}
