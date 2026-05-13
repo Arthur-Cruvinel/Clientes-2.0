@@ -24,7 +24,9 @@
     "seed:funcao:dry": "node scripts/seedFuncaoPrincipal.mjs",
     "seed:funcao:apply": "node scripts/seedFuncaoPrincipal.mjs --apply",
     "corrigir:tipo:dry": "node scripts/corrigirTipoVinculo.mjs",
-    "corrigir:tipo:apply": "node scripts/corrigirTipoVinculo.mjs --apply"
+    "corrigir:tipo:apply": "node scripts/corrigirTipoVinculo.mjs --apply",
+    "ato2b:dry": "node scripts/fase2ColaboradoresAto2B.mjs",
+    "ato2b:apply": "node scripts/fase2ColaboradoresAto2B.mjs --apply"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
