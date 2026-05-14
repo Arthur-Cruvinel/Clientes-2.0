@@ -1,0 +1,226 @@
+[
+  {
+    "docId": "ria_btg_2025_3",
+    "path": "poupanca/ria_btg_2025_3",
+    "data": {
+      "dia_inicio": null,
+      "pl_onshore": 0,
+      "nome_cliente": "RIA_BTG",
+      "rentabilidade_onshore": 0,
+      "mes": 3,
+      "aporte_mes_onshore": 0,
+      "pl_inicial_onshore": 0,
+      "ano": 2025,
+      "aporte_mes_total": 0,
+      "rentabilidade_pct": 0,
+      "rentabilidade_total": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2025_4",
+    "path": "poupanca/ria_btg_2025_4",
+    "data": {
+      "ano": 2025,
+      "pl_inicial_onshore": 0,
+      "aporte_mes_onshore": 0,
+      "mes": 4,
+      "rentabilidade_onshore": -126.36,
+      "nome_cliente": "RIA_BTG",
+      "pl_onshore": -126.36,
+      "dia_inicio": null,
+      "rentabilidade_total": -126.36,
+      "rentabilidade_pct": 0,
+      "aporte_mes_total": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2025_5",
+    "path": "poupanca/ria_btg_2025_5",
+    "data": {
+      "aporte_mes_total": 126.36,
+      "rentabilidade_total": 0,
+      "rentabilidade_pct": 0,
+      "rentabilidade_onshore": 0,
+      "nome_cliente": "RIA_BTG",
+      "dia_inicio": null,
+      "pl_onshore": 0,
+      "ano": 2025,
+      "aporte_mes_onshore": 126.36,
+      "pl_inicial_onshore": -126.36,
+      "mes": 5
+    }
+  },
+  {
+    "docId": "ria_btg_2025_6",
+    "path": "poupanca/ria_btg_2025_6",
+    "data": {
+      "nome_cliente": "RIA_BTG",
+      "rentabilidade_onshore": 0,
+      "pl_onshore": 0,
+      "dia_inicio": null,
+      "pl_inicial_onshore": 0,
+      "aporte_mes_onshore": 0,
+      "ano": 2025,
+      "mes": 6,
+      "aporte_mes_total": 0,
+      "rentabilidade_pct": 0,
+      "rentabilidade_total": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2025_7",
+    "path": "poupanca/ria_btg_2025_7",
+    "data": {
+      "rentabilidade_total": 0,
+      "rentabilidade_pct": 0,
+      "aporte_mes_total": 0,
+      "ano": 2025,
+      "pl_inicial_onshore": 0,
+      "aporte_mes_onshore": 0,
+      "mes": 7,
+      "rentabilidade_onshore": 0,
+      "nome_cliente": "RIA_BTG",
+      "dia_inicio": null,
+      "pl_onshore": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2025_8",
+    "path": "poupanca/ria_btg_2025_8",
+    "data": {
+      "rentabilidade_onshore": 0,
+      "nome_cliente": "RIA_BTG",
+      "pl_onshore": 0,
+      "dia_inicio": null,
+      "ano": 2025,
+      "pl_inicial_onshore": 0,
+      "aporte_mes_onshore": 0,
+      "mes": 8,
+      "aporte_mes_total": 0,
+      "rentabilidade_total": 0,
+      "rentabilidade_pct": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2025_9",
+    "path": "poupanca/ria_btg_2025_9",
+    "data": {
+      "rentabilidade_pct": 0,
+      "rentabilidade_total": 0,
+      "aporte_mes_total": 0,
+      "mes": 9,
+      "pl_inicial_onshore": 0,
+      "aporte_mes_onshore": 0,
+      "ano": 2025,
+      "pl_onshore": 0,
+      "dia_inicio": null,
+      "nome_cliente": "RIA_BTG",
+      "rentabilidade_onshore": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2025_10",
+    "path": "poupanca/ria_btg_2025_10",
+    "data": {
+      "dia_inicio": null,
+      "pl_onshore": 0,
+      "rentabilidade_onshore": 0,
+      "nome_cliente": "RIA_BTG",
+      "mes": 10,
+      "ano": 2025,
+      "pl_inicial_onshore": 0,
+      "aporte_mes_onshore": 0,
+      "aporte_mes_total": 0,
+      "rentabilidade_total": 0,
+      "rentabilidade_pct": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2025_11",
+    "path": "poupanca/ria_btg_2025_11",
+    "data": {
+      "rentabilidade_total": 0,
+      "rentabilidade_pct": 0,
+      "aporte_mes_total": 0,
+      "ano": 2025,
+      "aporte_mes_onshore": 0,
+      "pl_inicial_onshore": 0,
+      "mes": 11,
+      "rentabilidade_onshore": 0,
+      "nome_cliente": "RIA_BTG",
+      "dia_inicio": null,
+      "pl_onshore": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2025_12",
+    "path": "poupanca/ria_btg_2025_12",
+    "data": {
+      "rentabilidade_pct": 0,
+      "rentabilidade_total": 0,
+      "aporte_mes_total": 0,
+      "aporte_mes_onshore": 0,
+      "pl_inicial_onshore": 0,
+      "ano": 2025,
+      "mes": 12,
+      "nome_cliente": "RIA_BTG",
+      "rentabilidade_onshore": 0,
+      "dia_inicio": null,
+      "pl_onshore": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2026_3",
+    "path": "poupanca/ria_btg_2026_3",
+    "data": {
+      "cdi_mes_pct": 0.0033,
+      "aporte_mes_total": 0,
+      "rentabilidade_total": 0,
+      "rentabilidade_pct": 0,
+      "dia_inicio": 23,
+      "pl_onshore": 0,
+      "rentabilidade_onshore": 0,
+      "nome_cliente": "RIA_BTG",
+      "mes": 3,
+      "ano": 2026,
+      "aporte_mes_onshore": 0,
+      "pl_inicial_onshore": 0
+    }
+  },
+  {
+    "docId": "ria_btg_2026_4",
+    "path": "poupanca/ria_btg_2026_4",
+    "data": {
+      "rentabilidade_total": -126.36,
+      "rentabilidade_pct": -0.0002,
+      "cdi_mes_pct": 0.0109,
+      "aporte_mes_total": 0,
+      "mes": 4,
+      "ano": 2026,
+      "aporte_mes_onshore": 0,
+      "pl_inicial_onshore": 0,
+      "dia_inicio": null,
+      "pl_onshore": -126.36,
+      "rentabilidade_onshore": -126.36,
+      "nome_cliente": "RIA_BTG"
+    }
+  },
+  {
+    "docId": "ria_btg_2026_5",
+    "path": "poupanca/ria_btg_2026_5",
+    "data": {
+      "mes": 5,
+      "pl_inicial_onshore": -126.36,
+      "aporte_mes_onshore": 126.36,
+      "ano": 2026,
+      "pl_onshore": 0,
+      "dia_inicio": null,
+      "nome_cliente": "RIA_BTG",
+      "rentabilidade_onshore": 0,
+      "rentabilidade_pct": 0,
+      "rentabilidade_total": 0,
+      "cdi_mes_pct": 0.0021,
+      "aporte_mes_total": 126.36
+    }
+  }
+]
