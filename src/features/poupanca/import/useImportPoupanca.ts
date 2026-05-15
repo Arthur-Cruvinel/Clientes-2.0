@@ -12,6 +12,7 @@ import { buscarPTAXFechamento } from '../../../services/ptax';
 // [NOVO] Import do parser multi-período
 import { parseMultiPeriodoComClaude, type RegistroMensal } from './parsers/parseMultiPeriodoComClaude';
 import { MAPEAMENTO_SIGLAS, SIGLA_PARA_NOME } from './MAPEAMENTO_SIGLAS';
+import type { RegistroPoupanca } from '../../../types';
 
 // Configura o worker do pdf.js para funcionar com Vite
 GlobalWorkerOptions.workerSrc = new URL(
@@ -53,6 +54,11 @@ export interface PreviewItem {
    *  os códigos das contas combinadas (ordem da lâmina). undefined = item não
    *  agregado (só uma conta no PDF). */
   contas_agregadas?: string[];
+  /** Estado de quarentena (Frente 1.2). Setado pelos parsers onshore quando
+   *  resolverSigla retorna nao_encontrado. Propagado pelo salvarNoFirestore /
+   *  salvarMultiPeriodo para o doc gravado. Ausência = registro ativo. */
+  status?: RegistroPoupanca['status'];
+  sigla_bruta_origem?: string;
 }
 
 /**
@@ -187,6 +193,13 @@ export function useImportPoupanca() {
   const [arquivosPendentes, setArquivosPendentes] = useState<
     { files: File[]; anoRef?: number; mesRef?: number } | null
   >(null);
+
+  // Estado para Frente 1.3 / Frente 3 — siglas onshore que caíram em quarentena.
+  // Diferente do offshore: NÃO pausa o upload (decisão CFO: importar e
+  // reconciliar depois). Acumulado por sigla bruta deduplicada — N meses do
+  // multi-período viram 1 entrada. Frente 3 consumirá para exibir relatório
+  // de pendências ao fim do upload.
+  const [siglasQuarentenaOnshore, setSiglasQuarentenaOnshore] = useState<Set<string>>(new Set());
 
   const buscarPTAX = useCallback(async (ano: number, mes: number) => {
     setPtaxLoading(true);
@@ -394,6 +407,7 @@ export function useImportPoupanca() {
     const periodoStr = anoRef && mesRef
       ? `${anoRef}-${String(mesRef).padStart(2, '0')}` : undefined;
     const naoMapeadasAcumuladas: SiglaNaoMapeada[] = [];
+    const quarentenaOnshoreUpload = new Set<string>();
 
     for (const file of Array.from(files)) {
       if (!file.name.endsWith('.pdf')) continue;
@@ -409,11 +423,19 @@ export function useImportPoupanca() {
           for (const r of registros) items.push({ ...r, _arquivo: file.name });
           naoMapeadasAcumuladas.push(...siglas_nao_mapeadas);
         } else {
-          // Truncar para 4000 chars — onshore é 1 cliente por PDF, não precisa do texto todo
+          // Truncar para 4000 chars — onshore é 1 cliente por PDF, não precisa do texto todo.
+          // mapeamento (já carregado linha 393) é passado para resolver sigla via
+          // canônico+Firestore — paridade com offshore após Frente 1.
           const textoTruncado = textoCompleto.slice(0, 4000);
-          const resultado = await parseOnshoreComClaude(textoTruncado);
+          const resultado = await parseOnshoreComClaude(textoTruncado, mapeamento);
           console.log('[ImportOnshore] Resposta da API:', resultado);
-          if (resultado) items.push({ ...resultado, _arquivo: file.name });
+          if (resultado) {
+            items.push({ ...resultado, _arquivo: file.name });
+            // Frente 1.3 — acumula sigla para o relatório de pendências.
+            if (resultado.status === 'pendente_normalizacao' && resultado.sigla_bruta_origem) {
+              quarentenaOnshoreUpload.add(resultado.sigla_bruta_origem);
+            }
+          }
           else erros.push(`${file.name}: nenhum dado extraído`);
         }
       } catch (e) {
@@ -486,6 +508,12 @@ export function useImportPoupanca() {
     }
 
     setPreview(itemsAgregados);
+    // Frente 1.3 — publica siglas em quarentena acumuladas neste upload.
+    // Frente 3 vai consumir para exibir o relatório de pendências.
+    if (quarentenaOnshoreUpload.size > 0) {
+      setSiglasQuarentenaOnshore(prev => new Set([...prev, ...quarentenaOnshoreUpload]));
+      console.log(`[ImportOnshore] ${quarentenaOnshoreUpload.size} sigla(s) em quarentena: ${[...quarentenaOnshoreUpload].join(', ')}`);
+    }
     if (itemsAgregados.length === 0 && erros.length === 0) {
       setErro('Nenhum dado extraído dos PDFs. Verifique o formato.');
     } else if (erros.length > 0) {
@@ -510,13 +538,28 @@ export function useImportPoupanca() {
       for (let i = 0; i < preview.length; i += BATCH_LIMIT) {
         const chunk = preview.slice(i, i + BATCH_LIMIT);
         const promises = chunk.map(async item => {
-          const slugCliente = slug(item.nome_cliente ?? 'desconhecido');
-          const docId = `${slugCliente}_${ano}_${mes}`;
+          // DocId — Frente 1.2 (Opção D1 confirmada pelo CFO):
+          //   resolvido → slug(nome_cliente)_ano_mes (padrão atual)
+          //   quarentena → slug(sigla_bruta_origem)_ano_mes (padrão atual de
+          //     órfãos como aae_btg_*, sem prefixo "quarentena_")
+          // "Nunca alterar docId" preservado: ao normalizar via
+          // corrigirNomeClientePoupanca (2.5), o docId fica intacto; só o
+          // conteúdo muda (nome_cliente + remove status/sigla_bruta_origem).
+          const emQuarentena = (item as Partial<RegistroPoupanca>).status === 'pendente_normalizacao';
+          const baseSlug = emQuarentena
+            ? slug((item as Partial<RegistroPoupanca>).sigla_bruta_origem ?? 'desconhecido')
+            : slug(item.nome_cliente ?? 'desconhecido');
+          const docId = `${baseSlug}_${ano}_${mes}`;
 
           // Dados comuns a ambos os tipos
           const dados: Record<string, unknown> = {
             nome_cliente: item.nome_cliente, ano, mes,
           };
+          // Quarentena (Frente 1.2): propaga campos se presentes.
+          if (emQuarentena) {
+            dados.status = 'pendente_normalizacao';
+            dados.sigla_bruta_origem = (item as Partial<RegistroPoupanca>).sigla_bruta_origem;
+          }
           // Capacidade de poupança: derivada do preview (não mais hardcoded).
           // null/undefined → sem_capacidade=true; número (+ ou −) → sem_capacidade=false.
           // Parsers de PDF atuais não extraem capacidade → campo fica ausente
@@ -658,5 +701,7 @@ export function useImportPoupanca() {
     previewMulti, nomeClienteMulti,
     processarMultiPeriodo, salvarMultiPeriodo,
     siglasNaoMapeadas, aplicarSiglasResolvidas, cancelarSiglasResolvidas,
+    // Frente 1.3 — Frente 3 consome para exibir relatório de pendências.
+    siglasQuarentenaOnshore,
   };
 }

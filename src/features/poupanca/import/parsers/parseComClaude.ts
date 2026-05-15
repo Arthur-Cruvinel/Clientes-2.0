@@ -276,8 +276,13 @@ interface OnshoreItem {
 /** Resultado onshore com campos extras para preview. */
 export type OnshoreResult = Partial<RegistroPoupanca> & { pl_anterior?: number; rendimento_nominal_brl?: number | null };
 
+/** Mesma assinatura de retorno do parseOffshore: registros + siglas_nao_resolvidas.
+ *  Mas atenção — onshore NÃO pausa o upload como o offshore faz. Em vez disso,
+ *  o registro é gravado com status='pendente_normalizacao' e a sigla é
+ *  acumulada para o relatório de pendências (Frente 3). */
 export async function parseOnshoreComClaude(
   textoBruto: string,
+  mapeamentoFirestore: Record<string, EntradaMapeamentoSigla> = {},
 ): Promise<OnshoreResult | null> {
   const prompt = `Responda SOMENTE com o objeto JSON. Não escreva nenhuma observação, explicação ou texto antes ou depois do JSON.
 
@@ -305,11 +310,48 @@ ${textoBruto}`;
     const textoLimpo = await chamarClaude(prompt);
     const item: OnshoreItem = JSON.parse(textoLimpo);
 
-    // Resolve sigla e depois nome completo via SIGLA_PARA_NOME
-    const sigla = MAPEAMENTO_SIGLAS[item.codigo_carteira]
-      ?? MAPEAMENTO_SIGLAS[item.codigo_carteira.replace(/_C$/, '')]
-      ?? item.codigo_carteira;
-    const nomeCompleto = SIGLA_PARA_NOME[sigla] ?? item.nome_cliente ?? sigla;
+    // Resolução canônica (paridade com offshore — Frente 1.1).
+    //
+    // ETAPA 1 — resolverSigla(codigo, nome): 5 caminhos hardcoded.
+    // ETAPA 2 — mapeamentoFirestore[codigo]: fallback Firestore.
+    const resultado = resolverSigla(item.codigo_carteira, item.nome_cliente);
+    if (resultado.metodo === 'prefix_match') {
+      console.warn(
+        `[Mapeamento] PREFIX-MATCH disparou (onshore): código="${item.codigo_carteira}" `
+        + `→ sigla=${resultado.sigla}. Verifique se está correto.`,
+      );
+    }
+    const entradaFs = !resultado.sigla
+      ? (mapeamentoFirestore[item.codigo_carteira] ?? null)
+      : null;
+    const sigla = resultado.sigla ?? entradaFs?.sigla ?? null;
+
+    // Quarentena (Frente 1.2): sigla não resolvida → registro com
+    // status='pendente_normalizacao' e sigla_bruta_origem=código bruto.
+    // O upload NÃO pausa (decisão CFO: importar e reconciliar depois).
+    if (!sigla) {
+      console.warn(
+        `[ParseOnshore] Sigla não resolvida: codigo="${item.codigo_carteira}", `
+        + `nome_bruto="${item.nome_cliente}" — registro vai para quarentena.`,
+      );
+      return {
+        nome_cliente: '',
+        status: 'pendente_normalizacao',
+        sigla_bruta_origem: item.codigo_carteira,
+        pl_anterior: item.pl_anterior,
+        pl_onshore: item.saldo_final,
+        aporte_mes_onshore: item.aplicacoes - item.resgates,
+        rentabilidade_onshore: item.rentabilidade_pct,
+        rendimento_nominal_brl: typeof item.rendimento_nominal_brl === 'number'
+          ? item.rendimento_nominal_brl
+          : null,
+        ano: item.ano,
+        mes: item.mes,
+      };
+    }
+
+    // Resolveu — prioriza nome do Firestore (manual) sobre SIGLA_PARA_NOME (default).
+    const nomeCompleto = entradaFs?.nome_cliente ?? SIGLA_PARA_NOME[sigla] ?? sigla;
 
     return {
       nome_cliente: nomeCompleto,
