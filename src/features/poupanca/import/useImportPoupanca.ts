@@ -7,7 +7,7 @@ import { db, buscarMapeamentoSiglas, salvarEntradaMapeamento } from '../../../se
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { BATCH_LIMIT } from '../../../utils/constants';
 import { slug } from '../../../utils/slug';
-import { parseOffshoreComClaude, parseOnshoreComClaude, type SiglaNaoMapeada } from './parsers/parseComClaude';
+import { parseOffshoreComClaude, parseOnshoreComClaude, resolverSigla, type SiglaNaoMapeada } from './parsers/parseComClaude';
 import { buscarPTAXFechamento } from '../../../services/ptax';
 // [NOVO] Import do parser multi-período
 import { parseMultiPeriodoComClaude, type RegistroMensal } from './parsers/parseMultiPeriodoComClaude';
@@ -180,6 +180,10 @@ export function useImportPoupanca() {
   const [toast, setToast] = useState<string | null>(null);
   const [previewMulti, setPreviewMulti] = useState<RegistroMensal[]>([]);
   const [nomeClienteMulti, setNomeClienteMulti] = useState<string>('');
+  // Frente 1.2 — quando o multi-período não resolve a sigla, guarda o
+  // código bruto aqui para o save gravar com status='pendente_normalizacao'.
+  // null = sigla resolvida normalmente.
+  const [siglaBrutaMulti, setSiglaBrutaMulti] = useState<string | null>(null);
 
   const [ptaxAtual, setPtaxAtual] = useState<number | null>(null);
   const [ptaxData, setPtaxData] = useState<string | null>(null);
@@ -223,6 +227,7 @@ export function useImportPoupanca() {
     setErro(null);
     setPreviewMulti([]);
     setNomeClienteMulti('');
+    setSiglaBrutaMulti(null);
     try {
       console.log('[ImportMultiPeriodo] Processando:', file.name);
       const texto = await extrairTextoPDF(file);
@@ -230,10 +235,44 @@ export function useImportPoupanca() {
       // Resolver sigla do texto (busca "Carteira: XXX_C")
       const matchCarteira = texto.match(/Carteira:\s*(\S+)/i);
       const codigoCarteira = matchCarteira?.[1] ?? '';
-      const sigla = MAPEAMENTO_SIGLAS[codigoCarteira]
-        ?? MAPEAMENTO_SIGLAS[codigoCarteira.replace(/_C$/, '')]
-        ?? codigoCarteira;
-      const nomeCompleto = SIGLA_PARA_NOME[sigla] ?? sigla;
+
+      // Resolução canônica (Frente 1.1) — paridade com offshore + single-period:
+      //   resolverSigla hardcoded → mapeamentoFirestore → null (= quarentena).
+      const mapeamento = await buscarMapeamentoSiglas();
+      const resultado = resolverSigla(codigoCarteira);
+      if (resultado.metodo === 'prefix_match') {
+        console.warn(
+          `[Mapeamento] PREFIX-MATCH disparou (multi-período): código="${codigoCarteira}" `
+          + `→ sigla=${resultado.sigla}. Verifique se está correto.`,
+        );
+      }
+      const entradaFs = !resultado.sigla ? (mapeamento[codigoCarteira] ?? null) : null;
+      const sigla = resultado.sigla ?? entradaFs?.sigla ?? null;
+
+      // Quarentena (Frente 1.2): sigla não resolvida — registra a sigla bruta
+      // e usa-a como label visual no preview. Save grava com nome_cliente=''
+      // + status='pendente_normalizacao' + sigla_bruta_origem=codigoCarteira.
+      // O upload NÃO pausa (decisão CFO).
+      if (!sigla) {
+        console.warn(
+          `[ImportMultiPeriodo] Sigla não resolvida: codigoCarteira="${codigoCarteira}" `
+          + `— registros vão para quarentena.`,
+        );
+        setSiglaBrutaMulti(codigoCarteira);
+        // Preview mostra a sigla bruta para o usuário ver o que está em quarentena.
+        setNomeClienteMulti(codigoCarteira);
+        // Acumula no state de pendências (Frente 3 vai consumir).
+        setSiglasQuarentenaOnshore(prev => new Set([...prev, codigoCarteira]));
+        // Parser ainda roda — extrai os meses; o save é que vai para quarentena.
+        const registros = await parseMultiPeriodoComClaude(texto, codigoCarteira);
+        setPreviewMulti(registros);
+        console.log(`[ImportMultiPeriodo] ${codigoCarteira} (quarentena): ${registros.length} meses`);
+        setProcessando(false);
+        return;
+      }
+
+      // Resolveu — prioriza nome do Firestore (manual) sobre SIGLA_PARA_NOME.
+      const nomeCompleto = entradaFs?.nome_cliente ?? SIGLA_PARA_NOME[sigla] ?? sigla;
       setNomeClienteMulti(nomeCompleto);
 
       const registros = await parseMultiPeriodoComClaude(texto, sigla);
@@ -265,11 +304,14 @@ export function useImportPoupanca() {
     setSalvando(true);
     setToast(null);
     try {
-      const slugCliente = slug(nomeClienteMulti);
+      // Frente 1.2 — Opção D1: docId baseado em sigla bruta quando em
+      // quarentena; senão, nome canônico (padrão atual).
+      const emQuarentena = siglaBrutaMulti != null;
+      const slugBase = emQuarentena ? slug(siglaBrutaMulti) : slug(nomeClienteMulti);
       for (let i = 0; i < previewMulti.length; i += BATCH_LIMIT) {
         const chunk = previewMulti.slice(i, i + BATCH_LIMIT);
         const promises = chunk.map(r => {
-          const docId = `${slugCliente}_${r.ano}_${r.mes}`;
+          const docId = `${slugBase}_${r.ano}_${r.mes}`;
 
           // ── Detecção de mês de tombamento (Comdinheiro) ──
           // Convenção do sistema (alinhada ao resto do código):
@@ -353,7 +395,9 @@ export function useImportPoupanca() {
           }
 
           const dados: Record<string, unknown> = {
-            nome_cliente: nomeClienteMulti,
+            // Quarentena (Frente 1.2): nome_cliente vazio + status + sigla_bruta_origem.
+            // Senão: nome_cliente canônico (padrão atual).
+            nome_cliente: emQuarentena ? '' : nomeClienteMulti,
             ano: r.ano, mes: r.mes,
             // Grava APENAS campos onshore — merge: true preserva offshore existente.
             // NÃO gravar pl_offshore: 0 nem pl_total — pl_total será computado em leitura.
@@ -380,6 +424,13 @@ export function useImportPoupanca() {
             dados.sem_capacidade_poupanca = capPreviewOn == null;
             if (capPreviewOn != null) dados.capacidade_poupanca_mensal = capPreviewOn;
           }
+          // Quarentena (Frente 1.2): grava status + sigla bruta para os N meses
+          // do multi-período. Normalização posterior (corrigirNomeClientePoupanca)
+          // limpa esses dois campos juntos via match por sigla_bruta_origem.
+          if (emQuarentena && siglaBrutaMulti) {
+            dados.status = 'pendente_normalizacao';
+            dados.sigla_bruta_origem = siglaBrutaMulti;
+          }
           return setDoc(doc(db, 'poupanca', docId), sanitizeDoc(dados), { merge: true });
         });
         await Promise.all(promises);
@@ -391,7 +442,7 @@ export function useImportPoupanca() {
     } finally {
       setSalvando(false);
     }
-  }, [previewMulti, nomeClienteMulti]);
+  }, [previewMulti, nomeClienteMulti, siglaBrutaMulti]);
 
   // [NOVO] Aceita ano/mes opcionais para auto-fetch de PTAX no modo offshore
   const processarArquivos = useCallback(async (files: FileList | File[], anoRef?: number, mesRef?: number) => {
@@ -665,6 +716,7 @@ export function useImportPoupanca() {
     // [NOVO] Limpar estado multi-período
     setPreviewMulti([]);
     setNomeClienteMulti('');
+    setSiglaBrutaMulti(null);
   }, []);
 
   /** Salva os mapeamentos resolvidos via UI no Firestore e re-roda o upload
