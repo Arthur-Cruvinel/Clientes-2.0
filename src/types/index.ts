@@ -307,6 +307,14 @@ export interface RegistroPoupanca {
   ano: number;
   mes: number;
 
+  // Estado de quarentena (Frente 1 — correção de siglas órfãs).
+  // Quando o onshore não resolve a sigla via resolverSigla, o registro é
+  // gravado com status='pendente_normalizacao' + sigla_bruta_origem (código
+  // de carteira bruto do PDF). Ausência de status = 'ativo' (retrocompat).
+  // Filtro de quarentena é aplicado por consumidor agregador (Frente 2).
+  status?: 'ativo' | 'pendente_normalizacao';
+  sigla_bruta_origem?: string;
+
   // PL atual em BRL
   pl_onshore: number;
   pl_offshore: number;
