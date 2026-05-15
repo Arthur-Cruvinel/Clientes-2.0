@@ -8,6 +8,7 @@ import { useFilaRetry } from './useFilaRetry';
 import { formatCurrency } from '../../../utils/formatters';
 import { PreviewMultiPeriodo } from './PreviewMultiPeriodo';
 import { ResolverSiglasModal } from './ResolverSiglasModal';
+import { BannerQuarentena } from './BannerQuarentena';
 import { useApp } from '../../../state/AppContext';
 
 const MESES_LABEL = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -35,7 +36,8 @@ export function ImportPoupanca() {
     ptaxAtual, ptaxData, ptaxLoading, ptaxErro, buscarPTAX,
     previewMulti, nomeClienteMulti,
     processarMultiPeriodo, salvarMultiPeriodo,
-    siglasNaoMapeadas, aplicarSiglasResolvidas, cancelarSiglasResolvidas } = useImportPoupanca();
+    siglasNaoMapeadas, aplicarSiglasResolvidas, cancelarSiglasResolvidas,
+    siglasQuarentenaOnshore } = useImportPoupanca();
   const { dadosPeriodo } = useApp();
   const nomesClientesExistentes = useMemo(
     () => Array.from(new Set((dadosPeriodo?.clientes ?? []).map(c => c.nome_cliente))).sort(),
@@ -351,6 +353,12 @@ export function ImportPoupanca() {
           backgroundColor: toast.startsWith('Erro') ? '#fee2e2' : '#dcfce7', color: toast.startsWith('Erro') ? '#991b1b' : '#166534',
         }}><CheckCircle size={14} /> {toast}</div>
       )}
+
+      {/* Banner persistente de siglas em quarentena (Frente 3). Aparece sozinho
+          ao fim de um upload onshore que tenha gerado registros em
+          status='pendente_normalizacao'. Some quando o Set esvaziar — não tem
+          dismiss manual por design. */}
+      <BannerQuarentena siglas={Array.from(siglasQuarentenaOnshore)} />
 
       {siglasNaoMapeadas.length > 0 && (
         <ResolverSiglasModal
