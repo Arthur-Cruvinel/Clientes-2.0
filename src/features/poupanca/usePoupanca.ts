@@ -382,7 +382,14 @@ export function usePoupanca(
           raw.nnm_tombamento = (raw.nnm_tombamento_onshore ?? 0) + (raw.nnm_tombamento_offshore ?? 0);
         }
         return raw;
-      });
+      })
+      // Filtro de quarentena (Frente 2): registros pendentes não entram em
+      // todosRegistros — logo, ficam de fora da tabela de clientes, do
+      // agregado de AUM total, do NNM total, da rentabilidade média, da
+      // série histórica, da projeção MM6 e do burn rate. O auto-reparo
+      // acima roda mesmo em registros quarentenados (são puladdos depois);
+      // não compensa duplicar a lógica de auto-reparo só para evitar isso.
+      .filter(r => r.status !== 'pendente_normalizacao');
       // AUTO-REPARO: encadeamento do saldo inicial onshore.
       // O parser pode importar pl_inicial errado para o primeiro mês
       // (pega a linha seguinte da tabela em vez da linha (i)).
