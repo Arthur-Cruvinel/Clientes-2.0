@@ -14,6 +14,7 @@ import { executarMigracaoMapeamento } from '../../utils/migrarMapeamentoSiglas';
 import { corrigirRegistroPoupanca, corrigirNomeClientePoupanca, corrigirEntradaMapeamentoSiglas, zerarCampoTombamento } from '../../services/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import type { RegistroPoupanca } from '../../types';
 
 const FLAG_MAPEAMENTO_MIGRADO = 'mapeamento_migrado';
 
@@ -179,10 +180,15 @@ export function Configuracoes() {
       // Agrupar por cliente e ordenar por período para encontrar meses de entrada
       const porCliente = new Map<string, { id: string; data: Record<string, unknown> }[]>();
       snap.docs.forEach(d => {
-        const data = d.data();
-        const nome = (data.nome_cliente as string) ?? '';
+        const data = d.data() as RegistroPoupanca;
+        // Filtro de quarentena (Frente 2): manutenção offshore não tenta
+        // "corrigir" registros pendentes — eles ainda não têm cliente
+        // associado e a heurística de detecção de mês de entrada offshore
+        // não faz sentido para limbo.
+        if (data.status === 'pendente_normalizacao') return;
+        const nome = data.nome_cliente ?? '';
         if (!porCliente.has(nome)) porCliente.set(nome, []);
-        porCliente.get(nome)!.push({ id: d.id, data });
+        porCliente.get(nome)!.push({ id: d.id, data: data as unknown as Record<string, unknown> });
       });
 
       let corrigidos = 0;
