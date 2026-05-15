@@ -83,7 +83,7 @@ export async function chamarClaude(prompt: string): Promise<string> {
  *  caminho disparou (importante: prefix_match é fallback de última instância
  *  e merece warning).
  */
-type MetodoResolucao =
+export type MetodoResolucao =
   | 'codigo_exato'
   | 'codigo_limpo'
   | 'codigo_C'
@@ -91,7 +91,7 @@ type MetodoResolucao =
   | 'prefix_match'
   | 'nao_encontrado';
 
-function resolverSigla(codigo: string, nomeCliente?: string): {
+export function resolverSigla(codigo: string, nomeCliente?: string): {
   sigla: string | null;
   metodo: MetodoResolucao;
 } {
