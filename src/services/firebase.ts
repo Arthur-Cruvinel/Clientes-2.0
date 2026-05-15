@@ -2,7 +2,7 @@
 // Funções de leitura das collections do Firestore por período
 
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, writeBatch } from 'firebase/firestore';
+import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, writeBatch, deleteField } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial } from '../types';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO } from '../utils/constants';
@@ -845,7 +845,22 @@ export async function buscarHistoricoAlteracoes(
 /** Atualiza `nome_cliente` em todos os docs de `poupanca/` que casam com
  *  `nomeAntigo` (match exato OU normalizado: NFD + lowercase + sem acento).
  *  Útil para corrigir grafias inconsistentes que vieram do parser de lâmina
- *  (ex: "FUNDAÇÃO FENOMENOS" → "FUNDAÇÃO FENÔMENOS"). */
+ *  (ex: "FUNDAÇÃO FENOMENOS" → "FUNDAÇÃO FENÔMENOS").
+ *
+ *  Frente 1.5 — normalização de quarentena:
+ *  Critério de match expandido — também casa quando
+ *  `sigla_bruta_origem === nomeAntigo` (após normalização). Assim a UI atual
+ *  ("Corrigir Nomes em Poupança" com 2 inputs em Configurações → Manutenção)
+ *  funciona tanto para renomear cliente já cadastrado (caso legado) quanto
+ *  para normalizar uma sigla órfã (caso pós-Frente 1) — basta o usuário
+ *  passar a sigla bruta como `nomeAntigo`.
+ *
+ *  Update expandido — quando o registro está em quarentena
+ *  (status='pendente_normalizacao'), o update também:
+ *    - remove status (deleteField)
+ *    - remove sigla_bruta_origem (deleteField)
+ *  Resultado: o registro deixa o limbo e passa a contar nos agregados a
+ *  partir do próximo refresh do AppContext / usePoupanca. */
 export async function corrigirNomeClientePoupanca(
   nomeAntigo: string,
   nomeNovo: string,
@@ -858,14 +873,29 @@ export async function corrigirNomeClientePoupanca(
   try {
     const snap = await getDocs(collection(db, 'poupanca'));
     const docsAlvo = snap.docs.filter(d => {
-      const v = (d.data() as Record<string, unknown>).nome_cliente as string | undefined;
-      if (!v) return false;
-      return v === nomeAntigo || norm(v) === alvoNorm;
+      const data = d.data() as Record<string, unknown>;
+      const nome = data.nome_cliente as string | undefined;
+      const sigla = data.sigla_bruta_origem as string | undefined;
+      // Match em nome_cliente (caso legado de renomeação) OU em
+      // sigla_bruta_origem (caso pós-Frente 1 de normalização de quarentena).
+      const matchNome = !!nome && (nome === nomeAntigo || norm(nome) === alvoNorm);
+      const matchSigla = !!sigla && (sigla === nomeAntigo || norm(sigla) === alvoNorm);
+      return matchNome || matchSigla;
     });
     for (let i = 0; i < docsAlvo.length; i += BATCH_LIMIT) {
       const batch = writeBatch(db);
       const chunk = docsAlvo.slice(i, i + BATCH_LIMIT);
-      for (const d of chunk) batch.update(d.ref, { nome_cliente: nomeNovo });
+      for (const d of chunk) {
+        const data = d.data() as Record<string, unknown>;
+        const update: Record<string, unknown> = { nome_cliente: nomeNovo };
+        // Se está em quarentena, limpar o estado — o registro volta a contar
+        // nos agregados a partir do próximo refresh.
+        if (data.status === 'pendente_normalizacao' || data.sigla_bruta_origem != null) {
+          update.status = deleteField();
+          update.sigla_bruta_origem = deleteField();
+        }
+        batch.update(d.ref, update);
+      }
       try {
         await batch.commit();
         atualizados += chunk.length;
