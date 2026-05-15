@@ -206,6 +206,12 @@ export function parsePoupanca(wb: XLSX.WorkBook): RegistroPoupanca[] {
   const rows = lerAba(wb, 'poupanca');
   const resultado: RegistroPoupanca[] = [];
 
+  // Frente 1.6 — alinhamento com a interface (status + sigla_bruta_origem).
+  // O Excel sempre traz o nome_cliente direto da planilha — sem sigla, sem
+  // lookup. Logo, NUNCA entra em quarentena pelo canal Excel. Os campos novos
+  // ficam ausentes (= 'ativo' por decisão CFO), mantendo retrocompatibilidade
+  // total. Esta linha de código existe só para registrar a intenção explícita.
+
   for (const row of rows) {
     const nome = str(row['nome_cliente']);
     if (!nome) continue;
