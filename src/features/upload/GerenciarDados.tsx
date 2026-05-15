@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Trash2, Loader2, ClipboardList, Database, PiggyBank, Search } from 'lucide-react';
 import { db } from '../../services/firebase';
 import { deleteDoc, deleteField, doc, getDocs, collection, updateDoc } from 'firebase/firestore';
+import type { RegistroPoupanca } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { slug } from '../../utils/slug';
 import {
@@ -41,7 +42,14 @@ export function GerenciarDados() {
   useEffect(() => {
     getDocs(collection(db, 'poupanca')).then(snap => {
       const nomes = new Set<string>();
-      snap.forEach(d => { const n = d.data().nome_cliente; if (n) nomes.add(n); });
+      snap.forEach(d => {
+        const data = d.data() as RegistroPoupanca;
+        // Filtro de quarentena (Frente 2): dropdown não mostra clientes
+        // em quarentena. Admin vê quarentenados no relatório da Frente 3.
+        if (data.status === 'pendente_normalizacao') return;
+        const n = data.nome_cliente;
+        if (n) nomes.add(n);
+      });
       setExcNomes([...nomes].sort());
     }).catch(() => {});
   }, []);
