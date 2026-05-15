@@ -11,7 +11,7 @@ import { parseOffshoreComClaude, parseOnshoreComClaude, resolverSigla, type Sigl
 import { buscarPTAXFechamento } from '../../../services/ptax';
 // [NOVO] Import do parser multi-período
 import { parseMultiPeriodoComClaude, type RegistroMensal } from './parsers/parseMultiPeriodoComClaude';
-import { MAPEAMENTO_SIGLAS, SIGLA_PARA_NOME } from './MAPEAMENTO_SIGLAS';
+import { SIGLA_PARA_NOME } from './MAPEAMENTO_SIGLAS';
 import type { RegistroPoupanca } from '../../../types';
 
 // Configura o worker do pdf.js para funcionar com Vite
