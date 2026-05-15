@@ -4,6 +4,7 @@
 
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
+import type { RegistroPoupanca } from '../types';
 
 // ============================================================
 // Interface pública
@@ -101,7 +102,11 @@ export async function buscarAumPorPeriodo(
   const resultado = new Map<string, AumCliente>();
 
   docs.forEach((d) => {
-    const data = d.data();
+    const data = d.data() as RegistroPoupanca;
+    // Filtro de quarentena (Frente 2): registros pendentes não alimentam o
+    // Map AUM, então não viram Pure Asset sintetizado no AppContext e não
+    // geram rebate fictício no DRE. Ausência de status = ativo (retrocompat).
+    if (data.status === 'pendente_normalizacao') return;
     const plOnshore = (data.pl_onshore as number) ?? 0;
 
     // PL offshore: preferir USD × PTAX se disponível
