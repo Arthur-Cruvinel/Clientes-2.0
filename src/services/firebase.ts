@@ -624,7 +624,14 @@ export async function buscarRegistrosPoupancaPorPeriodo(
   try {
     const ref = collection(db, 'poupanca');
     const snap = await getDocs(query(ref, where('ano', '==', ano), where('mes', '==', mes)));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }) as RegistroPoupanca);
+    // Filtro de quarentena (Frente 2): registros com status='pendente_normalizacao'
+    // são gravados pelo fluxo onshore quando a sigla não foi resolvida (Frente 1).
+    // Eles NÃO devem alimentar o cálculo de rebate no DRE — caso contrário, o
+    // órfão geraria receita fictícia no EBITDA por cliente. Ausência de status
+    // = ativo (retrocompat com os 845 docs pré-Frente 1).
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }) as RegistroPoupanca)
+      .filter(r => r.status !== 'pendente_normalizacao');
   } catch (error) {
     console.error(`[Firebase] Erro ao buscar registros de poupança ${ano}-${mes}:`, error);
     throw error;
