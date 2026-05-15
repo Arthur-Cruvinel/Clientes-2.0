@@ -84,7 +84,11 @@ export function useAgenteValidacao() {
         raw.nnm_tombamento = (raw.nnm_tombamento_onshore ?? 0) + (raw.nnm_tombamento_offshore ?? 0);
       }
       return raw;
-    });
+    })
+    // Filtro de quarentena (Frente 2): o agente de QA não deve validar
+    // registros pendentes — eles ainda não têm cliente associado e
+    // gerariam falsos positivos de inconsistência.
+    .filter(r => r.status !== 'pendente_normalizacao');
 
     const periodoIni = pNum(anoInicio, mesInicio);
     const periodoFim = pNum(anoFim, mesFim);
