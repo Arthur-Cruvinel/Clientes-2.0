@@ -97,7 +97,12 @@ export function usePatrimonioCrud(clienteSlug: string | null, clienteNome: strin
           const poupSnap = await getDocs(collection(db, 'poupanca'));
           const regs = poupSnap.docs
             .map(d => d.data() as RegistroPoupanca)
-            .filter(r => r.nome_cliente === clienteNome)
+            // Filtro de quarentena (Frente 2): registros pendentes não
+            // entram em "Carteira Galápagos" do Patrimonial — evita que um
+            // órfão com nome humano (ex: "ALAN KARDEC" gerado pelo fluxo
+            // single-period antes da Frente 1) apareça como carteira do
+            // cliente real homônimo.
+            .filter(r => r.nome_cliente === clienteNome && r.status !== 'pendente_normalizacao')
             .sort((a, b) => (b.ano * 12 + b.mes) - (a.ano * 12 + a.mes));
           if (regs.length > 0) {
             const ult = regs[0];
