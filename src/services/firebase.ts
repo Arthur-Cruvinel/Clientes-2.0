@@ -1006,6 +1006,183 @@ export async function corrigirEntradaMapeamentoSiglas(
   }
 }
 
+/** Propaga novo `nome_cliente` para todos os snapshots em
+ *  `fechamentos/*​/clientes/` que apontam para o mesmo `id_estavel`.
+ *  Match por `id_estavel` (não por nome) garante consistência cross-período
+ *  mesmo quando snapshots históricos têm grafias divergentes.
+ *
+ *  Análogo a `renomearColaborador`, mas para cliente — onde a chave canônica
+ *  é o `id_estavel` (UUID v4 imutável da Fase 3), não os 6 campos de função.
+ *  Idempotente: snapshots cujo `nome_cliente` já bate com `nomeNovo` são
+ *  pulados (não geram write desnecessário).
+ *
+ *  Erros por batch são acumulados sem abortar — o caller decide o que fazer
+ *  com erros parciais. */
+async function propagarNomeClientePorIdEstavel(
+  idEstavel: string,
+  nomeNovo: string,
+): Promise<{ atualizados: number; periodos: Set<string>; erros: string[] }> {
+  const erros: string[] = [];
+  const periodos = new Set<string>();
+  let atualizados = 0;
+  try {
+    const snap = await getDocs(collectionGroup(db, 'clientes'));
+    const alvos = snap.docs.filter(d => {
+      const data = d.data() as Record<string, unknown>;
+      return data.id_estavel === idEstavel && data.nome_cliente !== nomeNovo;
+    });
+    for (let i = 0; i < alvos.length; i += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      const chunk = alvos.slice(i, i + BATCH_LIMIT);
+      for (const d of chunk) batch.update(d.ref, { nome_cliente: nomeNovo });
+      try {
+        await batch.commit();
+        for (const d of chunk) periodos.add(d.ref.path.split('/')[1]);
+        atualizados += chunk.length;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'erro desconhecido';
+        erros.push(`Batch fechamentos #${i / BATCH_LIMIT + 1}: ${msg}`);
+      }
+    }
+    return { atualizados, periodos, erros };
+  } catch (error) {
+    console.error(`[Firebase] Erro ao propagar nome para id_estavel ${idEstavel}:`, error);
+    throw error;
+  }
+}
+
+/** Cadastra uma sigla nova em `mapeamento_siglas/` e amarra ao cliente
+ *  existente em `clientes_base/`, num único ato auditável. Caso de uso:
+ *  lâmina nova chega com sigla desconhecida (ex: `AAE_BTG`); operador
+ *  abre Manutenção, vincula ao cliente que já existe, opcionalmente
+ *  oficializa um nome canônico, e o sistema normaliza tudo de uma vez.
+ *
+ *  Ordem das operações:
+ *
+ *  1. Lê `clientes_base/{slug}` — aborta se não existir ou se faltar
+ *     `id_estavel` (cliente precisa estar na Fase 3, com identidade estável).
+ *  2. Se `nomeCanonicoNovo` difere do atual:
+ *     a. Atualiza `clientes_base/{slug}.nome_cliente`.
+ *     b. Propaga para `fechamentos/*​/clientes/` via id_estavel
+ *        (propagarNomeClientePorIdEstavel).
+ *     c. Atualiza `poupanca/` com o nome antigo via
+ *        corrigirNomeClientePoupanca — alinha grafias antigas no histórico
+ *        (separado da limpeza de quarentena no passo 4).
+ *  3. Cria entrada em `mapeamento_siglas/{siglaDocId(codigoCompleto)}` com
+ *     `merge: false` semântico — usa `getDoc` antes para abortar se já
+ *     existir (não sobrescreve silenciosamente). Inclui campo novo
+ *     `id_estavel_cliente` para join futuro sem depender de nome.
+ *  4. Limpa quarentena: chama corrigirNomeClientePoupanca com
+ *     `nomeAntigo=codigoCompleto` — encontra docs de `poupanca/` com
+ *     `sigla_bruta_origem=codigoCompleto`, grava `nome_cliente=nomeNovo`,
+ *     remove `status` e `sigla_bruta_origem`.
+ *
+ *  Retorna `{ sucesso, mensagens, erros }` — `sucesso=false` apenas se
+ *  alguma etapa crítica falhou (cliente não existe, mapeamento já existia).
+ *  Erros de batch parciais aparecem em `erros` mas não abortam — quem
+ *  consome decide se mostra como aviso ou falha. */
+export async function cadastrarSiglaNova(params: {
+  sigla: string;             // 'AAE'
+  codigoCompleto: string;    // 'AAE_BTG' — o que aparece na lâmina
+  slugClienteExistente: string;  // 'allan' — docId em clientes_base/
+  nomeCanonicoNovo: string;  // 'ALLAN ANDRADE ELIAS'
+  registradoPor?: string;
+}): Promise<{ sucesso: boolean; mensagens: string[]; erros: string[] }> {
+  const { sigla, codigoCompleto, slugClienteExistente, nomeCanonicoNovo, registradoPor } = params;
+  const mensagens: string[] = [];
+  const erros: string[] = [];
+
+  // ── Passo 1: ler clientes_base/{slug} ─────────────────────────────────
+  const clienteRef = doc(db, 'clientes_base', slugClienteExistente);
+  const clienteSnap = await getDoc(clienteRef);
+  if (!clienteSnap.exists()) {
+    return {
+      sucesso: false,
+      mensagens: [],
+      erros: [`Cliente "${slugClienteExistente}" não existe em clientes_base/.`],
+    };
+  }
+  const cliente = clienteSnap.data() as Record<string, unknown>;
+  const idEstavel = cliente.id_estavel as string | undefined;
+  if (!idEstavel) {
+    return {
+      sucesso: false,
+      mensagens: [],
+      erros: [`Cliente "${slugClienteExistente}" não tem id_estavel (Fase 3 incompleta).`],
+    };
+  }
+  const nomeAtual = cliente.nome_cliente as string;
+
+  // ── Passo 2: atualizar nome canônico (se mudou) ───────────────────────
+  if (nomeCanonicoNovo !== nomeAtual) {
+    try {
+      await updateDoc(clienteRef, { nome_cliente: nomeCanonicoNovo });
+      mensagens.push(`clientes_base/${slugClienteExistente}: "${nomeAtual}" → "${nomeCanonicoNovo}"`);
+    } catch (err) {
+      erros.push(`Falha ao atualizar clientes_base: ${err instanceof Error ? err.message : 'erro'}`);
+    }
+
+    try {
+      const prop = await propagarNomeClientePorIdEstavel(idEstavel, nomeCanonicoNovo);
+      if (prop.atualizados > 0) {
+        mensagens.push(`${prop.atualizados} snapshot(s) em ${prop.periodos.size} período(s) atualizado(s).`);
+      }
+      erros.push(...prop.erros);
+    } catch (err) {
+      erros.push(`Falha ao propagar para fechamentos: ${err instanceof Error ? err.message : 'erro'}`);
+    }
+
+    try {
+      const r = await corrigirNomeClientePoupanca(nomeAtual, nomeCanonicoNovo);
+      if (r.atualizados > 0) {
+        mensagens.push(`${r.atualizados} doc(s) em poupanca/ alinhado(s) ao novo nome.`);
+      }
+      erros.push(...r.erros);
+    } catch (err) {
+      erros.push(`Falha ao alinhar poupanca/: ${err instanceof Error ? err.message : 'erro'}`);
+    }
+  }
+
+  // ── Passo 3: criar entrada em mapeamento_siglas/ (sem sobrescrever) ───
+  const mapRef = doc(db, 'mapeamento_siglas', siglaDocId(codigoCompleto));
+  const mapSnap = await getDoc(mapRef);
+  if (mapSnap.exists()) {
+    erros.push(
+      `Entrada "${codigoCompleto}" já existe em mapeamento_siglas/. ` +
+      'Use "Corrigir Entrada no Mapeamento de Siglas" para alterá-la.',
+    );
+    return { sucesso: false, mensagens, erros };
+  }
+  try {
+    await setDoc(mapRef, {
+      codigo: codigoCompleto,
+      sigla,
+      nome_cliente: nomeCanonicoNovo,
+      id_estavel_cliente: idEstavel,
+      registrado_em: new Date().toISOString(),
+      registrado_por: registradoPor ?? 'manutencao_cfo',
+      criado_via: 'manutencao_cfo',
+    });
+    mensagens.push(`mapeamento_siglas/${siglaDocId(codigoCompleto)} criado (sigla=${sigla}).`);
+  } catch (err) {
+    erros.push(`Falha ao criar mapeamento: ${err instanceof Error ? err.message : 'erro'}`);
+    return { sucesso: false, mensagens, erros };
+  }
+
+  // ── Passo 4: normalizar quarentena via sigla_bruta_origem ─────────────
+  try {
+    const q = await corrigirNomeClientePoupanca(codigoCompleto, nomeCanonicoNovo);
+    if (q.atualizados > 0) {
+      mensagens.push(`${q.atualizados} doc(s) em quarentena normalizado(s).`);
+    }
+    erros.push(...q.erros);
+  } catch (err) {
+    erros.push(`Falha ao normalizar quarentena: ${err instanceof Error ? err.message : 'erro'}`);
+  }
+
+  return { sucesso: true, mensagens, erros };
+}
+
 // ============================================================
 // Manutenção pontual de poupanca/ — limpeza de tombamento espúrio
 // ============================================================
