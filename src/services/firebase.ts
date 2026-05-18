@@ -656,6 +656,39 @@ export async function atualizarCliente(
   }
 }
 
+/** Resolve o docId canônico em `fechamentos/{periodo}/clientes/` para um
+ *  cliente identificado por `id_estavel`. Existe para corrigir o
+ *  Bug Arquitetural #1 (docs-sombra por `setDoc merge`): consumers que
+ *  conhecem o cliente pelo `id_estavel` mas guardam `id` vindo de
+ *  `clientes_base/` (docId=slug) acabam gravando no doc errado quando o
+ *  snapshot do período tem docId=UUID.
+ *
+ *  Estratégia: query `where('id_estavel', '==', idEstavel)`; se 1+ match,
+ *  retorna o docId do primeiro. Se nenhum match (período sem snapshot
+ *  para esse cliente — novo cliente, período recém-criado), retorna
+ *  `fallbackId` — preserva o comportamento original do `setDoc merge` de
+ *  criar doc no período. Erros de query (índice ausente, etc.) também
+ *  caem no fallback. */
+export async function resolverDocIdClientePorIdEstavel(
+  periodo: string,
+  idEstavel: string | undefined,
+  fallbackId: string,
+): Promise<string> {
+  if (!idEstavel) return fallbackId;
+  try {
+    const q = query(
+      collection(db, 'fechamentos', periodo, 'clientes'),
+      where('id_estavel', '==', idEstavel),
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return fallbackId;
+    return snap.docs[0].id;
+  } catch (error) {
+    console.warn(`[Firebase] resolverDocId fallback p/ ${idEstavel} em ${periodo}:`, error);
+    return fallbackId;
+  }
+}
+
 // ============================================================
 // Parâmetros globais
 // ============================================================

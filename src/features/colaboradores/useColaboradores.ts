@@ -7,7 +7,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useApp } from '../../state/AppContext';
 import {
   salvarColaboradorPeriodo, deletarColaboradorPeriodo,
-  deletarColaboradorPeriodosFuturos, db,
+  deletarColaboradorPeriodosFuturos, resolverDocIdClientePorIdEstavel, db,
 } from '../../services/firebase';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { slug } from '../../utils/slug';
@@ -103,10 +103,18 @@ export function useColaboradores() {
     if (!cliente?.id) return;
     setSalvando(true);
     try {
+      // Bug Arquitetural #1: cliente.id pode vir de clientes_base/ (docId=slug)
+      // enquanto o snapshot do período tem docId=UUID. Antes do setDoc, resolve
+      // o docId canônico do período via id_estavel — evita criar doc-sombra
+      // com slug em períodos onde já existe doc UUID. Fallback para cliente.id
+      // quando period não tem snapshot ainda (cliente novo).
+      const docIdCanonico = await resolverDocIdClientePorIdEstavel(
+        periodoSelecionado, cliente.id_estavel, cliente.id,
+      );
       // setDoc com merge cria o doc se inexistente no período — robusto a
       // clientes recém-criados ou períodos sem fechamento copiado.
       await setDoc(
-        doc(db, 'fechamentos', periodoSelecionado, 'clientes', cliente.id),
+        doc(db, 'fechamentos', periodoSelecionado, 'clientes', docIdCanonico),
         { [`pct_${funcao}`]: valor },
         { merge: true },
       );

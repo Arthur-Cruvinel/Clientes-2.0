@@ -8,7 +8,7 @@ import { doc, writeBatch } from 'firebase/firestore';
 // batch.set com { merge: true } cria o doc se ainda não existir no período —
 // evita falha quando o cliente é alocado num período sem fechamento prévio.
 import { useApp } from '../../state/AppContext';
-import { db } from '../../services/firebase';
+import { db, resolverDocIdClientePorIdEstavel } from '../../services/firebase';
 import {
   calcularPctDistribuido, calcularFatorSobrecarga,
   somarHorasNormativas, horasProdutivasMes,
@@ -160,6 +160,11 @@ export function useAlocacaoEmLote() {
       const k = `pct_${funcao}`;
       let mudou = 0;
       let pulados = 0;
+      // Bug Arquitetural #1: cli.id pode vir de clientes_base/ (docId=slug)
+      // enquanto o snapshot do período tem docId=UUID. Resolve antes do batch
+      // para gravar no doc canônico do período (e não criar doc-sombra). Faz
+      // 1 lookup por cliente alterado — não impacta performance perceptivelmente
+      // já que o painel só dispara salvarTodos em ações pontuais do usuário.
       for (const cli of clientesDoColaborador) {
         const novo = pctEditado[cli.nome_cliente] ?? 0;
         const orig = pctOriginal[cli.nome_cliente] ?? 0;
@@ -175,11 +180,14 @@ export function useAlocacaoEmLote() {
           pulados++;
           continue;
         }
+        const docIdCanonico = await resolverDocIdClientePorIdEstavel(
+          periodoSelecionado, cli.id_estavel, cli.id,
+        );
         // [DIAG] ponto 3: batch.set por cliente (com path completo)
-        const path = `fechamentos/${periodoSelecionado}/clientes/${cli.id}`;
-        console.log('[salvarTodos] batch.set', { cliente: cli.nome_cliente, id: cli.id, novo, orig, campo: k, path });
+        const path = `fechamentos/${periodoSelecionado}/clientes/${docIdCanonico}`;
+        console.log('[salvarTodos] batch.set', { cliente: cli.nome_cliente, id_original: cli.id, docIdCanonico, novo, orig, campo: k, path });
         batch.set(
-          doc(db, 'fechamentos', periodoSelecionado, 'clientes', cli.id),
+          doc(db, 'fechamentos', periodoSelecionado, 'clientes', docIdCanonico),
           { [k]: novo },
           { merge: true },
         );
