@@ -1,7 +1,7 @@
 // --- Tela de Configurações com abas internas ---
 
-import { useState, useCallback, useEffect } from 'react';
-import { Settings, Database, Loader2, Wrench, Tags, FilePen, Eraser } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Settings, Database, Loader2, Wrench, Tags, FilePen, Eraser, Link2 } from 'lucide-react';
 import { useConfiguracoes } from './useConfiguracoes';
 import { TabCustos } from './TabCustos';
 import { TabRebate } from './TabRebate';
@@ -11,7 +11,7 @@ import { Metodologia } from '../metodologia/Metodologia';
 import { useAuth } from '../../state/AuthContext';
 import { migrarClientesBase } from '../../scripts/migrarClientesBase';
 import { executarMigracaoMapeamento } from '../../utils/migrarMapeamentoSiglas';
-import { corrigirRegistroPoupanca, corrigirNomeClientePoupanca, corrigirEntradaMapeamentoSiglas, zerarCampoTombamento } from '../../services/firebase';
+import { cadastrarSiglaNova, corrigirRegistroPoupanca, corrigirNomeClientePoupanca, corrigirEntradaMapeamentoSiglas, zerarCampoTombamento } from '../../services/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import type { RegistroPoupanca } from '../../types';
@@ -142,6 +142,94 @@ export function Configuracoes() {
       setCorrigindoMap(false);
     }
   }, [mapCodigo, mapNomeNovo]);
+
+  // Estado da seção "Cadastrar Sigla Nova".
+  // Vincula sigla nova (ex: AAE_BTG) a cliente já existente em clientes_base/,
+  // oficializa nome canônico e normaliza docs de poupanca/ em quarentena num
+  // único ato. Detalhes em firebase.cadastrarSiglaNova.
+  const [cadSigla, setCadSigla] = useState('');
+  const [cadCodigo, setCadCodigo] = useState('');
+  const [cadSlug, setCadSlug] = useState('');
+  const [cadNomeCanonico, setCadNomeCanonico] = useState('');
+  const [cadastrandoSigla, setCadastrandoSigla] = useState(false);
+  const [cadastroSiglaToast, setCadastroSiglaToast] = useState<string | null>(null);
+
+  // Lista de clientes_base/ para datalist (slug + nome). Carregada sob demanda
+  // quando o admin abre a tela. Lookup por slug → nome usado para pré-preencher
+  // o nome canônico quando o usuário escolhe o cliente.
+  const [clientesBase, setClientesBase] = useState<Array<{ slug: string; nome: string }>>([]);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, 'clientes_base'));
+        if (cancelado) return;
+        const lista = snap.docs
+          .map(d => ({ slug: d.id, nome: (d.data() as Record<string, unknown>).nome_cliente as string ?? d.id }))
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+        setClientesBase(lista);
+      } catch (e) {
+        console.error('[Configuracoes] Erro ao carregar clientes_base/:', e);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [isAdmin]);
+
+  // Pré-preenche código completo a partir da sigla (ex: AAE → AAE_BTG)
+  // e nome canônico a partir do cliente selecionado.
+  const datalistClientesId = useMemo(() => `cad-sigla-clientes-${Math.random().toString(36).slice(2, 8)}`, []);
+  const clientePorSlug = useMemo(() => new Map(clientesBase.map(c => [c.slug, c.nome])), [clientesBase]);
+  const clientePorNome = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of clientesBase) m.set(c.nome, c.slug);
+    return m;
+  }, [clientesBase]);
+
+  // Auto-fill: sigla → codigoCompleto (default _BTG). nome do cliente → slug + nome canônico.
+  useEffect(() => {
+    if (cadSigla && !cadCodigo) setCadCodigo(`${cadSigla.toUpperCase()}_BTG`);
+  }, [cadSigla, cadCodigo]);
+
+  function escolherClienteDoDatalist(valor: string) {
+    // Usuário digitou/selecionou nome no datalist. Resolve para slug e
+    // popula nome canônico com o nome atual (editável).
+    const slugAchado = clientePorNome.get(valor);
+    if (slugAchado) {
+      setCadSlug(slugAchado);
+      if (!cadNomeCanonico) setCadNomeCanonico(valor);
+    }
+  }
+
+  const cadastrar = useCallback(async () => {
+    if (!cadSigla.trim() || !cadCodigo.trim() || !cadSlug.trim() || !cadNomeCanonico.trim()) {
+      setCadastroSiglaToast('Erro: preencha todos os campos.');
+      return;
+    }
+    setCadastrandoSigla(true);
+    setCadastroSiglaToast(null);
+    try {
+      const r = await cadastrarSiglaNova({
+        sigla: cadSigla.trim().toUpperCase(),
+        codigoCompleto: cadCodigo.trim().toUpperCase(),
+        slugClienteExistente: cadSlug.trim(),
+        nomeCanonicoNovo: cadNomeCanonico.trim(),
+        registradoPor: usuario?.nome ?? usuario?.email ?? 'admin',
+      });
+      if (!r.sucesso) {
+        setCadastroSiglaToast(`Erro: ${r.erros.join(' | ')}`);
+      } else {
+        const resumo = r.mensagens.join(' · ');
+        const sufErros = r.erros.length > 0 ? ` (avisos: ${r.erros.length})` : '';
+        setCadastroSiglaToast(`${resumo}${sufErros}`);
+        setCadSigla(''); setCadCodigo(''); setCadSlug(''); setCadNomeCanonico('');
+      }
+    } catch (e) {
+      setCadastroSiglaToast(`Erro: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setCadastrandoSigla(false);
+    }
+  }, [cadSigla, cadCodigo, cadSlug, cadNomeCanonico, usuario]);
 
   // Estado do zerador de tombamento espúrio em poupanca/.
   // Usado para limpar registros stale de re-imports antigos com hasPrev=false.
@@ -342,6 +430,62 @@ export function Configuracoes() {
                 color: correcaoNomeToast.startsWith('Erro') ? '#991b1b' : '#166534',
               }}>
                 {correcaoNomeToast}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t pt-4 mt-4 space-y-3" style={{ borderColor: '#e2e2e8' }}>
+            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#160F41' }}>
+              <Link2 size={16} /> Cadastrar Sigla Nova
+            </h3>
+            <p className="text-xs" style={{ color: '#6b6b8a' }}>
+              Vincula uma sigla nova (ex: <code>AAE_BTG</code>) a um cliente
+              existente em <code>clientes_base/</code>, oficializa o nome
+              canônico e normaliza automaticamente os registros de
+              {' '}<code>poupanca/</code> em quarentena
+              (<code>status='pendente_normalizacao'</code>). Operação
+              transacional — falha se a sigla já existir.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="text" value={cadSigla}
+                onChange={e => setCadSigla(e.target.value.toUpperCase())}
+                placeholder="Sigla curta (ex: AAE)"
+                className="rounded px-2 py-1.5 text-xs font-mono uppercase"
+                style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+              <input type="text" value={cadCodigo}
+                onChange={e => setCadCodigo(e.target.value.toUpperCase())}
+                placeholder="Código completo (ex: AAE_BTG)"
+                className="rounded px-2 py-1.5 text-xs font-mono uppercase"
+                style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+              <input type="text" list={datalistClientesId}
+                value={cadSlug ? (clientePorSlug.get(cadSlug) ?? cadSlug) : ''}
+                onChange={e => escolherClienteDoDatalist(e.target.value)}
+                placeholder="Cliente existente (digite para buscar)"
+                className="rounded px-2 py-1.5 text-xs"
+                style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+              <input type="text" value={cadNomeCanonico}
+                onChange={e => setCadNomeCanonico(e.target.value)}
+                placeholder="Nome canônico (pré-preenche ao escolher cliente)"
+                className="rounded px-2 py-1.5 text-xs"
+                style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+              <datalist id={datalistClientesId}>
+                {clientesBase.map(c => <option key={c.slug} value={c.nome} />)}
+              </datalist>
+            </div>
+            <button onClick={cadastrar} disabled={cadastrandoSigla
+              || !cadSigla.trim() || !cadCodigo.trim()
+              || !cadSlug.trim() || !cadNomeCanonico.trim()}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+              style={{ backgroundColor: '#160F41' }}>
+              {cadastrandoSigla ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+              {cadastrandoSigla ? 'Cadastrando...' : 'Cadastrar e Normalizar'}
+            </button>
+            {cadastroSiglaToast && (
+              <div className="p-3 rounded-lg text-sm" style={{
+                backgroundColor: cadastroSiglaToast.startsWith('Erro') ? '#fee2e2' : '#dcfce7',
+                color: cadastroSiglaToast.startsWith('Erro') ? '#991b1b' : '#166534',
+              }}>
+                {cadastroSiglaToast}
               </div>
             )}
           </div>
