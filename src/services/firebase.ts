@@ -732,19 +732,27 @@ export async function buscarClientesBase(): Promise<Cliente[]> {
 }
 
 /**
- * Salva (ou atualiza) um cliente em clientes_base/{slug}.
+ * Salva (ou atualiza) um cliente em clientes_base/{docId}.
+ *
+ * docId resolution:
+ *  - Em UPDATE (cliente já tem `id`): usa `cliente.id` como docId.
+ *    Re-derivar slug do nome causa doc paralelo quando o nome canônico
+ *    muda (incidente Allan → ALLAN ANDRADE ELIAS, 2026-05-18).
+ *  - Em CREATE (cliente.id ausente): usa `slug(nome_cliente)` como docId.
+ *    É o único caso legítimo de derivar slug do nome — primeira gravação,
+ *    nada anterior a preservar.
  *
  * Princípio 5 (geração defensiva): se o objeto não tiver `id_estavel`,
  * gera UUID v4 antes de gravar — garante que nenhum cliente nasça sem
  * identidade lógica por qualquer caminho de código.
  */
 export async function salvarClienteBase(cliente: Cliente): Promise<void> {
-  const slugCliente = slug(cliente.nome_cliente ?? '');
+  const docIdCliente = cliente.id ?? slug(cliente.nome_cliente ?? '');
   const dados = cliente.id_estavel
     ? cliente
     : { ...cliente, id_estavel: crypto.randomUUID() };
   try {
-    await setDoc(doc(db, 'clientes_base', slugCliente), dados);
+    await setDoc(doc(db, 'clientes_base', docIdCliente), dados, { merge: true });
   } catch (error) {
     console.error('[Firebase] Erro ao salvar cliente_base:', error);
     throw error;
