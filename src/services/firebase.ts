@@ -719,12 +719,33 @@ export async function salvarParametros(params: Parametros): Promise<void> {
 
 /**
  * Busca todos os clientes da collection raiz clientes_base/.
+ *
+ * Dedup defensivo por `id_estavel`: proteção contra docs paralelos
+ * gerados por re-derivação de slug após renomeação de nome canônico
+ * (incidente Allan → ALLAN ANDRADE ELIAS, 2026-05-18). O fix de
+ * salvarClienteBase (mesmo commit) elimina a origem; este dedup
+ * garante que o AppContext nunca renderize duplicado mesmo se a
+ * fonte de dados ficar suja por outro caminho ainda não coberto.
+ *
+ * Ordem: mantém o primeiro doc encontrado (ordem do Firestore — sem
+ * orderBy explícito, geralmente docId asc). Cliente sem id_estavel
+ * (legado Fase 3 não migrado) passa sem dedup.
  */
 export async function buscarClientesBase(): Promise<Cliente[]> {
   try {
     const ref = collection(db, 'clientes_base');
     const snapshot = await getDocs(ref);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Cliente);
+    const todos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Cliente);
+    const vistos = new Set<string>();
+    return todos.filter(c => {
+      if (!c.id_estavel) return true;
+      if (vistos.has(c.id_estavel)) {
+        console.warn(`[buscarClientesBase] doc duplicado por id_estavel — ignorado: ${c.id} (nome="${c.nome_cliente}")`);
+        return false;
+      }
+      vistos.add(c.id_estavel);
+      return true;
+    });
   } catch (error) {
     console.error('[Firebase] Erro ao buscar clientes_base:', error);
     throw error;
