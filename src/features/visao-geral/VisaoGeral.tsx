@@ -42,7 +42,9 @@ export function VisaoGeral() {
     modal, abrirCustoDireto, abrirCustoIndireto, abrirImpostos, fecharModal,
   } = useVisaoGeral();
 
-  const [colunaOrdenada, setColunaOrdenada] = useState('ebitda');
+  // Default alfabético por nome_cliente (CLAUDE.md — regra de ordenação em
+  // tabelas: default sempre alfabético pela coluna de identificador principal).
+  const [colunaOrdenada, setColunaOrdenada] = useState('nome_cliente');
   const [fechandoPeriodo, setFechandoPeriodo] = useState(false);
   const [toastPeriodo, setToastPeriodo] = useState<string | null>(null);
   const [validacaoAberta, setValidacaoAberta] = useState(false);
@@ -132,7 +134,7 @@ export function VisaoGeral() {
     }
   }, [periodoSelecionado, recarregar]);
 
-  const [ordem, setOrdem] = useState<'asc' | 'desc'>('desc');
+  const [ordem, setOrdem] = useState<'asc' | 'desc'>('asc');
   const [filtros, setFiltros] = useState<Record<string, Set<string>>>({});
 
   const isMC = visaoFinanceira === 'margem_contribuicao';
