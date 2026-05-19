@@ -780,6 +780,87 @@ export async function salvarClienteBase(cliente: Cliente): Promise<void> {
   }
 }
 
+/** Cria cliente novo em `clientes_base/` + snapshot inicial em
+ *  `fechamentos/{periodo}/clientes/`. Caso de uso: ramo "novo cliente" do
+ *  formulário Cadastrar Sigla Nova (Manutenção) — fluxo end-to-end de
+ *  registrar cliente que aparece pela primeira vez via lâmina.
+ *
+ *  Padrão alinhado com NovoClienteModal: pct_* zerados (atribuir equipe
+ *  depois via Alocação em Lote), id_estavel via UUID v4 imutável,
+ *  uniqueness check em clientes_base/{slug} antes de gravar. Difere em
+ *  consolidar as 2 escritas num único helper reutilizável.
+ *
+ *  Rebate em DECIMAL (já `/100` pelo caller). Alíquota também em decimal.
+ *  Retorna `id_estavel` (UUID gerado), `slugCliente` (docId) e lista de
+ *  erros (vazia se sucesso). Em caso de uniqueness fail, retorna
+ *  `slugCliente=''` e mensagem em `erros`. */
+export async function criarClienteNovo(params: {
+  nomeCompleto: string;
+  pacoteServico: 'full' | 'advanced' | 'light' | 'future' | 'asset_only';
+  percentualRebateOnshore: number;
+  percentualRebateOffshore: number;
+  aliquotaImpostosRebate: number;
+  receitaFee: number;
+  utilizaServicoJuridico: boolean;
+  utilizaConciliacao: boolean;
+  dataEntrada: string;        // 'YYYY-MM'
+  periodo: string;            // 'YYYY-MM' — destino do snapshot inicial
+}): Promise<{ id_estavel: string; slugCliente: string; erros: string[] }> {
+  const {
+    nomeCompleto, pacoteServico,
+    percentualRebateOnshore, percentualRebateOffshore, aliquotaImpostosRebate,
+    receitaFee, utilizaServicoJuridico, utilizaConciliacao,
+    dataEntrada, periodo,
+  } = params;
+  const erros: string[] = [];
+
+  const nome = nomeCompleto.trim();
+  if (!nome) return { id_estavel: '', slugCliente: '', erros: ['Nome do cliente vazio.'] };
+  const slugCliente = slug(nome);
+  if (!slugCliente) return { id_estavel: '', slugCliente: '', erros: ['Nome inválido (sem caracteres alfanuméricos).'] };
+
+  // Uniqueness check — não sobrescrever doc existente.
+  const refBase = doc(db, 'clientes_base', slugCliente);
+  const snapBase = await getDoc(refBase);
+  if (snapBase.exists()) {
+    const existente = snapBase.data() as Cliente;
+    erros.push(`Cliente "${existente.nome_cliente}" já existe em clientes_base/${slugCliente}.`);
+    return { id_estavel: '', slugCliente: '', erros };
+  }
+
+  const id_estavel = crypto.randomUUID();
+  const novo: Cliente = {
+    id_estavel,
+    nome_cliente: nome,
+    receita_fee: pacoteServico === 'asset_only' ? 0 : receitaFee,
+    percentual_rebate_anual_onshore: percentualRebateOnshore,
+    percentual_rebate_anual_offshore: percentualRebateOffshore,
+    aliquota_impostos_rebate: aliquotaImpostosRebate,
+    utiliza_servico_juridico: utilizaServicoJuridico,
+    utiliza_conciliacao: utilizaConciliacao,
+    pacote_servico: pacoteServico,
+    // pct_* zerados — atribuição via Alocação em Lote depois.
+    pct_consultoria_gestao: 0,
+    pct_consultoria_planejamento: 0,
+    pct_consultoria_financeira: 0,
+    pct_operacional_financeiro: 0,
+    pct_serv_adm: 0,
+    pct_serv_aux_adm: 0,
+    data_entrada: dataEntrada,
+  };
+
+  try {
+    await salvarClienteBase(novo);
+    await setDoc(doc(db, 'fechamentos', periodo, 'clientes', slugCliente), novo);
+    return { id_estavel, slugCliente, erros: [] };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[Firebase] Erro ao criar cliente novo:', error);
+    erros.push(`Falha ao gravar cliente: ${msg}`);
+    return { id_estavel: '', slugCliente: '', erros };
+  }
+}
+
 /**
  * Persiste o perfil de complexidade de um cliente.
  *
