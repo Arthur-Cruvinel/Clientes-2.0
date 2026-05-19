@@ -1,7 +1,7 @@
 // --- Tela de Configurações com abas internas ---
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Settings, Database, Loader2, Wrench, Tags, FilePen, Eraser, Link2 } from 'lucide-react';
+import { Settings, Database, Loader2, Wrench, Tags, FilePen, Eraser, Link2, UserPlus } from 'lucide-react';
 import { useConfiguracoes } from './useConfiguracoes';
 import { TabCustos } from './TabCustos';
 import { TabRebate } from './TabRebate';
@@ -9,12 +9,15 @@ import { TabPacotes } from './TabPacotes';
 import { ColaboradoresVisao } from '../colaboradores/ColaboradoresVisao';
 import { Metodologia } from '../metodologia/Metodologia';
 import { useAuth } from '../../state/AuthContext';
+import { useApp } from '../../state/AppContext';
 import { migrarClientesBase } from '../../scripts/migrarClientesBase';
 import { executarMigracaoMapeamento } from '../../utils/migrarMapeamentoSiglas';
-import { cadastrarSiglaNova, corrigirRegistroPoupanca, corrigirNomeClientePoupanca, corrigirEntradaMapeamentoSiglas, zerarCampoTombamento } from '../../services/firebase';
+import { cadastrarSiglaNova, criarClienteNovo, corrigirRegistroPoupanca, corrigirNomeClientePoupanca, corrigirEntradaMapeamentoSiglas, zerarCampoTombamento } from '../../services/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import type { RegistroPoupanca } from '../../types';
+import type { RegistroPoupanca, PacoteServico } from '../../types';
+
+const PACOTES: PacoteServico[] = ['full', 'advanced', 'light', 'future', 'asset_only'];
 
 const FLAG_MAPEAMENTO_MIGRADO = 'mapeamento_migrado';
 
@@ -32,6 +35,7 @@ export function Configuracoes() {
   const { parametros, salvar, salvando, toast } = useConfiguracoes();
   const [aba, setAba] = useState<AbaId>('custos');
   const { usuario } = useAuth();
+  const { periodoSelecionado } = useApp();
   const isAdmin = usuario?.role === 'admin';
 
   // Estado da migração
@@ -176,6 +180,22 @@ export function Configuracoes() {
     return () => { cancelado = true; };
   }, [isAdmin]);
 
+  // Estado adicional para "novo cliente" — visível quando o usuário digita
+  // um nome que não bate em nenhum cliente existente. Defaults alinhados ao
+  // NovoClienteModal: pacote light, rebate 0,6%/0,6% em humano, alíq 0,
+  // pct_* zerados (atribuídos depois via Alocação em Lote).
+  const [cadClienteNovo, setCadClienteNovo] = useState(false);
+  const [cadNomeNovo, setCadNomeNovo] = useState('');  // texto digitado quando não bate em existente
+  const [cadPacoteNovo, setCadPacoteNovo] = useState<PacoteServico>('light');
+  const [cadRebateOnNovo, setCadRebateOnNovo] = useState(0.6);
+  const [cadRebateOffNovo, setCadRebateOffNovo] = useState(0.6);
+  const [cadAliqRebateNovo, setCadAliqRebateNovo] = useState(0);
+  const [cadFeeNovo, setCadFeeNovo] = useState(0);
+  const [cadUsaJuridicoNovo, setCadUsaJuridicoNovo] = useState(false);
+  const [cadUsaConciliacaoNovo, setCadUsaConciliacaoNovo] = useState(false);
+  const [cadDataEntradaNovo, setCadDataEntradaNovo] = useState(periodoSelecionado);
+  useEffect(() => { setCadDataEntradaNovo(periodoSelecionado); }, [periodoSelecionado]);
+
   // Pré-preenche código completo a partir da sigla (ex: AAE → AAE_BTG)
   // e nome canônico a partir do cliente selecionado.
   const datalistClientesId = useMemo(() => `cad-sigla-clientes-${Math.random().toString(36).slice(2, 8)}`, []);
@@ -191,19 +211,99 @@ export function Configuracoes() {
     if (cadSigla && !cadCodigo) setCadCodigo(`${cadSigla.toUpperCase()}_BTG`);
   }, [cadSigla, cadCodigo]);
 
-  function escolherClienteDoDatalist(valor: string) {
-    // Usuário digitou/selecionou nome no datalist. Resolve para slug e
-    // popula nome canônico com o nome atual (editável).
+  function alterarNomeClienteInput(valor: string) {
+    // onChange do input de cliente. Tenta resolver para slug existente. Se
+    // bater, fluxo normal (cliente existente — bloco novo NÃO aparece). Se
+    // não bater, mantém o texto bruto em cadNomeNovo (detecção definitiva
+    // só dispara no onBlur).
     const slugAchado = clientePorNome.get(valor);
     if (slugAchado) {
       setCadSlug(slugAchado);
       if (!cadNomeCanonico) setCadNomeCanonico(valor);
+      setCadClienteNovo(false);     // some o bloco de criação se estiver visível
+      setCadNomeNovo('');
+    } else {
+      // Texto não bate em existente — guarda como possível nome novo.
+      // Não limpa cadSlug aqui — só é limpo no onBlur (definitivo).
+      setCadNomeNovo(valor);
     }
   }
 
+  function detectarClienteNovoOnBlur() {
+    // Disparado quando o input perde o foco. Se há texto digitado que não
+    // bate em existente → ativa bloco de criação.
+    if (!cadNomeNovo.trim()) return;
+    if (clientePorNome.has(cadNomeNovo.trim())) return;  // bate em existente — não ativa
+    setCadSlug('');         // descarta qualquer slug residual
+    setCadNomeCanonico(''); // será preenchido com cadNomeNovo no submit
+    setCadClienteNovo(true);
+  }
+
   const cadastrar = useCallback(async () => {
-    if (!cadSigla.trim() || !cadCodigo.trim() || !cadSlug.trim() || !cadNomeCanonico.trim()) {
-      setCadastroSiglaToast('Erro: preencha todos os campos.');
+    if (!cadSigla.trim() || !cadCodigo.trim()) {
+      setCadastroSiglaToast('Erro: preencha sigla e código completo.');
+      return;
+    }
+
+    // Ramo "cliente novo": criarClienteNovo primeiro, depois cadastrarSiglaNova
+    // com o slug recém-criado. Toast unificado mostra ambos os passos.
+    if (cadClienteNovo) {
+      if (!cadNomeNovo.trim()) {
+        setCadastroSiglaToast('Erro: nome do cliente novo vazio.');
+        return;
+      }
+      setCadastrandoSigla(true);
+      setCadastroSiglaToast(null);
+      try {
+        const nomeUpper = cadNomeNovo.trim().toUpperCase();
+        const rCli = await criarClienteNovo({
+          nomeCompleto: nomeUpper,
+          pacoteServico: cadPacoteNovo,
+          percentualRebateOnshore: cadRebateOnNovo / 100,
+          percentualRebateOffshore: cadRebateOffNovo / 100,
+          aliquotaImpostosRebate: cadAliqRebateNovo / 100,
+          receitaFee: cadFeeNovo,
+          utilizaServicoJuridico: cadUsaJuridicoNovo,
+          utilizaConciliacao: cadUsaConciliacaoNovo,
+          dataEntrada: cadDataEntradaNovo,
+          periodo: periodoSelecionado,
+        });
+        if (rCli.erros.length > 0) {
+          setCadastroSiglaToast(`Erro ao criar cliente: ${rCli.erros.join(' | ')}`);
+          return;
+        }
+        // Cliente criado — agora vincula a sigla.
+        const rSig = await cadastrarSiglaNova({
+          sigla: cadSigla.trim().toUpperCase(),
+          codigoCompleto: cadCodigo.trim().toUpperCase(),
+          slugClienteExistente: rCli.slugCliente,
+          nomeCanonicoNovo: nomeUpper,
+          registradoPor: usuario?.nome ?? usuario?.email ?? 'admin',
+        });
+        if (!rSig.sucesso) {
+          setCadastroSiglaToast(`Cliente criado, mas sigla falhou: ${rSig.erros.join(' | ')}`);
+          return;
+        }
+        const resumo = [`Cliente ${nomeUpper} criado.`, ...rSig.mensagens].join(' · ');
+        const sufErros = rSig.erros.length > 0 ? ` (avisos: ${rSig.erros.length})` : '';
+        setCadastroSiglaToast(`${resumo}${sufErros}`);
+        // Reset completo
+        setCadSigla(''); setCadCodigo(''); setCadSlug(''); setCadNomeCanonico('');
+        setCadClienteNovo(false); setCadNomeNovo('');
+        setCadPacoteNovo('light'); setCadRebateOnNovo(0.6); setCadRebateOffNovo(0.6);
+        setCadAliqRebateNovo(0); setCadFeeNovo(0);
+        setCadUsaJuridicoNovo(false); setCadUsaConciliacaoNovo(false);
+      } catch (e) {
+        setCadastroSiglaToast(`Erro: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        setCadastrandoSigla(false);
+      }
+      return;
+    }
+
+    // Ramo "cliente existente": fluxo original.
+    if (!cadSlug.trim() || !cadNomeCanonico.trim()) {
+      setCadastroSiglaToast('Erro: selecione um cliente existente ou digite um nome novo.');
       return;
     }
     setCadastrandoSigla(true);
@@ -229,7 +329,12 @@ export function Configuracoes() {
     } finally {
       setCadastrandoSigla(false);
     }
-  }, [cadSigla, cadCodigo, cadSlug, cadNomeCanonico, usuario]);
+  }, [
+    cadSigla, cadCodigo, cadSlug, cadNomeCanonico, usuario,
+    cadClienteNovo, cadNomeNovo, cadPacoteNovo, cadRebateOnNovo, cadRebateOffNovo,
+    cadAliqRebateNovo, cadFeeNovo, cadUsaJuridicoNovo, cadUsaConciliacaoNovo,
+    cadDataEntradaNovo, periodoSelecionado,
+  ]);
 
   // Estado do zerador de tombamento espúrio em poupanca/.
   // Usado para limpar registros stale de re-imports antigos com hasPrev=false.
@@ -458,27 +563,110 @@ export function Configuracoes() {
                 className="rounded px-2 py-1.5 text-xs font-mono uppercase"
                 style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
               <input type="text" list={datalistClientesId}
-                value={cadSlug ? (clientePorSlug.get(cadSlug) ?? cadSlug) : ''}
-                onChange={e => escolherClienteDoDatalist(e.target.value)}
-                placeholder="Cliente existente (digite para buscar)"
+                value={cadClienteNovo
+                  ? cadNomeNovo
+                  : (cadSlug ? (clientePorSlug.get(cadSlug) ?? cadSlug) : cadNomeNovo)}
+                onChange={e => alterarNomeClienteInput(e.target.value)}
+                onBlur={detectarClienteNovoOnBlur}
+                placeholder="Cliente (digite para buscar OU criar novo)"
                 className="rounded px-2 py-1.5 text-xs"
                 style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
               <input type="text" value={cadNomeCanonico}
                 onChange={e => setCadNomeCanonico(e.target.value)}
                 placeholder="Nome canônico (pré-preenche ao escolher cliente)"
-                className="rounded px-2 py-1.5 text-xs"
+                disabled={cadClienteNovo}
+                className="rounded px-2 py-1.5 text-xs disabled:bg-gray-50"
                 style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
               <datalist id={datalistClientesId}>
                 {clientesBase.map(c => <option key={c.slug} value={c.nome} />)}
               </datalist>
             </div>
+
+            {cadClienteNovo && (
+              <div className="border-l-4 pl-3 py-2 space-y-2 rounded"
+                style={{ borderColor: '#0065FF', backgroundColor: '#f0f5ff' }}>
+                <div className="flex items-center gap-2 text-xs font-medium" style={{ color: '#0065FF' }}>
+                  <UserPlus size={14} /> Cliente novo — preencha os dados para criar
+                </div>
+                <p className="text-[11px]" style={{ color: '#6b6b8a' }}>
+                  Equipe (consultoria_gestao, etc.) atribuída depois via
+                  <strong> Alocação em Lote</strong>. Cliente nasce com pct_* zerados.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Pacote de serviço</label>
+                    <select value={cadPacoteNovo}
+                      onChange={e => setCadPacoteNovo(e.target.value as PacoteServico)}
+                      className="rounded px-2 py-1.5 text-xs w-full"
+                      style={{ border: '1px solid #e2e2e8', color: '#160F41' }}>
+                      {PACOTES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Data de entrada</label>
+                    <input type="month" value={cadDataEntradaNovo}
+                      onChange={e => setCadDataEntradaNovo(e.target.value)}
+                      className="rounded px-2 py-1.5 text-xs w-full"
+                      style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+                  </div>
+                  {cadPacoteNovo !== 'asset_only' && (
+                    <div className="space-y-1 col-span-2">
+                      <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Fee mensal (R$)</label>
+                      <input type="number" step="0.01" value={cadFeeNovo}
+                        onChange={e => setCadFeeNovo(Number(e.target.value))}
+                        className="rounded px-2 py-1.5 text-xs w-full"
+                        style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Rebate onshore (% a.a.)</label>
+                    <input type="number" step="0.01" value={cadRebateOnNovo}
+                      onChange={e => setCadRebateOnNovo(Number(e.target.value))}
+                      className="rounded px-2 py-1.5 text-xs w-full"
+                      style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Rebate offshore (% a.a.)</label>
+                    <input type="number" step="0.01" value={cadRebateOffNovo}
+                      onChange={e => setCadRebateOffNovo(Number(e.target.value))}
+                      className="rounded px-2 py-1.5 text-xs w-full"
+                      style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Alíquota imp. rebate (%)</label>
+                    <input type="number" step="0.01" value={cadAliqRebateNovo}
+                      onChange={e => setCadAliqRebateNovo(Number(e.target.value))}
+                      className="rounded px-2 py-1.5 text-xs w-full"
+                      style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-4 pt-1">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#160F41' }}>
+                    <input type="checkbox" checked={cadUsaJuridicoNovo}
+                      onChange={e => setCadUsaJuridicoNovo(e.target.checked)} className="rounded" />
+                    Utiliza serviço jurídico
+                  </label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#160F41' }}>
+                    <input type="checkbox" checked={cadUsaConciliacaoNovo}
+                      onChange={e => setCadUsaConciliacaoNovo(e.target.checked)} className="rounded" />
+                    Utiliza conciliação
+                  </label>
+                </div>
+              </div>
+            )}
+
             <button onClick={cadastrar} disabled={cadastrandoSigla
               || !cadSigla.trim() || !cadCodigo.trim()
-              || !cadSlug.trim() || !cadNomeCanonico.trim()}
+              || (cadClienteNovo
+                  ? !cadNomeNovo.trim()
+                  : (!cadSlug.trim() || !cadNomeCanonico.trim()))}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
               style={{ backgroundColor: '#160F41' }}>
-              {cadastrandoSigla ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
-              {cadastrandoSigla ? 'Cadastrando...' : 'Cadastrar e Normalizar'}
+              {cadastrandoSigla ? <Loader2 size={14} className="animate-spin" />
+                : cadClienteNovo ? <UserPlus size={14} /> : <Link2 size={14} />}
+              {cadastrandoSigla ? 'Cadastrando...'
+                : cadClienteNovo ? 'Criar Cliente, Cadastrar e Normalizar'
+                : 'Cadastrar e Normalizar'}
             </button>
             {cadastroSiglaToast && (
               <div className="p-3 rounded-lg text-sm" style={{
