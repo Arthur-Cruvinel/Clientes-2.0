@@ -712,11 +712,18 @@ export function usePoupanca(
 
   // PL inicial do PRIMEIRO mês de cada cliente dentro do intervalo. Base para
   // "Variação do AUM" no card principal (aum_final − aum_inicial).
+  //
+  // Usa `pl_inicial_total` (saldo de ABERTURA do 1º mês) — não `pl_total`
+  // (saldo de FECHAMENTO, que já incorpora NNM + rent + tombamento do mês
+  // de entrada). Conceito: ponto de partida real do período. Para clientes
+  // que entraram no meio do intervalo, pl_inicial_total = 0 (corretamente:
+  // não existiam antes), e o tombamento desse mês entra como variação do
+  // período, não como saldo de abertura.
   const aumInicialPeriodo = useMemo(() => {
     let total = 0;
     for (const [, regs] of registrosPorCliente) {
       const sorted = [...regs].sort((a, b) => pNum(a.ano, a.mes) - pNum(b.ano, b.mes));
-      total += sorted[0]?.pl_total ?? 0;
+      total += sorted[0]?.pl_inicial_total ?? 0;
     }
     return total;
   }, [registrosPorCliente]);
