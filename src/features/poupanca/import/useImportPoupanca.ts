@@ -634,7 +634,7 @@ export function useImportPoupanca() {
             // Buscar ending USD e PTAX do mês anterior (para encadear AUM e capturar accrued).
             const mesPrev = mes === 1 ? 12 : mes - 1;
             const anoPrev = mes === 1 ? ano - 1 : ano;
-            const prevSnap = await getDoc(doc(db, 'poupanca', `${slug}_${anoPrev}_${mesPrev}`));
+            const prevSnap = await getDoc(doc(db, 'poupanca', `${baseSlug}_${anoPrev}_${mesPrev}`));
             const prevData = prevSnap.exists() ? prevSnap.data() : null;
             const prevEndingUsd = (prevData?.pl_offshore_usd as number | undefined) ?? 0;
             const prevPtax = (prevData?.ptax_fechamento as number | undefined) ?? ptax;
@@ -674,7 +674,7 @@ export function useImportPoupanca() {
               const aporteBrlFinal = Math.abs(cashflowComAccrued * ptax);
               if (aporteBrlFinal > 0.01 && tombBrl > 5 * aporteBrlFinal) {
                 console.warn(
-                  `[Tombamento] SAVE com ratio suspeito: ${slug}_${ano}_${mes} `
+                  `[Tombamento] SAVE com ratio suspeito: ${baseSlug}_${ano}_${mes} `
                   + `tomb=${tombBrl.toFixed(2)} é ${(tombBrl / aporteBrlFinal).toFixed(1)}× `
                   + `o aporte BRL final=${aporteBrlFinal.toFixed(2)}. Revisar pós-save.`,
                 );
