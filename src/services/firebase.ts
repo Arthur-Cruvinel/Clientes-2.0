@@ -5,6 +5,7 @@ import { initializeApp } from 'firebase/app';
 import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, writeBatch, deleteField } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial } from '../types';
+import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO } from '../utils/constants';
 import { PARAMETROS_DEFAULT } from '../utils/constants';
 import { buscarTetoPorPeriodo } from '../utils/financials.custos';
@@ -63,6 +64,27 @@ export async function buscarColaboradores(anoMes: string): Promise<Colaborador[]
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Colaborador);
   } catch (error) {
     console.error(`[Firebase] Erro ao buscar colaboradores do período ${anoMes}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Busca todos os vínculos cliente↔colaborador de um período (Fase 2.5 — Peça 5).
+ * Caminho: fechamentos/{anoMes}/vinculos
+ *
+ * O pipeline financeiro (calcularCustoDireto) consome esta lista para resolver
+ * colaborador→cliente por id_estavel quando vínculos com pct > 0 existem.
+ * Vínculos com pct = 0 ficam latentes — o pipeline cai no fallback dos campos
+ * do cliente (leitura dual). Quando Peça 6 popular pct via UI, a migração para
+ * vínculos acontece automaticamente sem nenhuma alteração de código adicional.
+ */
+export async function buscarVinculos(anoMes: string): Promise<Vinculo[]> {
+  try {
+    const ref = collection(db, 'fechamentos', anoMes, 'vinculos');
+    const snapshot = await getDocs(ref);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Vinculo);
+  } catch (error) {
+    console.error(`[Firebase] Erro ao buscar vínculos do período ${anoMes}:`, error);
     throw error;
   }
 }

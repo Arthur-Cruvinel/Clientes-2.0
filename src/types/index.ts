@@ -522,6 +522,13 @@ export interface DadosPeriodo {
   // Fonte de PL do período (CLAUDE.md — decisão arquitetural).
   registrosPoupanca: RegistroPoupanca[];
 
+  // Vínculos cliente↔colaborador do período (Fase 2.5). Consumidos pelo
+  // pipeline de custo direto via leitura dual: se há vínculo com pct > 0
+  // para (cliente, função), usa o vínculo; senão, fallback no campo do cliente.
+  // Hoje (pré-Peça 6) todos têm pct=0 — fallback sempre dispara, comportamento
+  // idêntico ao legado. Estrutura pronta para ativação quando Peça 6 popular pct.
+  vinculos: import('./vinculo').Vinculo[];
+
   // Totais consolidados (calculados uma vez no pipeline)
   totais: {
     receita_bruta: number;

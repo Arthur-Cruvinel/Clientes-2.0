@@ -12,6 +12,7 @@ import {
   buscarParametros,
   buscarStatusPeriodo,
   buscarRegistrosPoupancaPorPeriodo,
+  buscarVinculos,
   verificarPeriodoVazio,
   buscarPeriodoAnterior,
   copiarPeriodo,
@@ -117,11 +118,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Se fechado: buscar snapshot de fechamentos/{periodo}/clientes/
       // Se aberto: buscar de clientes_base/ (dados atuais)
       // poupanca/ é a fonte de PL do período (CLAUDE.md — decisão arquitetural).
-      const [clientes, colaboradoresRaw, custosIndiretos, registrosPoupanca] = await Promise.all([
+      // vinculos/ é a estrutura nova da Fase 2.5 — pipeline usa via leitura dual.
+      const [clientes, colaboradoresRaw, custosIndiretos, registrosPoupanca, vinculos] = await Promise.all([
         fechado ? buscarClientes(periodo) : buscarClientesBase(),
         buscarColaboradores(periodo),
         buscarCustosIndiretos(periodo),
         buscarRegistrosPoupancaPorPeriodo(ano, mes),
+        buscarVinculos(periodo),
       ]);
 
       // Sempre recalcula a folha completa a partir dos campos base — valores
@@ -215,6 +218,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       const todosClientes = [...clientesFiltrados, ...clientesPureAsset];
+      // Nota: `vinculos` ainda não é consumido por processarPeriodo aqui no
+      // sub-commit 2.1 — Commit 2.2 vai atualizar a assinatura. Por ora os
+      // vínculos ficam apenas em dadosPeriodo (para futuros consumidores).
       const resultados = processarPeriodo(
         todosClientes,
         colaboradores,
@@ -234,6 +240,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         colaboradores,
         custosIndiretos,
         registrosPoupanca,
+        vinculos,
         totais: {
           receita_bruta,
           custo_total: resultados.reduce((s, r) => s + r.custo_total, 0),
