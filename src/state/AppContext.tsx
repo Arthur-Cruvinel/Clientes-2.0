@@ -218,15 +218,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       const todosClientes = [...clientesFiltrados, ...clientesPureAsset];
-      // Nota: `vinculos` ainda não é consumido por processarPeriodo aqui no
-      // sub-commit 2.1 — Commit 2.2 vai atualizar a assinatura. Por ora os
-      // vínculos ficam apenas em dadosPeriodo (para futuros consumidores).
+      // Leitura dual (Fase 2.5 — Peça 5): processarPeriodo recebe vinculos e
+      // propaga para calcularCustoDireto. Vínculo com pct > 0 substitui o
+      // fallback de nome no campo do cliente. Como hoje todos os 860 vínculos
+      // têm pct=0, o comportamento é idêntico ao legado até Peça 6 popular pct.
       const resultados = processarPeriodo(
         todosClientes,
         colaboradores,
         custosIndiretos,
         registrosPoupanca,
         regimeAtual,
+        vinculos,
       );
 
       // Totais consolidados — calculados uma vez aqui para evitar repetir nos consumidores.

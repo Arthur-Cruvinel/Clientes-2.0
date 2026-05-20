@@ -3,6 +3,7 @@
 // Custo institucional entra no pool de indiretos gerais. Pure asset não rateia.
 
 import type { Cliente, Colaborador, CustoIndireto, FuncaoAlocacao, ResultadoFolha, ResultadoReajuste } from '../types';
+import type { Vinculo } from '../types/vinculo';
 import {
   FUNCOES_ALOCACAO, HORAS_CLT_MES, HORAS_PACOTE,
   HORAS_PRODUTIVAS_POR_LOCALIDADE,
@@ -179,14 +180,85 @@ export function calcularCustoColaborador(
   return { custo_total_mensal: r.custo_total_mensal, custo_hora: r.custo_hora };
 }
 
+// ============================================================
+// Resolução cliente×função → colaborador (Fase 2.5 — Peça 5)
+// ============================================================
+
+/** Resolve `(cliente, funcao)` em `(colaborador, pct, fonte)` via leitura dual:
+ *
+ *    1. Tenta resolver via vínculo (fechamentos/{periodo}/vinculos/) — se houver
+ *       vínculo para esse (cliente, função) com `pct > 0`, usa o colaborador
+ *       referenciado por `id_estavel_colaborador`.
+ *    2. Fallback: comportamento legado — lê o nome do colaborador no campo
+ *       `cliente[funcao]` (ex: `cliente.consultoria_gestao = "Arthur Cruvinel"`)
+ *       e o pct em `cliente.pct_${funcao}`. Match tolerante a grafia.
+ *
+ *  Condição de migração automática para vínculos: basta o pct ser > 0 num
+ *  vínculo. Hoje (pré-Peça 6) todos os 860 vínculos têm pct=0 → fallback sempre
+ *  dispara → comportamento idêntico ao legado. Quando Peça 6 popular pct via
+ *  Alocação em Lote, esse cliente×função migra para o vínculo sem nenhuma
+ *  alteração de código adicional.
+ *
+ *  Retorno: { colaborador, pct, fonte }. fonte indica a origem do dado para
+ *  logging/debug — não é exposta na UI nesta peça. */
+function resolverColaboradorParaFuncao(
+  cliente: Cliente,
+  funcao: FuncaoAlocacao,
+  vinculos: Vinculo[],
+  mapExato: Map<string, Colaborador>,
+  mapNorm: Map<string, Colaborador>,
+  mapPorIdEstavel: Map<string, Colaborador>,
+  normalize: (s: string) => string,
+): { colaborador: Colaborador | null; pct: number; fonte: 'vinculo' | 'cliente' } {
+  // 1) Vínculo com pct > 0 para esse (cliente, função).
+  // id_estavel_cliente do vínculo bate com cliente.id_estavel.
+  // Match estrito: id_estavel não tem normalização — é UUID.
+  if (cliente.id_estavel) {
+    const vinculo = vinculos.find(v =>
+      v.id_estavel_cliente === cliente.id_estavel
+      && v.funcao === funcao
+      && v.pct > 0,
+    );
+    if (vinculo) {
+      const colab = mapPorIdEstavel.get(vinculo.id_estavel_colaborador) ?? null;
+      if (colab) {
+        return { colaborador: colab, pct: vinculo.pct, fonte: 'vinculo' };
+      }
+      // id_estavel não encontrado em colaboradores_base/ (ex: 'vinicius_rodrigues_ex'
+      // — placeholder intencional da migração da Peça 2). Logar e cair no fallback.
+      console.warn(
+        `[CustoDireto] Vínculo com id_estavel_colaborador não encontrado em colaboradores: `
+        + `"${vinculo.id_estavel_colaborador}" `
+        + `(cliente: ${cliente.nome_cliente}, função: ${funcao}). Fallback p/ campo do cliente.`,
+      );
+    }
+  }
+
+  // 2) Fallback — comportamento legado: nome no campo do cliente.
+  const nome = cliente[funcao] as string | undefined;
+  if (!nome) return { colaborador: null, pct: 0, fonte: 'cliente' };
+  const colab = mapExato.get(nome) ?? mapNorm.get(normalize(nome));
+  const pctKey = `pct_${funcao}` as keyof Cliente;
+  const pct = (cliente[pctKey] as number | undefined) ?? 0;
+  return { colaborador: colab ?? null, pct, fonte: 'cliente' };
+}
+
 /** Custo direto do cliente: Σ por função de pct × percentual_alocavel × custo_total_mensal.
  *
- *  Lookup do colaborador é tolerante a variações de grafia: tenta match exato
- *  primeiro; cai em match normalizado (sem acento, lowercase, espaços
+ *  Leitura dual (Fase 2.5 — Peça 5): tenta resolver colaborador via vínculos
+ *  com pct > 0 primeiro; senão, fallback no campo do cliente (comportamento
+ *  legado). `vinculos` é opcional (default []) para retrocompat com chamadas
+ *  isoladas (testes, simulador, debug).
+ *
+ *  Lookup do colaborador no fallback é tolerante a variações de grafia:
+ *  tenta match exato; cai em match normalizado (sem acento, lowercase, espaços
  *  colapsados) quando o nome salvo no cliente difere do cadastro
- *  (ex: "Flavia Santos" → "Flávia Santos Romeu"). Evita zerar o custo
- *  direto por mismatch de grafia. */
-export function calcularCustoDireto(cliente: Cliente, colaboradores: Colaborador[]): number {
+ *  (ex: "Flavia Santos" → "Flávia Santos Romeu"). */
+export function calcularCustoDireto(
+  cliente: Cliente,
+  colaboradores: Colaborador[],
+  vinculos: Vinculo[] = [],
+): number {
   // Só pure asset genuíno (sem serviço prestado) tem custo direto zero.
   // Clientes com fee isento por volume/cortesia (receita_fee = 0 mas pacote ≠ asset_only)
   // continuam consumindo estrutura — custo direto deve ser calculado normalmente.
@@ -203,9 +275,12 @@ export function calcularCustoDireto(cliente: Cliente, colaboradores: Colaborador
   const mapExato = new Map<string, Colaborador>();
   // Mapa secundário: nome normalizado (fallback p/ tolerância).
   const mapNorm = new Map<string, Colaborador>();
+  // Mapa terciário: por id_estavel — usado pela resolução via vínculo.
+  const mapPorIdEstavel = new Map<string, Colaborador>();
   for (const c of colaboradores) {
     mapExato.set(c.nome_colaborador, c);
     mapNorm.set(normalize(c.nome_colaborador), c);
+    if (c.id_estavel) mapPorIdEstavel.set(c.id_estavel, c);
   }
 
   // Acumulador p/ relatório consolidado dos nomes a corrigir via Atribuição
@@ -213,29 +288,39 @@ export function calcularCustoDireto(cliente: Cliente, colaboradores: Colaborador
   const naoEncontrados: Array<{ cliente: string; funcao: string; nome: string }> = [];
 
   let total = 0;
+  let usouVinculo = false;
   for (const funcao of FUNCOES_ALOCACAO) {
-    const nome = cliente[funcao] as string | undefined;
-    if (!nome) continue;
-    const colab = mapExato.get(nome) ?? mapNorm.get(normalize(nome));
+    const { colaborador: colab, pct, fonte } = resolverColaboradorParaFuncao(
+      cliente, funcao, vinculos, mapExato, mapNorm, mapPorIdEstavel, normalize,
+    );
     if (!colab) {
-      console.warn(
-        `[CustoDireto] Colaborador não encontrado: "${nome}"`,
-        `cliente: ${cliente.nome_cliente}`,
-        `função: ${funcao}`,
-        '— verificar se nome no cliente bate com cadastro',
-      );
-      naoEncontrados.push({ cliente: cliente.nome_cliente, funcao, nome });
+      // Só registra warning se o fallback chegou ao ponto de procurar nome
+      // (vínculo não cobriu) E o nome existia no cliente.
+      if (fonte === 'cliente') {
+        const nome = cliente[funcao] as string | undefined;
+        if (nome) {
+          console.warn(
+            `[CustoDireto] Colaborador não encontrado: "${nome}"`,
+            `cliente: ${cliente.nome_cliente}`,
+            `função: ${funcao}`,
+            '— verificar se nome no cliente bate com cadastro',
+          );
+          naoEncontrados.push({ cliente: cliente.nome_cliente, funcao, nome });
+        }
+      }
       continue;
     }
-
-    const pctKey = `pct_${funcao}` as keyof Cliente;
-    const pct = (cliente[pctKey] as number | undefined) ?? 0;
     if (pct <= 0) continue;
-
+    if (fonte === 'vinculo') usouVinculo = true;
     total += colab.custo_total_mensal * colab.percentual_alocavel * pct;
   }
   // Fator de sobrecarga é monitorado por colaborador (calcularFatorSobrecarga).
-  if (total > 0) console.log(`[CustoDireto] ${cliente.nome_cliente}: custo=${total.toFixed(2)}`);
+  if (total > 0) {
+    console.log(
+      `[CustoDireto] ${cliente.nome_cliente}: custo=${total.toFixed(2)}`
+      + (usouVinculo ? ' (fonte: vinculo)' : ''),
+    );
+  }
   // Relatório consolidado: facilita identificar quais clientes precisam de
   // reatribuição via Perfil → Atribuição em Lote.
   if (naoEncontrados.length > 0) {

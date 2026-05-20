@@ -6,6 +6,7 @@ import type {
   Cliente, Colaborador, CustoIndireto, ResultadoCliente, RegimeTributario,
   RegistroPoupanca,
 } from '../types';
+import type { Vinculo } from '../types/vinculo';
 import { calcularCustoDireto, calcularCustoInstitucional } from './financials.custos';
 import { calcularDRE } from './financials.dre';
 
@@ -15,11 +16,15 @@ export function processarPeriodo(
   custosIndiretos: CustoIndireto[],
   registrosPoupanca: RegistroPoupanca[],
   regime: RegimeTributario,
+  // Vínculos do período (Fase 2.5 — Peça 5). Opcional para retrocompat com
+  // chamadas isoladas (testes, simulador). Default [] = pipeline cai sempre
+  // no fallback legado (campo do cliente), comportamento idêntico ao pré-Peça 5.
+  vinculos: Vinculo[] = [],
 ): ResultadoCliente[] {
   // 1. Pré-calcular custo direto de cada cliente — necessário p/ rateio dos indiretos.
   const todosCustosDiretos: Record<string, number> = {};
   for (const c of clientes) {
-    todosCustosDiretos[c.nome_cliente] = calcularCustoDireto(c, colaboradores);
+    todosCustosDiretos[c.nome_cliente] = calcularCustoDireto(c, colaboradores, vinculos);
   }
 
   // 2. Indexar poupança por nome_cliente para lookup O(1) por cliente.
@@ -30,7 +35,7 @@ export function processarPeriodo(
   const resultados = clientes.map(c => {
     const poupanca = poupancaPorNome.get(c.nome_cliente);
     return calcularDRE(
-      c, colaboradores, clientes, todosCustosDiretos, custosIndiretos, regime, poupanca,
+      c, colaboradores, clientes, todosCustosDiretos, custosIndiretos, regime, poupanca, vinculos,
     );
   });
 

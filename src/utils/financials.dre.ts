@@ -5,6 +5,7 @@ import type {
   Cliente, Colaborador, CustoIndireto, ResultadoCliente, RegimeTributario,
   RegistroPoupanca, PacoteServico,
 } from '../types';
+import type { Vinculo } from '../types/vinculo';
 import { ALIQUOTAS } from './constants';
 import {
   calcularCustoDireto, calcularCustosIndiretos, calcularFatoresEscopo,
@@ -36,6 +37,9 @@ export function calcularDRE(
   custosIndiretos: CustoIndireto[],
   regime: RegimeTributario,
   poupanca?: RegistroPoupanca,
+  // Vínculos do período (Fase 2.5 — Peça 5). Propagados para calcularCustoDireto
+  // no fallback de chamadas isoladas. Default [] = comportamento legado.
+  vinculos: Vinculo[] = [],
 ): ResultadoCliente {
   const { receita_fee, receita_rebate, receita_bruta } = calcularReceita(cliente, poupanca);
   const perfil = definirPerfil(receita_fee, receita_rebate, cliente.pacote_servico);
@@ -45,7 +49,7 @@ export function calcularDRE(
   // Reaproveita o custo direto pré-calculado pelo pipeline; cai p/ cálculo
   // direto em chamadas isoladas (testes, simulador), preservando idempotência.
   const custo_direto = todosCustosDiretos[cliente.nome_cliente]
-    ?? calcularCustoDireto(cliente, colaboradores);
+    ?? calcularCustoDireto(cliente, colaboradores, vinculos);
 
   const custo_dedicado_contabilidade = cliente.custo_contabilidade_dedicado ?? 0;
   const custo_dedicado_pagamento = cliente.custo_pagamento_dedicado ?? 0;
