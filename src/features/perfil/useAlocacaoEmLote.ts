@@ -8,11 +8,12 @@ import { doc, writeBatch } from 'firebase/firestore';
 // batch.set com { merge: true } cria o doc se ainda não existir no período —
 // evita falha quando o cliente é alocado num período sem fechamento prévio.
 import { useApp } from '../../state/AppContext';
-import { db, resolverDocIdClientePorIdEstavel } from '../../services/firebase';
+import { db } from '../../services/firebase';
 import {
   calcularPctDistribuido, calcularFatorSobrecarga,
   somarHorasNormativas, horasProdutivasMes,
 } from '../../utils/financials';
+import { slug } from '../../utils/slug';
 import { compararClientes, type OrdenacaoAlocacao } from './ordenacaoAlocacao';
 import { normalizarFuncao, redistribuir } from './utilsAlocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
@@ -175,21 +176,28 @@ export function useAlocacaoEmLote() {
     setSalvando(true);
     try {
       const batch = writeBatch(db);
-      const k = `pct_${funcao}`;
       let mudou = 0;
       let pulados = 0;
-      // Bug Arquitetural #1: cli.id pode vir de clientes_base/ (docId=slug)
-      // enquanto o snapshot do período tem docId=UUID. Resolve antes do batch
-      // para gravar no doc canônico do período (e não criar doc-sombra). Faz
-      // 1 lookup por cliente alterado — não impacta performance perceptivelmente
-      // já que o painel só dispara salvarTodos em ações pontuais do usuário.
+      // Fase 2.5 — Peça 6: a escrita vai para fechamentos/{periodo}/vinculos/.
+      // Bug Arquitetural #1 fecha lateralmente — docId do vínculo é
+      // {slug_colab}_{slug_cli}_{funcao}, determinístico, sem query. Quando o
+      // vínculo já existe (todos os 860 da migração Peça 2 têm), usa-se o
+      // próprio v.id (zero risco de mismatch). Cenário sem vínculo prévio
+      // (cliente novo ainda não migrado) cai no fallback de construção via
+      // slug(nome), simétrico ao 2º branch de resolverSlugCliente em
+      // scripts/fase25-peca2-apply.mjs.
+      if (!colaboradorSelecionado?.id_estavel) {
+        console.warn('[salvarTodos] colaborador SEM id_estavel — abortando', nomeSel);
+        return 0;
+      }
+      const idEstColab = colaboradorSelecionado.id_estavel;
+      const slugColab = slug(colaboradorSelecionado.nome_colaborador);
       for (const cli of clientesDoColaborador) {
         const novo = pctEditado[cli.nome_cliente] ?? 0;
         const orig = pctOriginal[cli.nome_cliente] ?? 0;
         const diff = Math.abs(novo - orig);
-        // [DIAG] ponto 6: cliente sem id é pulado silenciosamente?
-        if (!cli.id) {
-          console.warn('[salvarTodos] cliente SEM ID — pulado', cli.nome_cliente);
+        if (!cli.id_estavel) {
+          console.warn('[salvarTodos] cliente SEM id_estavel — pulado', cli.nome_cliente);
           pulados++;
           continue;
         }
@@ -198,15 +206,17 @@ export function useAlocacaoEmLote() {
           pulados++;
           continue;
         }
-        const docIdCanonico = await resolverDocIdClientePorIdEstavel(
-          periodoSelecionado, cli.id_estavel, cli.id,
-        );
-        // [DIAG] ponto 3: batch.set por cliente (com path completo)
-        const path = `fechamentos/${periodoSelecionado}/clientes/${docIdCanonico}`;
-        console.log('[salvarTodos] batch.set', { cliente: cli.nome_cliente, id_original: cli.id, docIdCanonico, novo, orig, campo: k, path });
+        const vinculoExistente = vinculos.find(v =>
+          v.id_estavel_colaborador === idEstColab
+          && v.id_estavel_cliente === cli.id_estavel
+          && v.funcao === funcao);
+        const docIdVinculo = vinculoExistente?.id
+          ?? `${slugColab}_${slug(cli.nome_cliente)}_${funcao}`;
+        const path = `fechamentos/${periodoSelecionado}/vinculos/${docIdVinculo}`;
+        console.log('[salvarTodos] batch.set', { cliente: cli.nome_cliente, docIdVinculo, novo, orig, path, viaVinculoExistente: !!vinculoExistente });
         batch.set(
-          doc(db, 'fechamentos', periodoSelecionado, 'clientes', docIdCanonico),
-          { [k]: novo },
+          doc(db, 'fechamentos', periodoSelecionado, 'vinculos', docIdVinculo),
+          { pct: novo },
           { merge: true },
         );
         mudou++;
@@ -226,7 +236,7 @@ export function useAlocacaoEmLote() {
       console.error('[salvarTodos] ERRO', err);
       throw err;
     } finally { setSalvando(false); }
-  }, [periodoSelecionado, funcao, alteracoes, clientesDoColaborador, pctEditado, pctOriginal, recarregar]);
+  }, [periodoSelecionado, funcao, alteracoes, clientesDoColaborador, pctEditado, pctOriginal, recarregar, colaboradorSelecionado, vinculos, nomeSel]);
 
   return {
     colaboradores, colaboradorSelecionado, setColaboradorSelecionado: setNomeSel,
