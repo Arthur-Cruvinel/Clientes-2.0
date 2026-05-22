@@ -81,6 +81,40 @@ function fmtValorHistorico(campo: string, valor: unknown): string {
   return String(valor);
 }
 
+/** Normaliza nome para match tolerante (mesmo padrão de useColaboradores /
+ *  calcularCustoDireto): NFD, remove combining marks, lowercase, trim, colapsa
+ *  espaços. */
+function normalizarNome(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/** Leitura dual de pct (Fase 2.5 — Peça 6): vínculo com pct > 0 é fonte
+ *  primária; campo legado cliente.pct_${funcao} é fallback. Retorna em
+ *  percentual humano (0-100) pronto para o form. Simétrico ao pipeline da
+ *  Peça 5 e ao useAlocacaoEmLote. */
+function resolverPctDoVinculo(
+  cliente: Cliente,
+  funcao: FuncaoAlocacao,
+  vinculos: Vinculo[],
+  colaboradores: Colaborador[],
+): number {
+  const pctLegado = ((cliente[`pct_${funcao}` as keyof Cliente] as number | undefined) ?? 0) * 100;
+  const nomeColab = cliente[funcao] as string | undefined;
+  if (!nomeColab || !cliente.id_estavel) return pctLegado;
+  const nomeNorm = normalizarNome(nomeColab);
+  const colab = colaboradores.find(c =>
+    c.nome_colaborador === nomeColab
+    || normalizarNome(c.nome_colaborador) === nomeNorm,
+  );
+  if (!colab?.id_estavel) return pctLegado;
+  const vinculo = vinculos.find(v =>
+    v.id_estavel_colaborador === colab.id_estavel
+    && v.id_estavel_cliente === cliente.id_estavel
+    && v.funcao === funcao,
+  );
+  return (vinculo && vinculo.pct > 0) ? vinculo.pct * 100 : pctLegado;
+}
+
 export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, vinculos, periodo, onSalvar, onExcluido, salvando, onFechar }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
@@ -107,12 +141,15 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
     serv_aux_adm: cliente.serv_aux_adm ?? '',
     // pct_* armazenados como decimal (0-1) no Firestore; form trabalha em
     // percentual (0-100) — convertido ÷100 no payload. Mesmo padrão do rebate.
-    pct_consultoria_gestao: (cliente.pct_consultoria_gestao ?? 0) * 100,
-    pct_consultoria_planejamento: (cliente.pct_consultoria_planejamento ?? 0) * 100,
-    pct_consultoria_financeira: (cliente.pct_consultoria_financeira ?? 0) * 100,
-    pct_operacional_financeiro: (cliente.pct_operacional_financeiro ?? 0) * 100,
-    pct_serv_adm: (cliente.pct_serv_adm ?? 0) * 100,
-    pct_serv_aux_adm: (cliente.pct_serv_aux_adm ?? 0) * 100,
+    // Fase 2.5 — Peça 6: fonte primária é o vínculo correspondente em vinculos/;
+    // fallback no campo legado do cliente. resolverPctDoVinculo retorna em
+    // percentual humano pronto para o form (sem * 100 adicional aqui).
+    pct_consultoria_gestao: resolverPctDoVinculo(cliente, 'consultoria_gestao', vinculos, colaboradores),
+    pct_consultoria_planejamento: resolverPctDoVinculo(cliente, 'consultoria_planejamento', vinculos, colaboradores),
+    pct_consultoria_financeira: resolverPctDoVinculo(cliente, 'consultoria_financeira', vinculos, colaboradores),
+    pct_operacional_financeiro: resolverPctDoVinculo(cliente, 'operacional_financeiro', vinculos, colaboradores),
+    pct_serv_adm: resolverPctDoVinculo(cliente, 'serv_adm', vinculos, colaboradores),
+    pct_serv_aux_adm: resolverPctDoVinculo(cliente, 'serv_aux_adm', vinculos, colaboradores),
     peso_juridico: cliente.peso_juridico ?? 1.0,
     volume_movimentos_mes: cliente.volume_movimentos_mes ?? 0,
     utiliza_servico_juridico: cliente.utiliza_servico_juridico,
