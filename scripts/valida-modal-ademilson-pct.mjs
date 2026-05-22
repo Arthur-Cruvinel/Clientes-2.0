@@ -24,6 +24,17 @@ function resolverPctDoVinculo(cliente, funcao, vinculos) {
   return { pct: pctLegado, fonte: 'legado_vinculo_zero_ou_ausente' };
 }
 
+function resolverNomeColabDoVinculo(cliente, funcao, vinculos) {
+  const nomeLegado = cliente[funcao] ?? '';
+  if (!cliente.id_estavel) return { nome: nomeLegado, fonte: 'legado_sem_id_estavel' };
+  const vinculo = vinculos.find(v =>
+    v.id_estavel_cliente === cliente.id_estavel
+    && v.funcao === funcao,
+  );
+  if (vinculo?.nome_colaborador) return { nome: vinculo.nome_colaborador, fonte: 'vinculo' };
+  return { nome: nomeLegado, fonte: 'legado' };
+}
+
 const [fcSnap, vincSnap] = await Promise.all([
   getDocs(collection(db, 'fechamentos', PERIODO, 'clientes')),
   getDocs(collection(db, 'fechamentos', PERIODO, 'vinculos')),
@@ -39,9 +50,12 @@ console.log(`\n=== Modal Ademilson 2026-01 — pct esperado por função ===\n`)
 for (const c of ademClientes) {
   console.log(`Doc ${c.id} (id_estavel=${c.id_estavel})`);
   for (const f of FUNCOES) {
-    const colabFuncao = c[f] ?? '(undefined)';
-    const r = resolverPctDoVinculo(c, f, vinculos);
-    console.log(`  ${f}: ${r.pct.toFixed(1)}% [fonte=${r.fonte}] colabFuncao=${colabFuncao}`);
+    const legado = c[f] ?? '(undefined)';
+    const pct = resolverPctDoVinculo(c, f, vinculos);
+    const nome = resolverNomeColabDoVinculo(c, f, vinculos);
+    console.log(`  ${f}:`);
+    console.log(`    pct exibido: ${pct.pct.toFixed(1)}% [fonte=${pct.fonte}]`);
+    console.log(`    nome exibido: "${nome.nome}" [fonte=${nome.fonte}] (legado: "${legado}")`);
   }
   console.log('');
 }

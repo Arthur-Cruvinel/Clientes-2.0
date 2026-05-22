@@ -107,6 +107,27 @@ function resolverPctDoVinculo(
   return vinculo ? vinculo.pct * 100 : pctLegado;
 }
 
+/** Nome canônico do colaborador da função, vindo do vínculo quando existir
+ *  (independente de pct). Corrige o caso em que o campo cliente[funcao]
+ *  guarda nome legado quebrado (ex: 'Luiz Nerone' em vez do canônico
+ *  'Luis Eduardo Nerone'): o dropdown não casaria com nenhuma opção do select
+ *  e mostraria vazio. Pelo vínculo, o nome é o canônico — escrito pela
+ *  migração da Peça 2 e pelos saves da Peça 6 corrigida. Fallback no campo
+ *  legado quando vínculo ausente. */
+function resolverNomeColabDoVinculo(
+  cliente: Cliente,
+  funcao: FuncaoAlocacao,
+  vinculos: Vinculo[],
+): string {
+  const nomeLegado = (cliente[funcao] as string | undefined) ?? '';
+  if (!cliente.id_estavel) return nomeLegado;
+  const vinculo = vinculos.find(v =>
+    v.id_estavel_cliente === cliente.id_estavel
+    && v.funcao === funcao,
+  );
+  return vinculo?.nome_colaborador ?? nomeLegado;
+}
+
 export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, vinculos, periodo, onSalvar, onExcluido, salvando, onFechar }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
@@ -125,12 +146,16 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
 
   const [form, setForm] = useState(() => ({
     pacote_servico: cliente.pacote_servico,
-    consultoria_gestao: cliente.consultoria_gestao ?? '',
-    consultoria_planejamento: cliente.consultoria_planejamento ?? '',
-    consultoria_financeira: cliente.consultoria_financeira ?? '',
-    operacional_financeiro: cliente.operacional_financeiro ?? '',
-    serv_adm: cliente.serv_adm ?? '',
-    serv_aux_adm: cliente.serv_aux_adm ?? '',
+    // Fase 2.5 — Peça 6: nome do colab vem do vínculo quando existe (canônico,
+    // ex: 'Luis Eduardo Nerone'); fallback no campo legado do cliente (que
+    // pode ter grafia quebrada, ex: 'Luiz Nerone'). Sem isso, dropdown não
+    // casaria com nenhuma <option> e exibiria '—'.
+    consultoria_gestao: resolverNomeColabDoVinculo(cliente, 'consultoria_gestao', vinculos),
+    consultoria_planejamento: resolverNomeColabDoVinculo(cliente, 'consultoria_planejamento', vinculos),
+    consultoria_financeira: resolverNomeColabDoVinculo(cliente, 'consultoria_financeira', vinculos),
+    operacional_financeiro: resolverNomeColabDoVinculo(cliente, 'operacional_financeiro', vinculos),
+    serv_adm: resolverNomeColabDoVinculo(cliente, 'serv_adm', vinculos),
+    serv_aux_adm: resolverNomeColabDoVinculo(cliente, 'serv_aux_adm', vinculos),
     // pct_* armazenados como decimal (0-1) no Firestore; form trabalha em
     // percentual (0-100) — convertido ÷100 no payload. Mesmo padrão do rebate.
     // Fase 2.5 — Peça 6: fonte primária é o vínculo correspondente em vinculos/;
