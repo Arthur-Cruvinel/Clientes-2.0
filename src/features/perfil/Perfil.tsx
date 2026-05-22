@@ -164,6 +164,7 @@ export function Perfil() {
       {modalAberto && c && (
         <EditarClienteModal cliente={c} poupanca={poupancaCliente}
           colaboradores={colaboradores} bankers={bankers}
+          vinculos={dadosPeriodo?.vinculos ?? []}
           periodo={periodoSelecionado}
           onSalvar={salvarCliente}
           onExcluido={() => {

@@ -9,6 +9,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { useAuth } from '../../state/AuthContext';
 import { PerfilComplexidadeTab } from './PerfilComplexidadeTab';
 import type { DadosCliente, Cliente, Colaborador, PacoteServico, FuncaoAlocacao, AlteracaoCliente, RegistroPoupanca } from '../../types';
+import type { Vinculo } from '../../types/vinculo';
 
 interface Props {
   cliente: DadosCliente;
@@ -17,6 +18,9 @@ interface Props {
   poupanca?: RegistroPoupanca;
   colaboradores: Colaborador[];
   bankers: string[];
+  /** Vínculos cliente↔colaborador do período (Fase 2.5 — Peça 6). Fonte primária
+   *  do pct exibido na aba Alocação; fallback no campo legado quando ausente. */
+  vinculos: Vinculo[];
   /** Período selecionado — necessário para excluir do período específico. */
   periodo: string;
   onSalvar: (dados: Partial<Cliente>) => Promise<void>;
@@ -77,7 +81,7 @@ function fmtValorHistorico(campo: string, valor: unknown): string {
   return String(valor);
 }
 
-export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, periodo, onSalvar, onExcluido, salvando, onFechar }: Props) {
+export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, vinculos, periodo, onSalvar, onExcluido, salvando, onFechar }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const [aba, setAba] = useState<(typeof ABAS)[number]>('Alocação');
