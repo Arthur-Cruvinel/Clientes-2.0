@@ -10,6 +10,7 @@ export type ResumoCopia = {
   colaboradores: number;
   custosIndiretos: number;
   clientes: number;
+  vinculos: number;
 };
 
 interface Props {
@@ -80,6 +81,7 @@ export function ModalCopiarPeriodo({
             <li>✓ Colaboradores</li>
             <li>✓ Custos Indiretos</li>
             <li>✓ Clientes</li>
+            <li>✓ Vínculos</li>
           </ul>
           <div className="flex justify-end gap-3 pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
             <button onClick={fechar} className="px-4 py-2 rounded-lg text-sm"
@@ -113,7 +115,7 @@ export function ModalCopiarPeriodo({
               <p className="font-medium">Período {periodoDestino} criado com sucesso</p>
               <p className="mt-1">
                 {resumo.colaboradores} colaboradores · {resumo.custosIndiretos} custos indiretos
-                · {resumo.clientes} clientes copiados
+                · {resumo.clientes} clientes · {resumo.vinculos} vínculos copiados
               </p>
             </div>
           </div>

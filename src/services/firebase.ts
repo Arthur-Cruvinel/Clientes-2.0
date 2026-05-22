@@ -561,23 +561,30 @@ export function buscarPeriodoAnterior(periodo: string): string | null {
   return `${novoAno}-${String(novoMes).padStart(2, '0')}`;
 }
 
-/** Copia colaboradores → custosIndiretos → clientes de um período para outro.
- *  Mantém docId. Usa WriteBatch em chunks de BATCH_LIMIT. Reporta progresso. */
+/** Copia colaboradores → custosIndiretos → clientes → vinculos de um período
+ *  para outro. Mantém docId. Usa WriteBatch em chunks de BATCH_LIMIT. Reporta
+ *  progresso.
+ *
+ *  Fase 2.5 — Peça 7: vinculos/ entrou na replicação. Sem isso, um período
+ *  novo criado por cópia nascia sem vínculos — Alocação em Lote mostrava
+ *  pct=0 em tudo e o pipeline caía no fallback legado até alguém gravar
+ *  manualmente. */
 export async function copiarPeriodo(
   periodoOrigem: string,
   periodoDestino: string,
   onProgress?: (etapa: string, pct: number) => void,
-): Promise<{ colaboradores: number; custosIndiretos: number; clientes: number }> {
+): Promise<{ colaboradores: number; custosIndiretos: number; clientes: number; vinculos: number }> {
   const etapas = [
-    { sub: 'colaboradores',   label: 'Colaboradores',     pct: 33 },
-    { sub: 'custosIndiretos', label: 'Custos Indiretos',  pct: 66 },
-    { sub: 'clientes',        label: 'Clientes',          pct: 100 },
+    { sub: 'colaboradores',   label: 'Colaboradores',     pct: 25  },
+    { sub: 'custosIndiretos', label: 'Custos Indiretos',  pct: 50  },
+    { sub: 'clientes',        label: 'Clientes',          pct: 75  },
+    { sub: 'vinculos',        label: 'Vínculos',          pct: 100 },
   ] as const;
 
-  const contagem = { colaboradores: 0, custosIndiretos: 0, clientes: 0 };
+  const contagem = { colaboradores: 0, custosIndiretos: 0, clientes: 0, vinculos: 0 };
 
   for (const e of etapas) {
-    onProgress?.(`Copiando ${e.label}...`, e.pct - 33);
+    onProgress?.(`Copiando ${e.label}...`, e.pct - 25);
     const snap = await getDocs(collection(db, 'fechamentos', periodoOrigem, e.sub));
 
     for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
