@@ -35,6 +35,8 @@ export function useAlocacaoEmLote() {
   const colaboradores: Colaborador[] = (dadosPeriodo?.colaboradores ?? [])
     .filter(c => c.alocavel && c.nome_colaborador?.trim() && c.cargo?.trim() && c.funcao_principal);
   const todosClientes: Cliente[] = dadosPeriodo?.clientes ?? [];
+  // Fase 2.5 — Peça 6: vínculos são a fonte primária de pct.
+  const vinculos = dadosPeriodo?.vinculos ?? [];
 
   const colaboradorSelecionado = useMemo(
     () => colaboradores.find(c => c.nome_colaborador === nomeSel) ?? null,
@@ -53,13 +55,29 @@ export function useAlocacaoEmLote() {
   // Sincroniza pctOriginal com o snapshot do Firestore. Roda quando clientes
   // ou função mudam (mudança de colaborador selecionado / recarregar do
   // AppContext após save). Não roda quando recalcularTudo zera pctOriginal.
+  //
+  // Fase 2.5 — Peça 6: pct vem do vínculo correspondente em vinculos/. Match
+  // por (id_estavel_colaborador, id_estavel_cliente, funcao). Quando o vínculo
+  // existe e tem pct > 0, é a fonte primária. Caso contrário (pct=0, vínculo
+  // ainda não criado, ou id_estavel ausente), cai no campo legado do cliente —
+  // simétrico ao fallback do pipeline da Peça 5.
   useEffect(() => {
     if (!funcao) { setPctOriginal({}); return; }
     const r: Record<string, number> = {};
     const k = `pct_${funcao}` as keyof Cliente;
-    for (const c of clientesDoColaborador) r[c.nome_cliente] = (c[k] as number | undefined) ?? 0;
+    const idEstColab = colaboradorSelecionado?.id_estavel;
+    for (const c of clientesDoColaborador) {
+      const v = (idEstColab && c.id_estavel)
+        ? vinculos.find(x =>
+            x.id_estavel_colaborador === idEstColab
+            && x.id_estavel_cliente === c.id_estavel
+            && x.funcao === funcao)
+        : undefined;
+      const pctLegado = (c[k] as number | undefined) ?? 0;
+      r[c.nome_cliente] = (v && v.pct > 0) ? v.pct : pctLegado;
+    }
     setPctOriginal(r);
-  }, [clientesDoColaborador, funcao]);
+  }, [clientesDoColaborador, funcao, vinculos, colaboradorSelecionado]);
 
   // Sugestão automática (proporcional às horas normativas).
   const pctSugerido = useMemo<Record<string, number>>(
