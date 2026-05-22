@@ -19,7 +19,7 @@ import { exportVisaoGeralExcel } from '../../utils/exporters/exportExcel';
 import { exportVisaoGeralPdf } from '../../utils/exporters/exportPdf';
 import { fecharPeriodo, reabrirPeriodo, buscarClientes, db } from '../../services/firebase';
 import { AgenteValidacao } from '../agente/AgenteValidacao';
-import { writeBatch, doc as firestoreDoc } from 'firebase/firestore';
+import { writeBatch, doc as firestoreDoc, collection, getDocs } from 'firebase/firestore';
 import { BATCH_LIMIT } from '../../utils/constants';
 import { slug } from '../../utils/slug';
 import type { DadosCliente } from '../../types';
@@ -125,7 +125,29 @@ export function VisaoGeral() {
         await batch.commit();
       }
 
-      setToastPeriodo(`Base copiada de ${periodoCurto(periodoAnterior)} (${clientesAnterior.length} clientes)`);
+      // Fase 2.5 — Peça 7: copiar vínculos do período anterior. Sem isso,
+      // o período recém-criado nasce sem vínculos — Alocação em Lote
+      // mostra pct=0 em tudo e o pipeline cai 100% no fallback legado.
+      // Preserva docId (formato determinístico {slug_colab}_{slug_cli}_{funcao}).
+      const vinculosSnap = await getDocs(
+        collection(db, 'fechamentos', periodoAnterior, 'vinculos'),
+      );
+      let vinculosCopiados = 0;
+      if (vinculosSnap.size > 0) {
+        for (let i = 0; i < vinculosSnap.docs.length; i += BATCH_LIMIT) {
+          const batch = writeBatch(db);
+          for (const d of vinculosSnap.docs.slice(i, i + BATCH_LIMIT)) {
+            batch.set(
+              firestoreDoc(db, 'fechamentos', periodoSelecionado, 'vinculos', d.id),
+              d.data(),
+            );
+          }
+          await batch.commit();
+          vinculosCopiados += Math.min(BATCH_LIMIT, vinculosSnap.docs.length - i);
+        }
+      }
+
+      setToastPeriodo(`Base copiada de ${periodoCurto(periodoAnterior)} (${clientesAnterior.length} clientes, ${vinculosCopiados} vínculos)`);
       recarregar();
     } catch (e) {
       setToastPeriodo(`Erro: ${e instanceof Error ? e.message : String(e)}`);
