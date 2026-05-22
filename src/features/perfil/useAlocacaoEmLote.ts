@@ -17,6 +17,7 @@ import { slug } from '../../utils/slug';
 import { compararClientes, type OrdenacaoAlocacao } from './ordenacaoAlocacao';
 import { normalizarFuncao, redistribuir } from './utilsAlocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
+import type { Vinculo } from '../../types/vinculo';
 
 export function useAlocacaoEmLote() {
   const { dadosPeriodo, periodoSelecionado, recarregar } = useApp();
@@ -212,13 +213,33 @@ export function useAlocacaoEmLote() {
           && v.funcao === funcao);
         const docIdVinculo = vinculoExistente?.id
           ?? `${slugColab}_${slug(cli.nome_cliente)}_${funcao}`;
+        const refVinc = doc(db, 'fechamentos', periodoSelecionado, 'vinculos', docIdVinculo);
         const path = `fechamentos/${periodoSelecionado}/vinculos/${docIdVinculo}`;
-        console.log('[salvarTodos] batch.set', { cliente: cli.nome_cliente, docIdVinculo, novo, orig, path, viaVinculoExistente: !!vinculoExistente });
-        batch.set(
-          doc(db, 'fechamentos', periodoSelecionado, 'vinculos', docIdVinculo),
-          { pct: novo },
-          { merge: true },
-        );
+        if (vinculoExistente) {
+          // Vínculo já tem campos identificadores (id_estavel_*, nome_*, funcao,
+          // origem). merge:true atualiza só pct e preserva o resto.
+          console.log('[salvarTodos] batch.set MERGE', { cliente: cli.nome_cliente, docIdVinculo, novo, orig, path });
+          batch.set(refVinc, { pct: novo }, { merge: true });
+        } else {
+          // Vínculo não existe — payload completo. Sem merge para evitar doc
+          // órfão (causa-raiz da 1ª iteração da Peça 6: setDoc({pct}, merge:true)
+          // criava doc só com pct, sem identificadores → pipeline Peça 5 nunca
+          // encontrava o vínculo no filtro por id_estavel_cliente).
+          const novoVinculo: Vinculo = {
+            id: docIdVinculo,
+            periodo: periodoSelecionado,
+            id_estavel_colaborador: idEstColab,
+            id_estavel_cliente: cli.id_estavel,
+            nome_colaborador: colaboradorSelecionado.nome_colaborador,
+            nome_cliente: cli.nome_cliente,
+            funcao,
+            pct: novo,
+            origem: 'manual',
+            data_criacao: new Date().toISOString(),
+          };
+          console.log('[salvarTodos] batch.set NOVO', { cliente: cli.nome_cliente, docIdVinculo, novo, orig, path });
+          batch.set(refVinc, novoVinculo);
+        }
         mudou++;
       }
       console.log('[salvarTodos] resumo pré-commit', {
