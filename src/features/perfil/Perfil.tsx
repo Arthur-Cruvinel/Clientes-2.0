@@ -85,7 +85,7 @@ export function Perfil() {
       )}
 
       {visao === 'lote' && (
-        <div className="bg-white rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
+        <div className="bg-white rounded-lg border p-5 h-[calc(100vh-190px)] flex flex-col" style={{ borderColor: '#e2e2e8' }}>
           <AlocacaoLote clientes={clientes} colaboradores={colaboradores}
             bankersUnicos={bankersUnicos} empresariosUnicos={empresariosUnicos}
             onAplicar={atualizarCampoEmLote} onRecarregar={carregar} />

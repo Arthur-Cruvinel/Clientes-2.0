@@ -1,9 +1,10 @@
 // --- Aba Alocação em Lote — com ordenação e filtros checkbox estilo Excel ---
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import type { DadosCliente, Colaborador, FuncaoAlocacao } from '../../types';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
+import { Modal } from '../../components/ui/Modal';
 import { useOrdenacao } from '../poupanca/useOrdenacao';
 import { ThOrdenavel } from '../poupanca/ThOrdenavel';
 import { FiltroCheckbox } from '../poupanca/FiltroCheckbox';
@@ -74,6 +75,7 @@ export function AlocacaoLote({ clientes, colaboradores, bankersUnicos, empresari
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [salvando, setSalvando] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [modalPreencher, setModalPreencher] = useState(false);
 
   // Valores únicos para filtros checkbox
   const nomes = useMemo(() => clientes.map(c => c.nome_cliente).sort(), [clientes]);
@@ -138,10 +140,11 @@ export function AlocacaoLote({ clientes, colaboradores, bankersUnicos, empresari
     setSelecionados(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }, []);
 
-  const handleAplicar = useCallback(async (campo: CampoAtribuicaoLote, valor: string) => {
+  const handleAplicar = useCallback(async (campo: CampoAtribuicaoLote, valor: string): Promise<boolean> => {
     const ids = [...selecionados];
-    if (ids.length === 0 || !valor.trim()) return;
+    if (ids.length === 0 || !valor.trim()) return false;
     setSalvando(true);
+    let ok = false;
     try {
       await onAplicar(ids, campo, valor.trim());
       await onRecarregar();
@@ -149,18 +152,27 @@ export function AlocacaoLote({ clientes, colaboradores, bankersUnicos, empresari
         : campo === 'empresario' ? 'Empresário'
         : LABEL_CAMPO[campo as FuncaoAlocacao];
       setToast({ msg: `${label} atualizado em ${ids.length} clientes`, ok: true });
+      ok = true;
     } catch (e) {
       setToast({ msg: e instanceof Error ? e.message : 'Erro ao salvar', ok: false });
     } finally { setSalvando(false); }
     setTimeout(() => setToast(null), 3000);
+    return ok;
   }, [selecionados, onAplicar, onRecarregar]);
+
+  // Wrapper que fecha o modal quando o Aplicar termina com sucesso.
+  // Em erro mantém aberto para o usuário corrigir input — toast informa.
+  const handleAplicarFechando = useCallback(async (campo: CampoAtribuicaoLote, valor: string) => {
+    const ok = await handleAplicar(campo, valor);
+    if (ok) setModalPreencher(false);
+  }, [handleAplicar]);
 
   const thProps = { colunaAtiva: coluna, direcao, onAlternar: alternar };
   const BRD = { border: '1px solid #e2e2e8', color: '#160F41' };
   const TH_CLS = 'px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-left';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 flex flex-col h-full min-h-0 flex-1">
       <div>
         <h3 className="text-sm font-semibold" style={{ color: '#160F41' }}>Atribuição em Lote</h3>
         <p className="text-xs" style={{ color: '#6b6b8a' }}>Atribua banker, empresário e responsáveis por função para múltiplos clientes</p>
@@ -191,7 +203,7 @@ export function AlocacaoLote({ clientes, colaboradores, bankersUnicos, empresari
       )}
 
       {/* Tabela — overflow-auto p/ permitir scroll horizontal com 9 colunas. */}
-      <div className="overflow-auto rounded-lg border" style={{ borderColor: '#e2e2e8', maxHeight: 'calc(100vh - 420px)' }}>
+      <div className="overflow-auto rounded-lg border flex-1 min-h-0" style={{ borderColor: '#e2e2e8' }}>
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 z-10" style={{ backgroundColor: '#f9f9fb' }}>
             <tr>
@@ -247,11 +259,38 @@ export function AlocacaoLote({ clientes, colaboradores, bankersUnicos, empresari
         </table>
       </div>
 
+      {/* Footer slim — sempre presente quando há seleção. NÃO consome altura
+          significativa da tabela (era o sintoma do AlocacaoLoteAcoes inline,
+          que ocupava ~320px e "engolia" a área de seleção). Os campos vivem
+          dentro do Modal abaixo, aberto sob demanda. */}
       {selecionados.size > 0 && (
-        <AlocacaoLoteAcoes count={selecionados.size} bankersUnicos={bankersUnicos} empresariosUnicos={empresariosUnicos}
-          colaboradores={colaboradores}
-          salvando={salvando} onAplicar={handleAplicar} onLimpar={() => setSelecionados(new Set())} />
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg"
+          style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
+          <span className="text-xs font-medium" style={{ color: '#1e3a8a' }}>
+            {selecionados.size} cliente{selecionados.size === 1 ? '' : 's'} selecionado{selecionados.size === 1 ? '' : 's'}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelecionados(new Set())} type="button"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{ border: '1px solid #e2e2e8', color: '#6b6b8a', backgroundColor: '#fff' }}>
+              <X size={12} /> Limpar
+            </button>
+            <button onClick={() => setModalPreencher(true)} type="button"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700">
+              Preencher campos
+            </button>
+          </div>
+        </div>
       )}
+
+      <Modal aberto={modalPreencher}
+        onFechar={() => setModalPreencher(false)}
+        titulo={`Preencher campos para ${selecionados.size} cliente${selecionados.size === 1 ? '' : 's'}`}
+        largura="4xl">
+        <AlocacaoLoteAcoes bankersUnicos={bankersUnicos} empresariosUnicos={empresariosUnicos}
+          colaboradores={colaboradores}
+          salvando={salvando} onAplicar={handleAplicarFechando} />
+      </Modal>
     </div>
   );
 }

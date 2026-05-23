@@ -1,10 +1,12 @@
-// --- Painel de ações da Atribuição em Lote ---
+// --- Painel de ações da Atribuição em Lote (renderizado dentro de Modal) ---
 // Topo: banker + empresário (campos cadastrais).
 // Grid 2 col: 6 funções de alocação (consultoria_*, operacional_*, serv_*).
 // Cada select de função filtra colaboradores por funcao_principal correspondente.
+// Título "Preencher campos para N clientes" e botão Limpar ficam no caller —
+// este componente só renderiza os controles de aplicação.
 
 import { useMemo, useState } from 'react';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { normalizarFuncao } from './utilsAlocacao';
 import type { Colaborador, FuncaoAlocacao } from '../../types';
@@ -20,20 +22,18 @@ const LABEL_FUNCAO: Record<FuncaoAlocacao, string> = {
 };
 
 interface Props {
-  count: number;
   bankersUnicos: string[];
   empresariosUnicos: string[];
   colaboradores: Colaborador[];
   salvando: boolean;
   onAplicar: (campo: CampoAtribuicaoLote, valor: string) => void;
-  onLimpar: () => void;
 }
 
 const INP = 'rounded-lg px-2 py-1.5 text-xs w-40';
 const BRD = { border: '1px solid #e2e2e8', color: '#160F41' } as const;
 const BTN = 'flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50 bg-blue-600 hover:bg-blue-700';
 
-export function AlocacaoLoteAcoes({ count, bankersUnicos, empresariosUnicos, colaboradores, salvando, onAplicar, onLimpar }: Props) {
+export function AlocacaoLoteAcoes({ bankersUnicos, empresariosUnicos, colaboradores, salvando, onAplicar }: Props) {
   const [banker, setBanker] = useState('');
   const [empresario, setEmpresario] = useState('');
   // Estado por função — { [funcao]: nome_colaborador_selecionado }
@@ -53,18 +53,7 @@ export function AlocacaoLoteAcoes({ count, bankersUnicos, empresariosUnicos, col
   }, [colaboradores]);
 
   return (
-    <div className="sticky bottom-0 bg-white border-t shadow-[0_-4px_12px_rgba(0,0,0,0.06)] p-4 -mx-5 -mb-5 rounded-b-lg space-y-4"
-      style={{ borderColor: '#e2e2e8' }}>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium" style={{ color: '#160F41' }}>
-          Aplicar para {count} cliente{count !== 1 ? 's' : ''} selecionado{count !== 1 ? 's' : ''}:
-        </p>
-        <button onClick={onLimpar} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-          style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>
-          <X size={12} /> Limpar seleção
-        </button>
-      </div>
-
+    <div className="space-y-4">
       {/* Banker + Empresário (cadastrais) */}
       <div className="flex flex-wrap items-end gap-4 pb-3 border-b" style={{ borderColor: '#f3f4f6' }}>
         <div className="flex items-end gap-2">
