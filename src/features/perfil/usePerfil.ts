@@ -158,11 +158,30 @@ export function usePerfil() {
     // Encontrar clientes pelo id e salvar em clientes_base/. Vale para
     // banker, empresário e qualquer função de alocação — o cadastro mestre.
     const clientesParaAtualizar = clientes.filter((c: DadosCliente) => c.id && clienteIds.includes(c.id));
-    await Promise.all(clientesParaAtualizar.map((c: DadosCliente) => {
+    const isFuncao = (FUNCOES_ALOCACAO as readonly string[]).includes(campo);
+    const vinculosPeriodo = dadosPeriodo?.vinculos ?? [];
+    const colaboradoresPeriodo = dadosPeriodo?.colaboradores ?? [];
+
+    await Promise.all(clientesParaAtualizar.map(async (c: DadosCliente) => {
       const atualizado = { ...c, [campo]: valor || undefined } as Cliente;
-      return salvarClienteBase(atualizado);
+      await salvarClienteBase(atualizado);
+      // Para banker/empresário não há vínculo a sincronizar — só campos do
+      // cadastro mestre. Funções de alocação têm vínculo correspondente em
+      // fechamentos/{periodo}/vinculos/ que precisa acompanhar a troca.
+      if (isFuncao && periodoSelecionado) {
+        const nomeAntigo = (c as unknown as Record<string, unknown>)[campo] as string | undefined;
+        await sincronizarVinculoFuncao({
+          cliente: atualizado,
+          funcao: campo as FuncaoAlocacao,
+          nomeColabNovo: valor || undefined,
+          nomeColabAntigo: nomeAntigo,
+          colaboradores: colaboradoresPeriodo,
+          periodo: periodoSelecionado,
+          vinculos: vinculosPeriodo,
+        });
+      }
     }));
-  }, [clientes]);
+  }, [clientes, periodoSelecionado, dadosPeriodo]);
 
   return {
     clientes: clientesFiltrados, clienteSelecionado, selecionar,
