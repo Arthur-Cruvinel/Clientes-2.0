@@ -3,9 +3,10 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useApp } from '../../state/AppContext';
-import { salvarClienteBase, registrarAlteracao } from '../../services/firebase';
+import { salvarClienteBase, registrarAlteracao, sincronizarVinculoFuncao } from '../../services/firebase';
 import { useAuth } from '../../state/AuthContext';
 import { mesclarTodos } from '../../utils/dadosClienteAdapter';
+import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import type { DadosCliente, Cliente, FuncaoAlocacao } from '../../types';
 
 /** Campo aceito pela atribuição em lote — banker/empresário (cadastrais)
@@ -112,6 +113,34 @@ export function usePerfil() {
       // Mescla dados existentes com alterações e salva em clientes_base/
       const clienteAtualizado = { ...clienteSelecionado, ...dados } as Cliente;
       await salvarClienteBase(clienteAtualizado);
+
+      // Sincroniza vinculos/ para cada função cujo colaborador mudou.
+      // Sem isto, clientes_base/ fica com nome_novo mas o vínculo do período
+      // continua apontando para o colab antigo — pipeline (Peça 5) usa o
+      // vínculo e ignora a troca. Único caller que tinha esse gap até hoje;
+      // atualizarCampoEmLote ganha o mesmo tratamento no commit seguinte.
+      if (periodoSelecionado) {
+        const vinculosPeriodo = dadosPeriodo?.vinculos ?? [];
+        const colaboradoresPeriodo = dadosPeriodo?.colaboradores ?? [];
+        const dadosNovosRec = dados as Record<string, unknown>;
+        const anteriorRec = clienteSelecionado as unknown as Record<string, unknown>;
+        for (const funcao of FUNCOES_ALOCACAO) {
+          if (!(funcao in dadosNovosRec)) continue;
+          const novo = dadosNovosRec[funcao] as string | undefined;
+          const antigo = anteriorRec[funcao] as string | undefined;
+          if (novo === antigo) continue;
+          await sincronizarVinculoFuncao({
+            cliente: clienteAtualizado,
+            funcao,
+            nomeColabNovo: novo || undefined,
+            nomeColabAntigo: antigo || undefined,
+            colaboradores: colaboradoresPeriodo,
+            periodo: periodoSelecionado,
+            vinculos: vinculosPeriodo,
+          });
+        }
+      }
+
       recarregar();
       setModalAberto(false);
     } catch (e) {
@@ -119,7 +148,7 @@ export function usePerfil() {
     } finally {
       setSalvando(false);
     }
-  }, [clienteSelecionado, recarregar, usuario]);
+  }, [clienteSelecionado, recarregar, usuario, periodoSelecionado, dadosPeriodo]);
 
   const carregar = useCallback(async () => { recarregar(); }, [recarregar]);
 
