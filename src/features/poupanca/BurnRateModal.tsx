@@ -108,7 +108,7 @@ export function BurnRateModal({ clientes, periodoInicio, periodoFim, anoFim, onF
                     <th className={`${TH} text-right`}><HeaderOrdenavel titulo="NNM MM6" chave="mm6_nnm_liquido" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`NNM líq./mês — ${TIP_MM6}`} /></th>
                     <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Var. MM6" chave="variacao_mm6" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Variação MM6 = NNM líq. + Rent. BRL — base do critério de burn" /></th>
                     <th className={`${TH} text-right`}><HeaderOrdenavel titulo="PL Proj." chave="pl_projetado_fim_ano" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`PL Projetado Dez/${anoFim} — benchmark puro: PL_on × (1 + CDI_proj) + PL_off × (1 + Fed Funds) + MM6 NNM`} /></th>
-                    <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Gap" chave="gap_meta_individual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Gap Meta Individual — Meta individual (= projeção com capacidade esperada) − PL projetado" /></th>
+                    <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Gap" chave="gap_meta_individual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Gap Meta Individual — Meta individual (= projeção com capacidade esperada) − PL projetado. Clientes com capacidade Auto (MM6) sempre têm Gap = 0 por construção — cadastre capacidade_poupanca_mensal para ver gap real." /></th>
                     <th className={`${TH} text-center`}><HeaderOrdenavel titulo="Severidade" chave="severidade" alinhamento="center" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="% do PL: > -1% leve, > -3% moderado, ≤ -3% crítico" /></th>
                   </tr>
                 </thead>
@@ -138,7 +138,9 @@ export function BurnRateModal({ clientes, periodoInicio, periodoFim, anoFim, onF
                           ) : formatCurrency(c.pl_projetado_fim_ano, true)}
                         </td>
                         <td className="px-3 py-2 text-xs text-right tabular-nums" style={{ color: gapCor }}>
-                          {c.gap_meta_individual == null ? '—' : formatCurrency(c.gap_meta_individual, true)}
+                          {c.gap_meta_individual == null || c.capacidade_fonte === 'automatico'
+                            ? <span title="Gap só calculável com capacidade manual cadastrada" style={{ color: '#9ca3af' }}>—</span>
+                            : formatCurrency(c.gap_meta_individual, true)}
                         </td>
                         <td className="px-3 py-2 text-center">
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase"

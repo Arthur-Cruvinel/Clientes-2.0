@@ -153,7 +153,7 @@ export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim
                   <th className={`${TH} text-right`}><HeaderOrdenavel titulo="NNM MM6" chave="mm6_nnm_liquido" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="MM6 NNM líquido — NNM bruto − tombamento − transferência interna" /></th>
                   <th className={`${TH} text-right`}><HeaderOrdenavel titulo="PL Proj." chave="pl_projetado_fim_ano" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip={`PL Projetado Dez/${anoFim} — benchmark puro: PL_on × (1 + CDI_proj) + PL_off × (1 + Fed Funds) + MM6 NNM`} /></th>
                   <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Meta" chave="meta_individual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Meta Individual — projeção do PL usando capacidade esperada como NNM mensal" /></th>
-                  <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Gap" chave="gap_meta_individual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Gap = Meta − PL Projetado. Verde = vai superar a meta" /></th>
+                  <th className={`${TH} text-right`}><HeaderOrdenavel titulo="Gap" chave="gap_meta_individual" alinhamento="right" ordenacao={ordenacao} onOrdenar={setOrdenacao} tooltip="Gap = Meta − PL Projetado. Verde: vai superar a meta. Clientes com capacidade Auto (MM6) sempre têm Gap = 0 por construção — cadastre capacidade_poupanca_mensal para ver gap real." /></th>
                   <th className={`${TH} text-center`}>Status</th>
                 </tr>
               </thead>
@@ -220,7 +220,9 @@ export function ProjecaoModal({ clientes, consolidado, periodoInicio, periodoFim
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs text-right tabular-nums" style={{ color: corGapRow }}>
-                        {c.gap_meta_individual == null ? '—' : formatCurrency(c.gap_meta_individual, true)}
+                        {c.gap_meta_individual == null || c.capacidade_fonte === 'automatico'
+                          ? <span title="Gap só calculável com capacidade manual cadastrada" style={{ color: '#9ca3af' }}>—</span>
+                          : formatCurrency(c.gap_meta_individual, true)}
                       </td>
                       <td className="px-3 py-2 text-center">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap"
