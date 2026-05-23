@@ -60,17 +60,13 @@ export function nnmRealOffshore(r: RegistroPoupanca): number {
   return (r.aporte_mes_offshore ?? 0) - (r.transferencia_interna_offshore ?? 0);
 }
 
-/** NNM "real" do mês — aporte bruto descontando transferência interna entre
- *  contas do mesmo cliente (movimentos que NÃO são poupança nem tombamento,
- *  apenas reorganização). Soma onshore e offshore individualmente em vez de
- *  ler `aporte_mes_total` para garantir resultado correto mesmo quando o
- *  consumidor não recomputa o consolidado em runtime. */
-export function nnmReal(registro: RegistroPoupanca): number {
-  const aporteOn = registro.aporte_mes_onshore ?? 0;
-  const aporteOff = registro.aporte_mes_offshore ?? 0;
-  const transOn = registro.transferencia_interna_onshore ?? 0;
-  const transOff = registro.transferencia_interna_offshore ?? 0;
-  return (aporteOn + aporteOff) - (transOn + transOff);
+/** NNM real consolidado — soma das dimensões onshore e offshore.
+ *  Compõe nnmRealOnshore + nnmRealOffshore para garantir fonte
+ *  única: qualquer ajuste nas primitivas propaga automaticamente.
+ *  NÃO lê aporte_mes_total — soma individualmente para garantir
+ *  resultado correto independente do consolidado em runtime. */
+export function nnmReal(r: RegistroPoupanca): number {
+  return nnmRealOnshore(r) + nnmRealOffshore(r);
 }
 
 /** NNM líquido de tombamento (portabilidade) E transferência interna.
