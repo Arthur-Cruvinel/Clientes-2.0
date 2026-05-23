@@ -4,7 +4,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, writeBatch, deleteField } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial } from '../types';
+import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO } from '../utils/constants';
 import { PARAMETROS_DEFAULT } from '../utils/constants';
@@ -86,6 +86,90 @@ export async function buscarVinculos(anoMes: string): Promise<Vinculo[]> {
   } catch (error) {
     console.error(`[Firebase] Erro ao buscar vínculos do período ${anoMes}:`, error);
     throw error;
+  }
+}
+
+export interface SincronizarVinculoParams {
+  cliente: Cliente;                      // precisa id_estavel + nome_cliente
+  funcao: FuncaoAlocacao;
+  nomeColabNovo: string | undefined;     // undefined/'' = só remover antigo
+  nomeColabAntigo: string | undefined;   // undefined/'' = não havia atribuição
+  colaboradores: Colaborador[];          // para resolver nome → id_estavel
+  periodo: string;                       // 'YYYY-MM'
+  vinculos: Vinculo[];                   // snapshot atual carregado pelo AppContext
+}
+
+/**
+ * Sincroniza vínculo cliente↔colaborador em `fechamentos/{periodo}/vinculos/`
+ * quando o colaborador responsável por uma função muda. Estratégia:
+ * deleteDoc no vínculo antigo + setDoc no novo (docId muda porque o slug do
+ * colab muda — não é overwrite, é remove+create).
+ *
+ * Match do vínculo antigo: por `(id_estavel_cliente, funcao)` e opcionalmente
+ * `nome_colaborador` quando informado — espelha o lookup do pipeline (Peça 5).
+ * NÃO usa nome do colab no campo do cliente — grafia legada quebrada faria
+ * o match falhar.
+ *
+ * Pré-condições silenciosas (apenas warn, não throw):
+ *   - cliente sem `id_estavel` → aborta (sem identidade estável p/ vínculo)
+ *   - novo colab não encontrado em colaboradores ou sem `id_estavel` → aborta
+ *     a criação, mas a remoção do antigo já ocorreu se aplicável
+ *
+ * Novo vínculo nasce com `pct: 0` (latente). Pipeline (Peça 5) cai no
+ * fallback do nome até alguém setar pct via Alocação em Lote. Coerente com
+ * o pattern da migração da Peça 2 (pct=0 inicial).
+ *
+ * Opera em UM período (Decisão 4 da Fase 2.5: cada período é snapshot
+ * independente; não propaga horizontalmente).
+ */
+export async function sincronizarVinculoFuncao(p: SincronizarVinculoParams): Promise<void> {
+  const nomeAntigoTrim = p.nomeColabAntigo?.trim() || undefined;
+  const nomeNovoTrim = p.nomeColabNovo?.trim() || undefined;
+  if (nomeAntigoTrim === nomeNovoTrim) return;
+  if (!p.cliente.id_estavel) {
+    console.warn(`[sincronizarVinculoFuncao] cliente "${p.cliente.nome_cliente}" sem id_estavel — abortando`);
+    return;
+  }
+
+  // 1) Remover vínculo antigo (se existir doc para esse cliente+função)
+  const vAntigo = p.vinculos.find(v =>
+    v.id_estavel_cliente === p.cliente.id_estavel
+    && v.funcao === p.funcao
+    && (!nomeAntigoTrim || v.nome_colaborador === nomeAntigoTrim));
+  if (vAntigo?.id) {
+    try {
+      await deleteDoc(doc(db, 'fechamentos', p.periodo, 'vinculos', vAntigo.id));
+    } catch (err) {
+      console.error(`[sincronizarVinculoFuncao] falha ao deletar vínculo antigo ${vAntigo.id}:`, err);
+    }
+  }
+
+  // 2) Criar vínculo novo (se há colaborador novo)
+  if (!nomeNovoTrim) return;
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const alvo = norm(nomeNovoTrim);
+  const colab = p.colaboradores.find(c => norm(c.nome_colaborador) === alvo);
+  if (!colab?.id_estavel) {
+    console.warn(`[sincronizarVinculoFuncao] colaborador "${nomeNovoTrim}" não encontrado ou sem id_estavel — vínculo não criado`);
+    return;
+  }
+  const docId = `${slug(colab.nome_colaborador)}_${slug(p.cliente.nome_cliente)}_${p.funcao}`;
+  const novo: Vinculo = {
+    id: docId,
+    periodo: p.periodo,
+    id_estavel_colaborador: colab.id_estavel,
+    id_estavel_cliente: p.cliente.id_estavel,
+    nome_colaborador: colab.nome_colaborador,
+    nome_cliente: p.cliente.nome_cliente,
+    funcao: p.funcao,
+    pct: 0,
+    origem: 'manual',
+    data_criacao: new Date().toISOString(),
+  };
+  try {
+    await setDoc(doc(db, 'fechamentos', p.periodo, 'vinculos', docId), novo);
+  } catch (err) {
+    console.error(`[sincronizarVinculoFuncao] falha ao criar vínculo ${docId}:`, err);
   }
 }
 
