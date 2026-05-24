@@ -14,6 +14,7 @@ import {
   somarHorasNormativas, horasProdutivasMes,
 } from '../../utils/financials';
 import { slug } from '../../utils/slug';
+import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { compararClientes, type OrdenacaoAlocacao } from './ordenacaoAlocacao';
 import { normalizarFuncao, redistribuir } from './utilsAlocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
@@ -135,6 +136,33 @@ export function useAlocacaoEmLote() {
 
   const ocupacaoTotal = useMemo(
     () => Object.values(pctEditado).reduce((s, v) => s + (v ?? 0), 0), [pctEditado]);
+
+  // Ocupação CONSOLIDADA — soma o pct do colaborador selecionado em TODAS as 6
+  // funções (não só a funcao_principal do painel). Espelha a leitura dual do
+  // motor (resolverColaboradorParaFuncao): vínculo com pct>0 tem prioridade,
+  // senão cai no campo legado cliente.pct_${f}. Detecta sobre-alocação cruzando
+  // funções — invisível no resto do painel, que é mono-função.
+  const ocupacaoConsolidada = useMemo(() => {
+    if (!colaboradorSelecionado) return { total: 0, porFuncao: {} as Record<string, number> };
+    const idEst = colaboradorSelecionado.id_estavel;
+    const nome = colaboradorSelecionado.nome_colaborador;
+    const porFuncao: Record<string, number> = {};
+    for (const f of FUNCOES_ALOCACAO) {
+      let soma = 0;
+      for (const cli of todosClientes) {
+        if ((cli[f] as string | undefined) !== nome) continue;
+        const v = (idEst && cli.id_estavel)
+          ? vinculos.find(x => x.id_estavel_colaborador === idEst
+              && x.id_estavel_cliente === cli.id_estavel && x.funcao === f)
+          : undefined;
+        const pctLegado = (cli[`pct_${f}` as keyof Cliente] as number | undefined) ?? 0;
+        soma += (v && v.pct > 0) ? v.pct : pctLegado;
+      }
+      if (soma > 0) porFuncao[f] = soma;
+    }
+    const total = Object.values(porFuncao).reduce((s, v) => s + v, 0);
+    return { total, porFuncao };
+  }, [colaboradorSelecionado, todosClientes, vinculos]);
   const clientesOrdenados = useMemo<Cliente[]>(() => [...clientesDoColaborador].sort(
     compararClientes(ordenacao, { funcao, pctEditado, pctOriginal, percentualAlocavel }),
   ), [clientesDoColaborador, ordenacao, funcao, pctEditado, pctOriginal, percentualAlocavel]);
@@ -264,7 +292,7 @@ export function useAlocacaoEmLote() {
     funcao, clientesOrdenados,
     pctEditado, pctOriginal, pctSugerido, travados,
     setPct, resetCliente, recalcularTudo,
-    alteracoes, ocupacaoTotal, percentualAlocavel,
+    alteracoes, ocupacaoTotal, ocupacaoConsolidada, percentualAlocavel,
     horasNormativasTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo: periodoSelecionado,
   };

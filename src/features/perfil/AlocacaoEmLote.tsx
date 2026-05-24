@@ -14,12 +14,19 @@ function corFator(f: number): string {
   return '#16a34a';
 }
 
+// Rótulos curtos p/ o breakdown do KPI consolidado de ocupação.
+const LABEL_FUNCAO_CURTA: Record<string, string> = {
+  consultoria_gestao: 'gestão', consultoria_planejamento: 'planejamento',
+  consultoria_financeira: 'financeira', operacional_financeiro: 'operacional',
+  serv_adm: 'adm', serv_aux_adm: 'aux adm',
+};
+
 export function AlocacaoEmLote() {
   const {
     colaboradores, colaboradorSelecionado, setColaboradorSelecionado,
     funcao, clientesOrdenados, pctEditado, pctOriginal, travados,
     setPct, resetCliente, recalcularTudo,
-    alteracoes, percentualAlocavel,
+    alteracoes, ocupacaoConsolidada, percentualAlocavel,
     horasNormativasTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo,
   } = useAlocacaoEmLote();
@@ -28,15 +35,11 @@ export function AlocacaoEmLote() {
   const Ord = ({ chave, titulo, align }: { chave: ChaveOrdAlocacao; titulo: string; align: 'left' | 'right' | 'center' }) =>
     <HeaderOrdenavel titulo={titulo} chave={chave} alinhamento={align} ordenacao={ordenacao} onOrdenar={setOrdenarPor} />;
   const handleSalvar = async () => {
-    // [DIAG] click do botão
-    console.log('[handleSalvar] click — chamando salvarTodos()');
     try {
       const n = await salvarTodos();
-      console.log('[handleSalvar] salvarTodos() retornou', n);
       setToast(`${n} cliente${n === 1 ? '' : 's'} atualizado${n === 1 ? '' : 's'}.`);
     } catch (err) {
-      // [DIAG] ponto 7: antes não havia catch — erros sumiam para o React
-      console.error('[handleSalvar] ERRO', err);
+      console.error('[AlocacaoEmLote] erro ao salvar:', err);
       setToast(`Erro: ${err instanceof Error ? err.message : 'falha ao salvar'}`);
     }
     setTimeout(() => setToast(null), 3500);
@@ -72,6 +75,23 @@ export function AlocacaoEmLote() {
           </button>
         )}
       </div>
+
+      {colaboradorSelecionado && (
+        <div className="text-xs" style={{ color: '#6b6b8a' }}>
+          Total alocado (todas as funções):{' '}
+          <strong style={{ color: ocupacaoConsolidada.total > percentualAlocavel + 1e-9 ? '#dc2626' : '#16a34a' }}>
+            {(ocupacaoConsolidada.total * 100).toFixed(1)}%
+          </strong>{' '}
+          de {(percentualAlocavel * 100).toFixed(1)}% disponíveis
+          {Object.keys(ocupacaoConsolidada.porFuncao).length > 1 && (
+            <span className="ml-1" style={{ color: '#9ca3af' }}>
+              ({Object.entries(ocupacaoConsolidada.porFuncao)
+                .map(([f, p]) => `${LABEL_FUNCAO_CURTA[f] ?? f} ${(p * 100).toFixed(0)}%`)
+                .join(' · ')})
+            </span>
+          )}
+        </div>
+      )}
 
       {!colaboradorSelecionado && <p className="text-sm py-6 text-center italic" style={{ color: '#6b6b8a' }}>Selecione um colaborador para listar os clientes atendidos.</p>}
       {colaboradorSelecionado && !funcao && <p className="text-sm py-4 italic" style={{ color: '#dc2626' }}>Função "{colaboradorSelecionado.funcao_principal}" não mapeada.</p>}
