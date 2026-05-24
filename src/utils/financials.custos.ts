@@ -1,5 +1,7 @@
 // --- Custo direto, indireto e institucional (Fase 2) ---
-// Modelo CLAUDE.md: custo direto = pct_dedicado × percentual_alocavel × custo_total_mensal.
+// Modelo CLAUDE.md: custo direto = pct_dedicado × custo_total_mensal.
+// pct_dedicado já é fração do tempo TOTAL (Σ por colaborador = percentual_alocavel
+// via calcularPctDistribuido) — não escalar de novo por percentual_alocavel.
 // Custo institucional entra no pool de indiretos gerais. Pure asset não rateia.
 
 import type { Cliente, Colaborador, CustoIndireto, FuncaoAlocacao, ResultadoFolha, ResultadoReajuste } from '../types';
@@ -243,7 +245,7 @@ function resolverColaboradorParaFuncao(
   return { colaborador: colab ?? null, pct, fonte: 'cliente' };
 }
 
-/** Custo direto do cliente: Σ por função de pct × percentual_alocavel × custo_total_mensal.
+/** Custo direto do cliente: Σ por função de pct × custo_total_mensal.
  *
  *  Leitura dual (Fase 2.5 — Peça 5): tenta resolver colaborador via vínculos
  *  com pct > 0 primeiro; senão, fallback no campo do cliente (comportamento
@@ -312,7 +314,10 @@ export function calcularCustoDireto(
     }
     if (pct <= 0) continue;
     if (fonte === 'vinculo') usouVinculo = true;
-    total += colab.custo_total_mensal * colab.percentual_alocavel * pct;
+    // pct já representa fração do tempo total do colaborador dedicada a este
+    // cliente — não escalar por percentual_alocavel (que já está incorporado
+    // no pct via calcularPctDistribuido).
+    total += colab.custo_total_mensal * pct;
   }
   // Fator de sobrecarga é monitorado por colaborador (calcularFatorSobrecarga).
   if (total > 0) {
