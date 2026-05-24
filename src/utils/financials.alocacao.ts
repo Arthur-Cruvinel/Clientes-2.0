@@ -72,7 +72,10 @@ export function somarHorasNormativas(
   );
 }
 
-/** Horas produtivas mensais do colaborador (atalho exposto p/ UI). */
+/** Horas produtivas mensais do colaborador DISPONÍVEIS PARA CLIENTES — escala
+ *  as horas produtivas da localidade pelo percentual_alocavel (fração do tempo
+ *  dedicada a clientes; o restante é institucional). Sem o campo → assume 1.0
+ *  (retrocompat). Usado no diagnóstico de capacidade da Alocação em Lote. */
 export function horasProdutivasMes(colaborador: Colaborador): number {
-  return horasProdMesDe(colaborador);
+  return horasProdMesDe(colaborador) * (colaborador.percentual_alocavel ?? 1);
 }
