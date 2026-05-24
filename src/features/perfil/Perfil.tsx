@@ -1,7 +1,7 @@
 // --- Aba Perfil — visualização e edição de clientes ---
 
 import { useState, useMemo } from 'react';
-import { Search, Pencil, UserPlus } from 'lucide-react';
+import { Search, Pencil, UserPlus, X } from 'lucide-react';
 import { formatCurrency, formatPercent, encontrarPoupanca } from '../../utils/formatters';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { calcularFatoresEscopo } from '../../utils/financials';
@@ -112,6 +112,12 @@ export function Perfil() {
             <Search size={14} style={{ color: '#6b6b8a' }} />
             <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cliente..."
               className="text-sm w-full outline-none bg-transparent" style={{ color: '#160F41' }} />
+            {busca && (
+              <button type="button" onClick={() => setBusca('')} title="Limpar filtro"
+                className="text-gray-400 hover:text-gray-600">
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y" style={{ borderColor: '#e2e2e8' }}>
