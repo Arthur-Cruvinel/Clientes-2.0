@@ -65,88 +65,6 @@ export interface PontoMetaCumprimento {
 const MESES_LABEL = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 function pNum(a: number, m: number) { return a * 12 + m; }
 
-/** Mediana de uma lista de números — robusta a outliers. Um mês com resgate
- *  massivo (rentabilidade muito negativa pontual) NÃO distorce a mediana,
- *  ao contrário da média aritmética. Vazia → 0. */
-function mediana(valores: number[]): number {
-  if (valores.length === 0) return 0;
-  const sorted = [...valores].sort((a, b) => a - b);
-  const meio = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[meio - 1] + sorted[meio]) / 2
-    : sorted[meio];
-}
-
-/** Mediana com filtro de outliers (>2σ da média aritmética). Combina robustez
- *  da mediana + descarte de eventos extremos pontuais (aporte excepcional,
- *  resgate único). Útil para projetar NNM "esperado" a partir do histórico
- *  de aportes regulares.
- *
- *  Retorna `{ valor, kept, excluded }` para auditoria — o consumidor expõe
- *  `nnm_meses_historico = kept` e `nnm_meses_excluidos = excluded`.
- *
- *  Casos-limite:
- *   - lista vazia → { 0, 0, 0 }
- *   - 1 valor → sem média/desvio, retorna o próprio valor
- *   - desvio = 0 (todos iguais) → não filtra
- *   - filtro removeu tudo → fallback para mediana da lista original */
-function medianaSemOutliers(valores: number[]): { valor: number; kept: number; excluded: number } {
-  if (valores.length === 0) return { valor: 0, kept: 0, excluded: 0 };
-  if (valores.length === 1) return { valor: valores[0], kept: 1, excluded: 0 };
-  const media = valores.reduce((a, b) => a + b, 0) / valores.length;
-  const variancia = valores.reduce((acc, v) => acc + (v - media) ** 2, 0) / valores.length;
-  const desvio = Math.sqrt(variancia);
-  const filtrados = desvio > 0
-    ? valores.filter(v => Math.abs(v - media) <= 2 * desvio)
-    : valores;
-  const lista = filtrados.length > 0 ? filtrados : valores;
-  return {
-    valor: mediana(lista),
-    kept: lista.length,
-    excluded: valores.length - lista.length,
-  };
-}
-
-/** Detalhamento de cliente com critério de burn baseado em RENTABILIDADE real
- *  (média das `pickR(...).rp` mensais — TWR-style), não em variação de PL.
- *  Mais preciso: rentabilidade negativa = perda real de mercado, distinto de
- *  resgates do cliente (que reduzem PL mas não são "burn"). Alimenta o
- *  BurnRateModal e o ProjecaoModal. */
-export interface VariacaoPLCliente {
-  nome_cliente: string;
-  // Médias do período — base do critério de burn e da projeção.
-  taxa_media_mensal: number;         // média das rentabilidades % mensais (decimal)
-  rent_brl_media_mensal: number;     // média da rentabilidade BRL mensal
-  pl_atual: number;                  // PL no último mês do intervalo
-  // NNM esperado mensal — base para a parcela linear da projeção.
-  // Mediana com filtro de outliers (>2σ) sobre o HISTÓRICO COMPLETO de
-  // poupança líquida do cliente (não restrito ao intervalo selecionado).
-  // `meta_poupanca_mensal` do último mês sobrescreve o cálculo automático.
-  nnm_esperado_mensal: number;
-  nnm_fonte: 'manual' | 'automatico';
-  nnm_meses_historico: number;       // meses considerados no cálculo (após filtro)
-  nnm_meses_excluidos: number;       // meses descartados como outlier (>2σ)
-  // Projeção até Dez/anoFim — compounding mensal × pl_atual + nnm × meses.
-  pl_projetado_fim_ano: number;
-  meses_para_fim_ano: number;
-  // Meta proporcional ao PL atual (distribuição da meta global).
-  meta_aum: number | null;
-  gap_meta: number | null;           // pl_projetado - meta_aum
-  // Classificação.
-  em_burn: boolean;                  // taxa_media_mensal < 0
-  severidade: 'leve' | 'moderado' | 'critico' | null;
-  rebate_em_risco: number;           // anual, baseado em |rent_brl_media_mensal|
-}
-
-/** Severidade do burn por taxa média mensal (decimal): leve > -1%/mês,
- *  moderado entre -3% e -1%, crítico ≤ -3%. */
-function severidadeBurn(taxa: number): 'leve' | 'moderado' | 'critico' | null {
-  if (taxa >= 0) return null;
-  if (taxa > -0.01) return 'leve';
-  if (taxa > -0.03) return 'moderado';
-  return 'critico';
-}
-
 // ============================================================
 // MM6 — Modelo definitivo de projeção
 // ============================================================
@@ -701,7 +619,7 @@ export function usePoupanca(
     };
   }, [historico, historicoMetaCumprimento, registrosPorCliente]);
 
-  // ── Memos de infraestrutura (usados por variacaoPLPorCliente abaixo) ────
+  // ── Memos de infraestrutura (KPIs, tabela, projeção MM6) ───────────────
 
   // Quantidade de meses do intervalo selecionado — usado para "média mensal"
   // nos KPIs (NNM/mês, Rent/mês). Mín 1 para evitar divisão por zero.
@@ -730,7 +648,7 @@ export function usePoupanca(
 
   // Para cada cliente do intervalo, encontra o registro IMEDIATAMENTE ANTERIOR
   // ao início do intervalo. Usado pela tabela para corrigir Ganho Cambial do
-  // primeiro mês E pelo variacaoPLPorCliente para resolver `prev` no i=0.
+  // primeiro mês E pela projeção MM6 para resolver `prev` no i=0.
   const registroAnteriorPorCliente = useMemo(() => {
     const ini = pNum(anoInicio, mesInicio);
     const mapa = new Map<string, RegistroPoupanca | null>();
@@ -754,146 +672,8 @@ export function usePoupanca(
     return mapa;
   }, [todosRegistros, registrosPorCliente, anoInicio, mesInicio]);
 
-  // Rentabilidade real por cliente — fonte única para burn, projeção e meta.
-  // taxa_media_mensal = média das `pickR(...).rp` mensais (mesma lógica do
-  // detalhe individual e da coluna Rent.% da tabela). Captura perda real de
-  // mercado, distinto de resgates/aportes do cliente.
-  const variacaoPLPorCliente = useMemo<VariacaoPLCliente[]>(() => {
-    const lista: VariacaoPLCliente[] = [];
-    const porNome = new Map<string, Cliente>();
-    for (const c of clientes ?? []) porNome.set(c.nome_cliente, c);
-
-    // Total atual global — usado para distribuir a meta proporcional ao
-    // peso atual de cada cliente no AUM. Fica null por cliente quando não
-    // há meta global configurada.
-    let plTotalAtualGlobal = 0;
-    for (const [, regs] of registrosPorCliente) {
-      const sortedX = [...regs].sort((a, b) => pNum(a.ano, a.mes) - pNum(b.ano, b.mes));
-      plTotalAtualGlobal += sortedX[sortedX.length - 1]?.pl_total ?? 0;
-    }
-    const metaGlobal = metaAUM?.valor ?? null;
-    const fimAnoP = pNum(anoFim, 12);
-
-    // Pré-indexa todosRegistros por cliente para o cálculo do NNM histórico
-    // (precisa varrer ALÉM do intervalo selecionado — captura toda a vida do
-    // cliente para uma amostra estatística decente).
-    const todosPorNome = new Map<string, RegistroPoupanca[]>();
-    for (const r of todosRegistros) {
-      const lista = todosPorNome.get(r.nome_cliente) ?? [];
-      lista.push(r);
-      todosPorNome.set(r.nome_cliente, lista);
-    }
-
-    for (const [nome, regs] of registrosPorCliente) {
-      const sorted = [...regs].sort((a, b) => pNum(a.ano, a.mes) - pNum(b.ano, b.mes));
-
-      // Coleta retornos mensais (rp = % decimal, rb = BRL) via pickR — mesma
-      // fonte usada pela tabela e pelo detalhe individual. prev no i=0 vem
-      // do registro IMEDIATAMENTE ANTERIOR ao intervalo (corrige offshore
-      // que precisa do PL_USD anterior; sem isso, primeiro mês ficava sem
-      // base de comparação).
-      const rps: (number | null)[] = [];
-      const rbs: number[] = [];
-      const regAntCliente = registroAnteriorPorCliente.get(nome) ?? null;
-      for (let i = 0; i < sorted.length; i++) {
-        const r = sorted[i];
-        const prev = i > 0 ? sorted[i - 1] : regAntCliente;
-        const d = pickR(r, 'consolidado', prev);
-        rps.push(d.rp);
-        rbs.push(d.rb);
-      }
-
-      // taxa_media_mensal = MEDIANA das rentabilidades % mensais informadas
-      // (ignora null = mês sem dado). Mediana é robusta a outliers — um mês
-      // de resgate massivo não distorce a tendência de longo prazo, o que
-      // tornaria a projeção exponencial irrealista. Captura retorno real de
-      // mercado, não saídas/aportes do cliente.
-      const rpsValidos = rps.filter((x): x is number => x !== null);
-      const taxa_media_mensal = mediana(rpsValidos);
-      // rent_brl_media_mensal = MEDIANA da rentabilidade BRL mensal (todos os
-      // meses, incluindo zero). Usado pelo BurnRateModal e como base do
-      // rebate em risco. Mediana pelos mesmos motivos acima.
-      const rent_brl_media_mensal = mediana(rbs);
-
-      const ultimo = sorted[sorted.length - 1];
-      const pl_atual = ultimo?.pl_total ?? 0;
-      const ultimoP = pNum(ultimo?.ano ?? anoFim, ultimo?.mes ?? 12);
-      const meses_para_fim_ano = Math.max(0, fimAnoP - ultimoP);
-
-      // ── NNM esperado mensal ──────────────────────────────────────────
-      // Mediana do histórico COMPLETO de poupança líquida (NNM bruto −
-      // tombamento) com filtro de outliers (>2σ da média). Histórico todo
-      // (não só intervalo) porque queremos uma amostra robusta do
-      // comportamento de aporte regular do cliente.
-      // Filtra |liq| > 0,01: meses com movimento real (descarta mês fantasma
-      // e meses absolutamente zerados).
-      const todosRegsCliente = (todosPorNome.get(nome) ?? [])
-        .slice().sort((a, b) => pNum(a.ano, a.mes) - pNum(b.ano, b.mes));
-      const nnmHistorico = todosRegsCliente
-        .map(r => nnmPoupancaLiquida(r))
-        .filter(v => Math.abs(v) > 0.01);
-      const nnmStats = medianaSemOutliers(nnmHistorico);
-      // Meta manual do último mês do intervalo sobrescreve o cálculo
-      // automático — operador comunicou um alvo explícito para esse cliente.
-      const metaManual = ultimo?.meta_poupanca_mensal;
-      const nnm_esperado_mensal = metaManual != null ? metaManual : nnmStats.valor;
-      const nnm_fonte: 'manual' | 'automatico' = metaManual != null ? 'manual' : 'automatico';
-
-      // Cap em -99% para evitar PL negativo via Math.pow (cliente nunca chega
-      // exatamente a 0 nem cai abaixo dele numa projeção exponencial).
-      const taxaCapped = Math.max(taxa_media_mensal, -0.99);
-      // Projeção = compounding (rentabilidade) + parcela linear (NNM × meses).
-      // Modelo aditivo simples: NNM entra todo mês e o stock antigo cresce
-      // pela rent. (Refinamento futuro: capitalizar cada NNM mensal pelos
-      // meses restantes — irrelevante p/ horizontes curtos.)
-      const pl_projetado_fim_ano = meses_para_fim_ano === 0
-        ? pl_atual
-        : pl_atual * Math.pow(1 + taxaCapped, meses_para_fim_ano)
-          + nnm_esperado_mensal * meses_para_fim_ano;
-
-      // Meta por cliente = fração proporcional do peso atual no AUM total.
-      const meta_aum = metaGlobal != null && plTotalAtualGlobal > 0
-        ? metaGlobal * (pl_atual / plTotalAtualGlobal) : null;
-      const gap_meta = meta_aum != null ? pl_projetado_fim_ano - meta_aum : null;
-
-      const em_burn = taxa_media_mensal < 0;
-      const sev = severidadeBurn(taxa_media_mensal);
-
-      // Rebate em risco anual = |rent_brl mensal| × 12 × taxa_rebate ×
-      // (1 − alíquota) × split. Usa rent BRL como proxy de "perda mensal de
-      // capital" — anualizado dá a queda esperada do PL no ano, multiplicada
-      // pela taxa de rebate dá a perda projetada de receita.
-      const c = porNome.get(nome);
-      const on = c?.percentual_rebate_anual_onshore ?? 0;
-      const off = c?.percentual_rebate_anual_offshore ?? null;
-      const taxaRebMedia = off != null ? (on + off) / 2 : on;
-      const aliquota = c?.aliquota_impostos_rebate ?? 0;
-      const rebate_em_risco = (em_burn && c)
-        ? Math.abs(rent_brl_media_mensal) * 12 * taxaRebMedia * (1 - aliquota) * 0.5
-        : 0;
-
-      lista.push({
-        nome_cliente: nome,
-        taxa_media_mensal, rent_brl_media_mensal,
-        nnm_esperado_mensal, nnm_fonte,
-        nnm_meses_historico: nnmStats.kept,
-        nnm_meses_excluidos: nnmStats.excluded,
-        pl_atual, pl_projetado_fim_ano, meses_para_fim_ano,
-        meta_aum, gap_meta,
-        em_burn, severidade: sev, rebate_em_risco,
-      });
-    }
-    return lista;
-  }, [registrosPorCliente, registroAnteriorPorCliente, todosRegistros, clientes, metaAUM, anoFim]);
-
-  const clientesEmBurnNovo = useMemo<VariacaoPLCliente[]>(
-    () => variacaoPLPorCliente.filter(v => v.em_burn),
-    [variacaoPLPorCliente]);
-
   // ── MM6 — modelo definitivo (assíncrono, depende de fetch CDI) ──────────
-  // Substitui variacaoPLPorCliente como source de truth para burn/projeção/
-  // rebate em risco. variacaoPLPorCliente continua exposto como legado para
-  // não quebrar consumers que ainda referenciam a interface antiga.
+  // Source de truth para burn / projeção / rebate em risco.
 
   const [mm6Clientes, setMm6Clientes] = useState<MM6Cliente[]>([]);
 
@@ -904,9 +684,8 @@ export function usePoupanca(
     }
     let cancelado = false;
 
-    // Pré-indexa todosRegistros por nome — mesma estrutura do memo
-    // variacaoPLPorCliente, replicada aqui porque o useEffect tem escopo
-    // próprio (e não há ganho mensurável em memoizar separado).
+    // Pré-indexa todosRegistros por nome — o useEffect tem escopo próprio
+    // (e não há ganho mensurável em memoizar separado).
     const todosPorNome = new Map<string, RegistroPoupanca[]>();
     for (const r of todosRegistros) {
       const lista = todosPorNome.get(r.nome_cliente) ?? [];
@@ -1437,8 +1216,6 @@ export function usePoupanca(
     serieMetaTrajetoria,
     coberturaCapacidade,
     // Legado mantido para retrocompat — não recomendado para novos consumers.
-    variacaoPLPorCliente,
-    clientesEmBurnNovo,
     capacidadeNegativaTotal: clientesEmBurnMM6.reduce((s, v) => s + Math.abs(v.mm6_rent_brl), 0),
     mesesNoPeriodo,
     aumInicialPeriodo,
