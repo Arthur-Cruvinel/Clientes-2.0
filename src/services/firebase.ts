@@ -885,8 +885,16 @@ export async function salvarClienteBase(cliente: Cliente): Promise<void> {
   const dados = cliente.id_estavel
     ? cliente
     : { ...cliente, id_estavel: crypto.randomUUID() };
+  // Substituir campos undefined por deleteField() para que o Firestore
+  // realmente remova o campo ao invés de ignorar silenciosamente.
+  // setDoc(..., { merge: true }) descarta props undefined sem deletar o
+  // campo existente — necessário para campos de função (consultoria_gestao
+  // etc.) quando o colaborador é removido pelo usuário no EditarClienteModal.
+  const dadosFirestore = Object.fromEntries(
+    Object.entries(dados).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
+  );
   try {
-    await setDoc(doc(db, 'clientes_base', docIdCliente), dados, { merge: true });
+    await setDoc(doc(db, 'clientes_base', docIdCliente), dadosFirestore, { merge: true });
   } catch (error) {
     console.error('[Firebase] Erro ao salvar cliente_base:', error);
     throw error;
