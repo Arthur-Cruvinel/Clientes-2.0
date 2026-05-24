@@ -48,7 +48,9 @@ export function calcularPctDistribuido(
 }
 
 /** Fator de sobrecarga POR COLABORADOR (não por cliente):
- *    fator = horasProdutivasMes / somaHorasNormativas
+ *    fator = horasProdutivasMes(colab) / somaHorasNormativas
+ *    onde horasProdutivasMes já escala por percentual_alocavel (horas
+ *    DISPONÍVEIS PARA CLIENTES, não o tempo integral da localidade).
  *    < 1.0 → colaborador não tem capacidade pra atender no nível dos pacotes
  *    ≥ 1.0 → capacidade ok, podendo absorver mais clientes */
 export function calcularFatorSobrecarga(
@@ -60,7 +62,7 @@ export function calcularFatorSobrecarga(
     (s, c) => s + (HORAS_PACOTE[c.pacote_servico]?.[funcao] ?? 0), 0,
   );
   if (somaHoras === 0) return 0;
-  return horasProdMesDe(colaborador) / somaHoras;
+  return horasProdutivasMes(colaborador) / somaHoras;
 }
 
 /** Soma das horas normativas dos pacotes dos clientes na função. */
