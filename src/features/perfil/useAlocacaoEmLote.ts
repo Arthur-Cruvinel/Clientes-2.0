@@ -183,30 +183,11 @@ export function useAlocacaoEmLote() {
   const emSobrecarga = horasNormativasTotais > horasProdutivas;
 
   const salvarTodos = useCallback(async (): Promise<number> => {
-    // [DIAG] ponto 1: a função foi chamada?
-    console.log('[salvarTodos] start', {
-      periodoSelecionado, funcao, alteracoes,
-      totalClientes: clientesDoColaborador.length,
-    });
-    // [DIAG] ponto 5 + ponto 1 (early return)
-    if (!periodoSelecionado || !funcao || alteracoes === 0) {
-      console.warn('[salvarTodos] EARLY RETURN', {
-        semPeriodo: !periodoSelecionado,
-        semFuncao: !funcao,
-        alteracoes_zero: alteracoes === 0,
-      });
-      return 0;
-    }
-    // [DIAG] ponto 2: pctEditado vs pctOriginal completos
-    console.log('[salvarTodos] estados', {
-      pctEditado: { ...pctEditado },
-      pctOriginal: { ...pctOriginal },
-    });
+    if (!periodoSelecionado || !funcao || alteracoes === 0) return 0;
     setSalvando(true);
     try {
       const batch = writeBatch(db);
       let mudou = 0;
-      let pulados = 0;
       // Fase 2.5 — Peça 6: a escrita vai para fechamentos/{periodo}/vinculos/.
       // Bug Arquitetural #1 fecha lateralmente — docId do vínculo é
       // {slug_colab}_{slug_cli}_{funcao}, determinístico, sem query. Quando o
@@ -215,26 +196,15 @@ export function useAlocacaoEmLote() {
       // (cliente novo ainda não migrado) cai no fallback de construção via
       // slug(nome), simétrico ao 2º branch de resolverSlugCliente em
       // scripts/fase25-peca2-apply.mjs.
-      if (!colaboradorSelecionado?.id_estavel) {
-        console.warn('[salvarTodos] colaborador SEM id_estavel — abortando', nomeSel);
-        return 0;
-      }
+      if (!colaboradorSelecionado?.id_estavel) return 0;
       const idEstColab = colaboradorSelecionado.id_estavel;
       const slugColab = slug(colaboradorSelecionado.nome_colaborador);
       for (const cli of clientesDoColaborador) {
         const novo = pctEditado[cli.nome_cliente] ?? 0;
         const orig = pctOriginal[cli.nome_cliente] ?? 0;
         const diff = Math.abs(novo - orig);
-        if (!cli.id_estavel) {
-          console.warn('[salvarTodos] cliente SEM id_estavel — pulado', cli.nome_cliente);
-          pulados++;
-          continue;
-        }
-        if (diff <= 1e-9) {
-          console.log('[salvarTodos] sem mudança — pulado', { cliente: cli.nome_cliente, novo, orig });
-          pulados++;
-          continue;
-        }
+        if (!cli.id_estavel) continue;
+        if (diff <= 1e-9) continue;
         const vinculoExistente = vinculos.find(v =>
           v.id_estavel_colaborador === idEstColab
           && v.id_estavel_cliente === cli.id_estavel
@@ -242,11 +212,9 @@ export function useAlocacaoEmLote() {
         const docIdVinculo = vinculoExistente?.id
           ?? `${slugColab}_${slug(cli.nome_cliente)}_${funcao}`;
         const refVinc = doc(db, 'fechamentos', periodoSelecionado, 'vinculos', docIdVinculo);
-        const path = `fechamentos/${periodoSelecionado}/vinculos/${docIdVinculo}`;
         if (vinculoExistente) {
           // Vínculo já tem campos identificadores (id_estavel_*, nome_*, funcao,
           // origem). merge:true atualiza só pct e preserva o resto.
-          console.log('[salvarTodos] batch.set MERGE', { cliente: cli.nome_cliente, docIdVinculo, novo, orig, path });
           batch.set(refVinc, { pct: novo }, { merge: true });
         } else {
           // Vínculo não existe — payload completo. Sem merge para evitar doc
@@ -265,24 +233,15 @@ export function useAlocacaoEmLote() {
             origem: 'manual',
             data_criacao: new Date().toISOString(),
           };
-          console.log('[salvarTodos] batch.set NOVO', { cliente: cli.nome_cliente, docIdVinculo, novo, orig, path });
           batch.set(refVinc, novoVinculo);
         }
         mudou++;
       }
-      console.log('[salvarTodos] resumo pré-commit', {
-        mudou, pulados, totalClientes: clientesDoColaborador.length,
-      });
-      // [DIAG] ponto 4: commit?
-      console.log('[salvarTodos] batch.commit() iniciando…');
       await batch.commit();
-      console.log('[salvarTodos] batch.commit() OK');
       recarregar();
-      console.log('[salvarTodos] recarregar() chamado');
       return mudou;
     } catch (err) {
-      // [DIAG] ponto 7: erros propagam (não engolimos)
-      console.error('[salvarTodos] ERRO', err);
+      console.error('[salvarTodos] erro ao salvar:', err);
       throw err;
     } finally { setSalvando(false); }
   }, [periodoSelecionado, funcao, alteracoes, clientesDoColaborador, pctEditado, pctOriginal, recarregar, colaboradorSelecionado, vinculos, nomeSel]);
