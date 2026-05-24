@@ -54,7 +54,7 @@ export function Perfil() {
             ['lote', '👥 Atribuição em Lote'],
             ['lote_aloc', '🎯 Alocação em Lote'],
           ] as const).map(([id, label]) => (
-            <button key={id} onClick={() => setVisao(id)}
+            <button key={id} onClick={() => { setVisao(id); setBusca(''); }}
               className={`px-4 py-1.5 text-xs font-medium transition-all ${visao === id ? 'bg-gradient-brand text-white' : ''}`}
               style={visao !== id ? { backgroundColor: '#fff', color: '#6b6b8a' } : undefined}>
               {label}
