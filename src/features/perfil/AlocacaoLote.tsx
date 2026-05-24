@@ -184,6 +184,12 @@ export function AlocacaoLote({ clientes, colaboradores, bankersUnicos, empresari
           <Search size={13} className="text-gray-400" />
           <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Filtrar clientes..."
             className="text-xs outline-none bg-transparent w-36" style={{ color: '#160F41' }} />
+          {busca && (
+            <button type="button" onClick={() => setBusca('')} title="Limpar filtro"
+              className="text-gray-400 hover:text-gray-600">
+              <X size={13} />
+            </button>
+          )}
         </div>
         <select value={filtroFuncaoVazia}
           onChange={e => setFiltroFuncaoVazia(e.target.value as FuncaoAlocacao | '')}
