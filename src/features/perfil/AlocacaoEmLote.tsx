@@ -2,7 +2,7 @@
 // Distribuição automática + override manual; fator = sobrecarga por colaborador.
 
 import { useState } from 'react';
-import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2, Trash2 } from 'lucide-react';
 import { useAlocacaoEmLote } from './useAlocacaoEmLote';
 import { HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
@@ -29,6 +29,7 @@ export function AlocacaoEmLote() {
     alteracoes, ocupacaoConsolidada, percentualAlocavel,
     horasNormativasTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo,
+    removerCliente, removendo, periodoFechado,
   } = useAlocacaoEmLote();
   const [toast, setToast] = useState<string | null>(null);
 
@@ -111,6 +112,7 @@ export function AlocacaoEmLote() {
                   <th className={`${TH} text-right`}><Ord chave="novo_pct" titulo="% dedicação" align="right" /></th>
                   <th className={`${TH} text-right`}><Ord chave="horas_efetivas" titulo="Horas efet." align="right" /></th>
                   <th className={`${TH} text-center`}>Fator</th>
+                  <th className={`${TH} text-center`}>Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
@@ -145,6 +147,21 @@ export function AlocacaoEmLote() {
                       </td>
                       <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{horasEfet.toFixed(1)}h</td>
                       <td className={`${TD} text-center font-medium`} style={{ color: corFator(fatorSobrecarga) }}>{fatorSobrecarga.toFixed(2)}</td>
+                      <td className={`${TD} text-center`}>
+                        <button type="button"
+                          title={periodoFechado ? 'Período fechado — remoção indisponível' : 'Remover da carteira'}
+                          disabled={periodoFechado || removendo !== null}
+                          onClick={async () => {
+                            if (!window.confirm(`Remover ${cli.nome_cliente} da carteira de ${colaboradorSelecionado?.nome_colaborador}?`)) return;
+                            await removerCliente(cli);
+                          }}
+                          className="align-middle disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{ color: '#dc2626' }}>
+                          {removendo === cli.nome_cliente
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : <Trash2 size={13} />}
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

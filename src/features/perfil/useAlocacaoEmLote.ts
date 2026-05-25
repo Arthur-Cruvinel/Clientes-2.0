@@ -8,7 +8,7 @@ import { doc, writeBatch } from 'firebase/firestore';
 // batch.set com { merge: true } cria o doc se ainda não existir no período —
 // evita falha quando o cliente é alocado num período sem fechamento prévio.
 import { useApp } from '../../state/AppContext';
-import { db } from '../../services/firebase';
+import { db, salvarClienteBase, sincronizarVinculoFuncao } from '../../services/firebase';
 import {
   calcularPctDistribuido, calcularFatorSobrecarga,
   somarHorasNormativas, horasProdutivasMes,
@@ -21,7 +21,7 @@ import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
 import type { Vinculo } from '../../types/vinculo';
 
 export function useAlocacaoEmLote() {
-  const { dadosPeriodo, periodoSelecionado, recarregar } = useApp();
+  const { dadosPeriodo, periodoSelecionado, periodoFechado, recarregar } = useApp();
   const [nomeSel, setNomeSel] = useState<string | null>(null);
   const [pctEditado, setPctEditado] = useState<Record<string, number>>({});
   // pctOriginal vira state (não useMemo) para que recalcularTudo possa zerá-lo
@@ -30,6 +30,8 @@ export function useAlocacaoEmLote() {
   const [pctOriginal, setPctOriginal] = useState<Record<string, number>>({});
   const [travados, setTravados] = useState<Set<string>>(new Set());
   const [salvando, setSalvando] = useState(false);
+  // Nome do cliente em remoção (loading por linha); null = nenhuma em curso.
+  const [removendo, setRemovendo] = useState<string | null>(null);
   const [ordenacao, setOrdenarPor] = useState<OrdenacaoAlocacao>(
     { coluna: 'nome_cliente', direcao: 'asc' });
 
@@ -246,6 +248,37 @@ export function useAlocacaoEmLote() {
     } finally { setSalvando(false); }
   }, [periodoSelecionado, funcao, alteracoes, clientesDoColaborador, pctEditado, pctOriginal, recarregar, colaboradorSelecionado, vinculos, nomeSel]);
 
+  // Remove o vínculo direto de um cliente com o colaborador selecionado:
+  // (1) limpa cliente[funcao] + zera pct_funcao em clientes_base/ (deleteField
+  // via salvarClienteBase; pct zerado evita % de dedicação órfão — paridade com
+  // EditarClienteModal); (2) deleta o vínculo do período via
+  // sincronizarVinculoFuncao (nomeColabNovo undefined = só remover);
+  // (3) recarrega — o cliente sai da lista (filtro c[funcao] === nome).
+  // Bloqueado em período fechado: a lista vem do snapshot, não de clientes_base.
+  const removerCliente = useCallback(async (cliente: Cliente): Promise<void> => {
+    if (!funcao || !periodoSelecionado || periodoFechado) return;
+    setRemovendo(cliente.nome_cliente);
+    try {
+      const atualizado = { ...cliente } as Cliente;
+      const rec = atualizado as unknown as Record<string, unknown>;
+      rec[funcao] = undefined;
+      rec[`pct_${funcao}`] = 0;
+      await salvarClienteBase(atualizado);
+      await sincronizarVinculoFuncao({
+        cliente,
+        funcao,
+        nomeColabNovo: undefined,
+        nomeColabAntigo: colaboradorSelecionado?.nome_colaborador,
+        colaboradores,
+        periodo: periodoSelecionado,
+        vinculos,
+      });
+      recarregar();
+    } finally {
+      setRemovendo(null);
+    }
+  }, [funcao, periodoSelecionado, periodoFechado, colaboradorSelecionado, colaboradores, vinculos, recarregar]);
+
   return {
     colaboradores, colaboradorSelecionado, setColaboradorSelecionado: setNomeSel,
     funcao, clientesOrdenados,
@@ -254,5 +287,6 @@ export function useAlocacaoEmLote() {
     alteracoes, ocupacaoTotal, ocupacaoConsolidada, percentualAlocavel,
     horasNormativasTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo: periodoSelecionado,
+    removerCliente, removendo, periodoFechado,
   };
 }
