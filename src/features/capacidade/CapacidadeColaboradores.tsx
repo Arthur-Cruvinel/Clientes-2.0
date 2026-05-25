@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Pencil } from 'lucide-react';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
-import { LABEL_FUNCAO, type ColaboradorCapacidade } from './useCapacidade';
+import { type ColaboradorCapacidade } from './useCapacidade';
+import { CapacidadeDrillDown } from './CapacidadeDrillDown';
 
 // Verde até 80%, amarelo até 100%, vermelho acima (sobrecarga).
 function cor(ocup: number): string {
@@ -45,45 +46,24 @@ export function CapacidadeColaboradores({ dados }: { dados: ColaboradorCapacidad
         {dados.length === 0 && <p className="text-sm italic col-span-full" style={{ color: '#6b6b8a' }}>Nenhum colaborador alocável no período.</p>}
       </div>
 
-      {sel && (
-        <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: '#0065FF', backgroundColor: '#f9fbff' }}>
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold" style={{ color: '#160F41' }}>{sel.colaborador.nome_colaborador} — detalhe</h4>
-            <Link to={`/perfil?visao=lote_aloc&colaborador=${encodeURIComponent(sel.colaborador.nome_colaborador)}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-gradient-brand">
-              <Pencil size={12} /> Editar alocação
-            </Link>
+      {sel && (() => {
+        const primeiraFuncao = FUNCOES_ALOCACAO.find(f => sel.porFuncao[f]);
+        const nome = encodeURIComponent(sel.colaborador.nome_colaborador);
+        const href = `/perfil?visao=lote_aloc&colaborador=${nome}`
+          + (primeiraFuncao ? `&funcao=${primeiraFuncao}` : '');
+        return (
+          <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: '#0065FF', backgroundColor: '#f9fbff' }}>
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold" style={{ color: '#160F41' }}>{sel.colaborador.nome_colaborador} — detalhe</h4>
+              <Link to={href}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-gradient-brand">
+                <Pencil size={12} /> Editar alocação
+              </Link>
+            </div>
+            <CapacidadeDrillDown dado={sel} />
           </div>
-          {FUNCOES_ALOCACAO.filter(f => sel.porFuncao[f]).map(f => {
-            const uso = sel.porFuncao[f]!;
-            return (
-              <div key={f} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium" style={{ color: '#160F41' }}>{LABEL_FUNCAO[f]}</span>
-                  <span style={{ color: '#6b6b8a' }}>{uso.horas.toFixed(1)}h</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-[11px]">
-                    <tbody className="divide-y" style={{ borderColor: '#eef0f4' }}>
-                      {uso.clientes.map(c => (
-                        <tr key={c.nome}>
-                          <td className="py-1 pr-2" style={{ color: '#160F41' }}>{c.nome}</td>
-                          <td className="py-1 px-2" style={{ color: '#9ca3af' }}>{c.pacote}</td>
-                          <td className="py-1 px-2 text-right" style={{ color: '#6b6b8a' }}>{(c.pct * 100).toFixed(1)}%</td>
-                          <td className="py-1 pl-2 text-right" style={{ color: '#6b6b8a' }}>{c.horas.toFixed(1)}h</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
-          {FUNCOES_ALOCACAO.every(f => !sel.porFuncao[f]) && (
-            <p className="text-xs italic" style={{ color: '#6b6b8a' }}>Nenhum cliente alocado a este colaborador.</p>
-          )}
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

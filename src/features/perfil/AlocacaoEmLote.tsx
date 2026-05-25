@@ -2,8 +2,10 @@
 // Distribuição automática + override manual; fator = sobrecarga por colaborador.
 
 import { useState } from 'react';
-import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2, Trash2 } from 'lucide-react';
+import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAlocacaoEmLote } from './useAlocacaoEmLote';
+import { useCapacidade } from '../capacidade/useCapacidade';
+import { CapacidadeDrillDown } from '../capacidade/CapacidadeDrillDown';
 import { HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
 import type { ChaveOrdAlocacao } from './ordenacaoAlocacao';
@@ -21,7 +23,7 @@ const LABEL_FUNCAO_CURTA: Record<string, string> = {
   serv_adm: 'adm', serv_aux_adm: 'aux adm',
 };
 
-export function AlocacaoEmLote() {
+export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: string; funcao?: string } | null } = {}) {
   const {
     colaboradorSelecionado, colaboradoresComFuncoes, nomesColaboradores,
     nomeColabSelecionado, selecionarColaborador, selecionarFuncao,
@@ -31,8 +33,12 @@ export function AlocacaoEmLote() {
     horasNormativasTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo,
     removerCliente, removendo, periodoFechado,
-  } = useAlocacaoEmLote();
+  } = useAlocacaoEmLote(selecaoInicial);
   const [toast, setToast] = useState<string | null>(null);
+  const [verCapacidade, setVerCapacidade] = useState(false);
+  // Drill-down de capacidade do colaborador selecionado (dados já carregados).
+  const { porColaborador } = useCapacidade();
+  const capDado = porColaborador.find(p => p.colaborador.nome_colaborador === nomeColabSelecionado) ?? null;
 
   const Ord = ({ chave, titulo, align }: { chave: ChaveOrdAlocacao; titulo: string; align: 'left' | 'right' | 'center' }) =>
     <HeaderOrdenavel titulo={titulo} chave={chave} alinhamento={align} ordenacao={ordenacao} onOrdenar={setOrdenarPor} />;
@@ -110,6 +116,23 @@ export function AlocacaoEmLote() {
                 .map(([f, p]) => `${LABEL_FUNCAO_CURTA[f] ?? f} ${(p * 100).toFixed(0)}%`)
                 .join(' · ')})
             </span>
+          )}
+        </div>
+      )}
+
+      {/* Drill-down de capacidade do colaborador (colapsável) — dados do useCapacidade. */}
+      {colaboradorSelecionado && capDado && (
+        <div className="rounded-lg border" style={{ borderColor: '#e2e2e8' }}>
+          <button type="button" onClick={() => setVerCapacidade(v => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium"
+            style={{ color: '#160F41' }}>
+            <span>{verCapacidade ? 'Ocultar' : 'Ver'} capacidade do colaborador</span>
+            {verCapacidade ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {verCapacidade && (
+            <div className="px-3 pb-3 border-t pt-3" style={{ borderColor: '#e2e2e8' }}>
+              <CapacidadeDrillDown dado={capDado} mostrarBarraTotal />
+            </div>
           )}
         </div>
       )}

@@ -3,7 +3,7 @@
 // às horas normativas dos pacotes, com override manual por cliente. Cliente
 // editado entra em "travados"; não-travados redistribuem o espaço restante.
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { doc, writeBatch } from 'firebase/firestore';
 // batch.set com { merge: true } cria o doc se ainda não existir no período —
 // evita falha quando o cliente é alocado num período sem fechamento prévio.
@@ -27,7 +27,7 @@ import type { Vinculo } from '../../types/vinculo';
 // salvarTodos/removerCliente — restaura sozinho no init do useState abaixo.
 let selPersistida: string | null = null;
 
-export function useAlocacaoEmLote() {
+export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: string } | null) {
   const { dadosPeriodo, periodoSelecionado, periodoFechado, recarregar } = useApp();
   const [sel, setSelState] = useState<string | null>(() => selPersistida);
   const setSel = useCallback((s: string | null) => {
@@ -95,6 +95,21 @@ export function useAlocacaoEmLote() {
   const selecionarFuncao = useCallback((f: FuncaoAlocacao) => {
     if (nomeSel) setSel(`${nomeSel}|${f}`);
   }, [nomeSel, setSel]);
+
+  // Deep-link (Capacidade → "Editar alocação"): aplica a seleção inicial UMA
+  // vez, quando colaboradoresComFuncoes já está carregado. funcao do link tem
+  // prioridade; ausente/ inválida → primeira função do colaborador. Guard por
+  // ref para o usuário poder trocar de seleção depois sem voltar ao deep-link.
+  const deepLinkAplicado = useRef(false);
+  useEffect(() => {
+    if (deepLinkAplicado.current || !selecaoInicial?.nome) return;
+    const funcs = colaboradoresComFuncoes[selecaoInicial.nome];
+    if (!funcs || funcs.length === 0) return;   // aguarda dados do período
+    const f = (selecaoInicial.funcao && (funcs as string[]).includes(selecaoInicial.funcao))
+      ? selecaoInicial.funcao : funcs[0];
+    setSel(`${selecaoInicial.nome}|${f}`);
+    deepLinkAplicado.current = true;
+  }, [selecaoInicial, colaboradoresComFuncoes, setSel]);
 
   const clientesDoColaborador = useMemo<Cliente[]>(() => {
     if (!colaboradorSelecionado || !funcao) return [];

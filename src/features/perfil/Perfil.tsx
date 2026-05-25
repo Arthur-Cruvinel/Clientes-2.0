@@ -1,6 +1,7 @@
 // --- Aba Perfil — visualização e edição de clientes ---
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Pencil, UserPlus, X } from 'lucide-react';
 import { formatCurrency, formatPercent, encontrarPoupanca } from '../../utils/formatters';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
@@ -33,7 +34,21 @@ export function Perfil() {
   const isAdmin = usuario?.role === 'admin';
   const registrosPoupanca = dadosPeriodo?.registrosPoupanca ?? [];
   const [aba, setAba] = useState<(typeof ABAS)[number]>('Resumo');
-  const [visao, setVisao] = useState<'individual' | 'lote' | 'lote_aloc'>('individual');
+
+  // Deep-link da Capacidade: ?visao=lote_aloc&colaborador=X&funcao=Y. Capturado
+  // uma vez no mount (ref preserva após limpar a URL); a função é opcional.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkRef = useRef<{ nome: string; funcao?: string } | null>(
+    searchParams.get('colaborador')
+      ? { nome: searchParams.get('colaborador')!, funcao: searchParams.get('funcao') ?? undefined }
+      : null,
+  );
+  const [visao, setVisao] = useState<'individual' | 'lote' | 'lote_aloc'>(
+    searchParams.get('visao') === 'lote_aloc' ? 'lote_aloc' : 'individual');
+  // Limpa os params da URL para não persistirem na navegação subsequente.
+  useEffect(() => {
+    if (searchParams.toString()) setSearchParams({}, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [novoClienteAberto, setNovoClienteAberto] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const c = clienteSelecionado;
@@ -94,7 +109,7 @@ export function Perfil() {
 
       {visao === 'lote_aloc' && (
         <div className="bg-white rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
-          <AlocacaoEmLote />
+          <AlocacaoEmLote selecaoInicial={deepLinkRef.current} />
         </div>
       )}
 
