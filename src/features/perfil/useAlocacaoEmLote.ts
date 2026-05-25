@@ -20,9 +20,20 @@ import { normalizarFuncao, redistribuir } from './utilsAlocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
 import type { Vinculo } from '../../types/vinculo';
 
+// Colaborador selecionado persistido em nível de módulo. recarregar() liga
+// loading=true → Perfil.tsx desmonta o painel (early return de "Carregando…"),
+// o que destruiria o useState. Persistir aqui faz a seleção sobreviver ao
+// unmount/remount disparado por salvarTodos/removerCliente — restaura sozinho
+// no init do useState abaixo.
+let nomeSelPersistido: string | null = null;
+
 export function useAlocacaoEmLote() {
   const { dadosPeriodo, periodoSelecionado, periodoFechado, recarregar } = useApp();
-  const [nomeSel, setNomeSel] = useState<string | null>(null);
+  const [nomeSel, setNomeSelState] = useState<string | null>(() => nomeSelPersistido);
+  const setNomeSel = useCallback((nome: string | null) => {
+    nomeSelPersistido = nome;
+    setNomeSelState(nome);
+  }, []);
   const [pctEditado, setPctEditado] = useState<Record<string, number>>({});
   // pctOriginal vira state (não useMemo) para que recalcularTudo possa zerá-lo
   // e forçar todos os clientes como "alterados" (alteracoes > 0). É sincronizado
