@@ -23,7 +23,8 @@ const LABEL_FUNCAO_CURTA: Record<string, string> = {
 
 export function AlocacaoEmLote() {
   const {
-    colaboradorSelecionado, opcoes, selecaoKey, setSelecao,
+    colaboradorSelecionado, colaboradoresComFuncoes, nomesColaboradores,
+    nomeColabSelecionado, selecionarColaborador, selecionarFuncao,
     funcao, clientesOrdenados, pctEditado, pctOriginal, travados,
     setPct, resetCliente, recalcularTudo,
     alteracoes, ocupacaoConsolidada, percentualAlocavel,
@@ -62,11 +63,11 @@ export function AlocacaoEmLote() {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <select value={selecaoKey ?? ''}
-          onChange={e => setSelecao(e.target.value || null)}
+        <select value={nomeColabSelecionado ?? ''}
+          onChange={e => selecionarColaborador(e.target.value || null)}
           className="rounded-lg px-3 py-1.5 text-sm" style={{ border: '1px solid #e2e2e8', color: '#160F41' }}>
-          <option value="">Selecione colaborador · função...</option>
-          {opcoes.map(o => <option key={o.key} value={o.key}>{o.nome} · {LABEL_FUNCAO_CURTA[o.funcao]}</option>)}
+          <option value="">Selecione um colaborador...</option>
+          {nomesColaboradores.map(n => <option key={n} value={n}>{n}</option>)}
         </select>
         {colaboradorSelecionado && (
           <button onClick={handleRecalcular} type="button"
@@ -76,6 +77,25 @@ export function AlocacaoEmLote() {
           </button>
         )}
       </div>
+
+      {/* Abas de função — só quando o colaborador atende em mais de uma função.
+          Com uma só, já vem auto-selecionada (selecionarColaborador). */}
+      {colaboradorSelecionado && (colaboradoresComFuncoes[nomeColabSelecionado ?? ''] ?? []).length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {(colaboradoresComFuncoes[nomeColabSelecionado ?? ''] ?? []).map(f => {
+            const ativo = f === funcao;
+            return (
+              <button key={f} type="button" onClick={() => selecionarFuncao(f)}
+                className="px-3 py-1 rounded-lg text-xs font-medium transition-all"
+                style={ativo
+                  ? { backgroundColor: '#160F41', color: '#fff' }
+                  : { border: '1px solid #e2e2e8', color: '#6b6b8a', backgroundColor: '#fff' }}>
+                {LABEL_FUNCAO_CURTA[f] ?? f}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {colaboradorSelecionado && (
         <div className="text-xs" style={{ color: '#6b6b8a' }}>

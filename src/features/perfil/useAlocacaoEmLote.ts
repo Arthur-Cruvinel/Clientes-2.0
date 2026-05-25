@@ -65,20 +65,36 @@ export function useAlocacaoEmLote() {
       ? funcaoSel as FuncaoAlocacao : null,
     [funcaoSel]);
 
-  // Opções do dropdown: um par (colaborador × função) por função onde o
-  // colaborador tem ≥1 cliente. Fonte = campo legado cliente[funcao]===nome
-  // (mesma de clientesDoColaborador) → toda opção abre lista não-vazia.
-  const opcoes = useMemo<{ key: string; nome: string; funcao: FuncaoAlocacao }[]>(() => {
-    const out: { key: string; nome: string; funcao: FuncaoAlocacao }[] = [];
+  // Por colaborador, quais funções ele tem ≥1 cliente. Fonte = campo legado
+  // cliente[funcao]===nome (mesma de clientesDoColaborador) → toda função
+  // listada abre lista não-vazia. Alimenta o dropdown (nomes) + abas de função.
+  const colaboradoresComFuncoes = useMemo<Record<string, FuncaoAlocacao[]>>(() => {
+    const out: Record<string, FuncaoAlocacao[]> = {};
     for (const colab of colaboradores) {
       for (const f of FUNCOES_ALOCACAO) {
         if (todosClientes.some(c => (c[f] as string | undefined) === colab.nome_colaborador)) {
-          out.push({ key: `${colab.nome_colaborador}|${f}`, nome: colab.nome_colaborador, funcao: f });
+          const arr = out[colab.nome_colaborador];
+          if (arr) arr.push(f); else out[colab.nome_colaborador] = [f];
         }
       }
     }
-    return out.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.funcao.localeCompare(b.funcao));
+    return out;
   }, [colaboradores, todosClientes]);
+
+  const nomesColaboradores = useMemo(
+    () => Object.keys(colaboradoresComFuncoes).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [colaboradoresComFuncoes]);
+
+  // Seletores que mantêm a chave composta interna. Ao trocar de colaborador,
+  // seleciona automaticamente a 1ª função dele (auto-seleção quando há só uma).
+  const selecionarColaborador = useCallback((nome: string | null) => {
+    if (!nome) { setSel(null); return; }
+    const funcs = colaboradoresComFuncoes[nome] ?? [];
+    setSel(funcs.length > 0 ? `${nome}|${funcs[0]}` : null);
+  }, [colaboradoresComFuncoes, setSel]);
+  const selecionarFuncao = useCallback((f: FuncaoAlocacao) => {
+    if (nomeSel) setSel(`${nomeSel}|${f}`);
+  }, [nomeSel, setSel]);
 
   const clientesDoColaborador = useMemo<Cliente[]>(() => {
     if (!colaboradorSelecionado || !funcao) return [];
@@ -310,7 +326,9 @@ export function useAlocacaoEmLote() {
   }, [funcao, periodoSelecionado, periodoFechado, colaboradorSelecionado, colaboradores, vinculos, recarregar]);
 
   return {
-    colaboradores, colaboradorSelecionado, opcoes, selecaoKey: sel, setSelecao: setSel,
+    colaboradores, colaboradorSelecionado,
+    colaboradoresComFuncoes, nomesColaboradores,
+    nomeColabSelecionado: nomeSel, selecionarColaborador, selecionarFuncao,
     funcao, clientesOrdenados,
     pctEditado, pctOriginal, pctSugerido, travados,
     setPct, resetCliente, recalcularTudo,
