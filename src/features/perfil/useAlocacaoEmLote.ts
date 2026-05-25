@@ -16,23 +16,23 @@ import {
 import { slug } from '../../utils/slug';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { compararClientes, type OrdenacaoAlocacao } from './ordenacaoAlocacao';
-import { normalizarFuncao, redistribuir } from './utilsAlocacao';
+import { redistribuir } from './utilsAlocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
 import type { Vinculo } from '../../types/vinculo';
 
-// Colaborador selecionado persistido em nível de módulo. recarregar() liga
-// loading=true → Perfil.tsx desmonta o painel (early return de "Carregando…"),
-// o que destruiria o useState. Persistir aqui faz a seleção sobreviver ao
-// unmount/remount disparado por salvarTodos/removerCliente — restaura sozinho
-// no init do useState abaixo.
-let nomeSelPersistido: string | null = null;
+// Seleção (colaborador × função) persistida em nível de módulo como chave
+// composta "nome|funcao". recarregar() liga loading=true → Perfil.tsx desmonta
+// o painel (early return de "Carregando…"), o que destruiria o useState.
+// Persistir aqui faz a seleção sobreviver ao unmount/remount disparado por
+// salvarTodos/removerCliente — restaura sozinho no init do useState abaixo.
+let selPersistida: string | null = null;
 
 export function useAlocacaoEmLote() {
   const { dadosPeriodo, periodoSelecionado, periodoFechado, recarregar } = useApp();
-  const [nomeSel, setNomeSelState] = useState<string | null>(() => nomeSelPersistido);
-  const setNomeSel = useCallback((nome: string | null) => {
-    nomeSelPersistido = nome;
-    setNomeSelState(nome);
+  const [sel, setSelState] = useState<string | null>(() => selPersistida);
+  const setSel = useCallback((s: string | null) => {
+    selPersistida = s;
+    setSelState(s);
   }, []);
   const [pctEditado, setPctEditado] = useState<Record<string, number>>({});
   // pctOriginal vira state (não useMemo) para que recalcularTudo possa zerá-lo
@@ -54,12 +54,31 @@ export function useAlocacaoEmLote() {
   // Fase 2.5 — Peça 6: vínculos são a fonte primária de pct.
   const vinculos = dadosPeriodo?.vinculos ?? [];
 
+  // Seleção composta "nome|funcao" → colaborador + função selecionados.
+  const nomeSel = sel ? sel.split('|')[0] : null;
+  const funcaoSel = sel ? sel.split('|')[1] : null;
   const colaboradorSelecionado = useMemo(
     () => colaboradores.find(c => c.nome_colaborador === nomeSel) ?? null,
     [colaboradores, nomeSel]);
   const funcao = useMemo<FuncaoAlocacao | null>(
-    () => colaboradorSelecionado ? normalizarFuncao(colaboradorSelecionado.funcao_principal) : null,
-    [colaboradorSelecionado]);
+    () => (funcaoSel && (FUNCOES_ALOCACAO as readonly string[]).includes(funcaoSel))
+      ? funcaoSel as FuncaoAlocacao : null,
+    [funcaoSel]);
+
+  // Opções do dropdown: um par (colaborador × função) por função onde o
+  // colaborador tem ≥1 cliente. Fonte = campo legado cliente[funcao]===nome
+  // (mesma de clientesDoColaborador) → toda opção abre lista não-vazia.
+  const opcoes = useMemo<{ key: string; nome: string; funcao: FuncaoAlocacao }[]>(() => {
+    const out: { key: string; nome: string; funcao: FuncaoAlocacao }[] = [];
+    for (const colab of colaboradores) {
+      for (const f of FUNCOES_ALOCACAO) {
+        if (todosClientes.some(c => (c[f] as string | undefined) === colab.nome_colaborador)) {
+          out.push({ key: `${colab.nome_colaborador}|${f}`, nome: colab.nome_colaborador, funcao: f });
+        }
+      }
+    }
+    return out.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.funcao.localeCompare(b.funcao));
+  }, [colaboradores, todosClientes]);
 
   const clientesDoColaborador = useMemo<Cliente[]>(() => {
     if (!colaboradorSelecionado || !funcao) return [];
@@ -291,7 +310,7 @@ export function useAlocacaoEmLote() {
   }, [funcao, periodoSelecionado, periodoFechado, colaboradorSelecionado, colaboradores, vinculos, recarregar]);
 
   return {
-    colaboradores, colaboradorSelecionado, setColaboradorSelecionado: setNomeSel,
+    colaboradores, colaboradorSelecionado, opcoes, selecaoKey: sel, setSelecao: setSel,
     funcao, clientesOrdenados,
     pctEditado, pctOriginal, pctSugerido, travados,
     setPct, resetCliente, recalcularTudo,

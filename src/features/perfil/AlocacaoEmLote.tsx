@@ -23,7 +23,7 @@ const LABEL_FUNCAO_CURTA: Record<string, string> = {
 
 export function AlocacaoEmLote() {
   const {
-    colaboradores, colaboradorSelecionado, setColaboradorSelecionado,
+    colaboradorSelecionado, opcoes, selecaoKey, setSelecao,
     funcao, clientesOrdenados, pctEditado, pctOriginal, travados,
     setPct, resetCliente, recalcularTudo,
     alteracoes, ocupacaoConsolidada, percentualAlocavel,
@@ -62,11 +62,11 @@ export function AlocacaoEmLote() {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <select value={colaboradorSelecionado?.nome_colaborador ?? ''}
-          onChange={e => setColaboradorSelecionado(e.target.value || null)}
+        <select value={selecaoKey ?? ''}
+          onChange={e => setSelecao(e.target.value || null)}
           className="rounded-lg px-3 py-1.5 text-sm" style={{ border: '1px solid #e2e2e8', color: '#160F41' }}>
-          <option value="">Selecione um colaborador...</option>
-          {colaboradores.map(c => <option key={c.id ?? c.nome_colaborador} value={c.nome_colaborador}>{c.nome_colaborador} · {c.funcao_principal}</option>)}
+          <option value="">Selecione colaborador · função...</option>
+          {opcoes.map(o => <option key={o.key} value={o.key}>{o.nome} · {LABEL_FUNCAO_CURTA[o.funcao]}</option>)}
         </select>
         {colaboradorSelecionado && (
           <button onClick={handleRecalcular} type="button"
