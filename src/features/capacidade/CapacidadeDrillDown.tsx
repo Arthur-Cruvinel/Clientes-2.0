@@ -11,6 +11,18 @@ function cor(ocup: number): string {
   return '#16a34a';
 }
 
+// Escopo (pct_real / pct_normativo do pacote): >1 = extrapola o pacote.
+function escopoTexto(f: number): string {
+  if (f === Infinity) return 'fora do pacote';
+  if (f <= 0) return '—';
+  return `${f.toFixed(1)}×`;
+}
+function corEscopo(f: number): string {
+  if (f === Infinity || f > 1.5) return '#dc2626'; // extrapolação forte / fora do pacote
+  if (f > 1) return '#ea580c';                      // acima do escopo
+  return '#9ca3af';                                 // dentro do escopo (ou sem alocação)
+}
+
 interface Props { dado: ColaboradorCapacidade; mostrarBarraTotal?: boolean; }
 
 export function CapacidadeDrillDown({ dado, mostrarBarraTotal = false }: Props) {
@@ -42,13 +54,23 @@ export function CapacidadeDrillDown({ dado, mostrarBarraTotal = false }: Props) 
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-[11px]">
+                <thead>
+                  <tr style={{ color: '#9ca3af' }}>
+                    <th className="py-1 pr-2 text-left font-medium">Cliente</th>
+                    <th className="py-1 px-2 text-left font-medium">Pacote</th>
+                    <th className="py-1 px-2 text-right font-medium">% ded.</th>
+                    <th className="py-1 px-2 text-right font-medium">Horas</th>
+                    <th className="py-1 pl-2 text-right font-medium" title="pct real ÷ pct normativo do pacote — >1 extrapola o escopo do pacote">Escopo</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y" style={{ borderColor: '#eef0f4' }}>
                   {uso.clientes.map(c => (
                     <tr key={c.nome}>
                       <td className="py-1 pr-2" style={{ color: '#160F41' }}>{c.nome}</td>
                       <td className="py-1 px-2" style={{ color: '#9ca3af' }}>{c.pacote}</td>
                       <td className="py-1 px-2 text-right" style={{ color: '#6b6b8a' }}>{(c.pct * 100).toFixed(1)}%</td>
-                      <td className="py-1 pl-2 text-right" style={{ color: '#6b6b8a' }}>{c.horas.toFixed(1)}h</td>
+                      <td className="py-1 px-2 text-right" style={{ color: '#6b6b8a' }}>{c.horas.toFixed(1)}h</td>
+                      <td className="py-1 pl-2 text-right font-medium" style={{ color: corEscopo(c.fatorEscopo) }}>{escopoTexto(c.fatorEscopo)}</td>
                     </tr>
                   ))}
                 </tbody>

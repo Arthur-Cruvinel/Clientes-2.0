@@ -33,7 +33,15 @@ export function CapacidadeColaboradores({ dados }: { dados: ColaboradorCapacidad
                 <span className="text-sm font-medium" style={{ color: '#160F41' }}>{nome}</span>
                 <span className="text-xs font-bold" style={{ color: cor(d.ocupacaoPct) }}>{pct.toFixed(0)}%</span>
               </div>
-              <p className="text-[11px] mb-2" style={{ color: '#6b6b8a' }}>{d.colaborador.cargo}</p>
+              <p className="text-[11px]" style={{ color: '#6b6b8a' }}>{d.colaborador.cargo}</p>
+              {d.extrapolaEscopo && (
+                <span className="inline-block mb-1 px-1.5 py-0.5 rounded text-[9px] font-medium"
+                  style={{ backgroundColor: '#fff7ed', color: '#ea580c' }}
+                  title="Algum cliente consome mais horas que o pacote prevê (escopo > 1)">
+                  ⚠ extrapola escopo
+                </span>
+              )}
+              <div className="mb-2" />
               <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#eef0f4' }}>
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: cor(d.ocupacaoPct) }} />
               </div>
