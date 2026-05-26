@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Pencil, UserPlus, X } from 'lucide-react';
 import { formatCurrency, formatPercent, encontrarPoupanca } from '../../utils/formatters';
-import { FUNCOES_ALOCACAO } from '../../utils/constants';
+import { FUNCOES_ALOCACAO, HORAS_CLT_MES } from '../../utils/constants';
+import type { Vinculo } from '../../types/vinculo';
 import { calcularFatoresEscopo } from '../../utils/financials';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
@@ -173,7 +174,7 @@ export function Perfil() {
             {/* Conteúdo */}
             <div className="rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
               {aba === 'Resumo' && <ResumoTab c={c} />}
-              {aba === 'Alocação' && <AlocacaoTab c={c} hp={parametros.horas_pacote} />}
+              {aba === 'Alocação' && <AlocacaoTab c={c} hp={parametros.horas_pacote} vinculos={dadosPeriodo?.vinculos ?? []} />}
               {aba === 'Configuração' && <ConfigTab c={c} />}
               {aba === 'Cadastral' && <CadastralTab c={c} poupanca={poupancaCliente} />}
             </div>
@@ -224,11 +225,12 @@ function ResumoTab({ c }: { c: import('../../types').DadosCliente }) {
   );
 }
 
-function AlocacaoTab({ c, hp }: { c: import('../../types').DadosCliente; hp: Record<string, Record<string, number>> }) {
+function AlocacaoTab({ c, hp, vinculos }: { c: import('../../types').DadosCliente; hp: Record<string, Record<string, number>>; vinculos: Vinculo[] }) {
   const pacoteHoras = hp[c.pacote_servico] ?? {};
-  // Fator de escopo agora vem do motor (calcularFatoresEscopo) — antes era lido
-  // do campo legacy fator_* do Cliente, que nunca é mais escrito.
-  const fatores = calcularFatoresEscopo(c);
+  // Leitura dual (Fase 2.5 — Peça 6): pct vem do vínculo com pct>0; senão do
+  // campo legado cliente.pct_${funcao}. calcularFatoresEscopo (motor) lê só o
+  // legado, então o Fator/H.Efet são calculados inline aqui para refletir a
+  // alocação real dos vínculos. Função intacta — usada noutros pontos.
   const TH = 'px-2 py-1.5 text-[10px] font-bold uppercase text-left';
   const TD = 'px-2 py-1.5 text-sm';
   return (
@@ -241,7 +243,12 @@ function AlocacaoTab({ c, hp }: { c: import('../../types').DadosCliente; hp: Rec
         {FUNCOES_ALOCACAO.map(f => {
           const resp = (c as unknown as Record<string, unknown>)[f] as string ?? '—';
           const hDir = pacoteHoras[f] ?? 0;
-          const fator = fatores[f] ?? 0;
+          const vinculo = c.id_estavel
+            ? vinculos.find(v => v.id_estavel_cliente === c.id_estavel && v.funcao === f && v.pct > 0)
+            : undefined;
+          const pctReal = vinculo?.pct ?? ((c as unknown as Record<string, number>)[`pct_${f}`] ?? 0);
+          const pctNormativo = hDir / HORAS_CLT_MES;
+          const fator = pctNormativo > 0 ? pctReal / pctNormativo : 0;
           const hEf = hDir * fator;
           return (
             <tr key={f}>
