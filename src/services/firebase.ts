@@ -686,6 +686,70 @@ export async function copiarPeriodo(
   return contagem;
 }
 
+/** Períodos distintos que possuem vínculos (exclui SANDBOX). Ordenado ASC.
+ *  Usado para popular o seletor de destino da replicação de alocação. */
+export async function listarPeriodosComVinculos(): Promise<string[]> {
+  const snap = await getDocs(collectionGroup(db, 'vinculos'));
+  const set = new Set<string>();
+  for (const d of snap.docs) {
+    const periodo = d.ref.path.split('/')[1];   // fechamentos/{periodo}/vinculos/{id}
+    if (periodo && periodo !== 'SANDBOX') set.add(periodo);
+  }
+  return [...set].sort();
+}
+
+/** Replica os vínculos com pct>0 do período origem para os períodos destino.
+ *  Semântica ADITIVA: só aplica vínculos com pct>0 (pares onde a origem tem
+ *  pct=0 não são tocados — preserva alocação do destino). Vínculo existente no
+ *  destino (mesmo docId, determinístico e independente do período) → atualiza
+ *  só pct (merge); inexistente → cria completo com periodo=destino. */
+export async function replicarVinculos(
+  periodoOrigem: string,
+  periodosDestino: string[],
+  onProgress?: (etapa: string, pct: number) => void,
+): Promise<{ porDestino: Record<string, { atualizados: number; criados: number }>; erros: string[] }> {
+  const porDestino: Record<string, { atualizados: number; criados: number }> = {};
+  const erros: string[] = [];
+
+  const origemSnap = await getDocs(collection(db, 'fechamentos', periodoOrigem, 'vinculos'));
+  const origemComPct = origemSnap.docs
+    .map(d => ({ id: d.id, data: d.data() as Vinculo }))
+    .filter(v => (v.data.pct ?? 0) > 0);
+
+  if (origemComPct.length === 0) {
+    return { porDestino, erros: [`Período origem ${periodoOrigem} não tem vínculos com pct > 0.`] };
+  }
+
+  const total = periodosDestino.length || 1;
+  let passo = 0;
+  for (const destino of periodosDestino) {
+    porDestino[destino] = { atualizados: 0, criados: 0 };
+    try {
+      const destSnap = await getDocs(collection(db, 'fechamentos', destino, 'vinculos'));
+      const existentes = new Set(destSnap.docs.map(d => d.id));
+      for (let i = 0; i < origemComPct.length; i += BATCH_LIMIT) {
+        const batch = writeBatch(db);
+        for (const v of origemComPct.slice(i, i + BATCH_LIMIT)) {
+          const ref = doc(db, 'fechamentos', destino, 'vinculos', v.id);
+          if (existentes.has(v.id)) {
+            batch.set(ref, { pct: v.data.pct }, { merge: true });
+            porDestino[destino].atualizados++;
+          } else {
+            batch.set(ref, { ...v.data, id: v.id, periodo: destino });
+            porDestino[destino].criados++;
+          }
+        }
+        await batch.commit();
+      }
+    } catch (e) {
+      erros.push(`Destino ${destino}: ${e instanceof Error ? e.message : 'falha'}`);
+    }
+    passo++;
+    onProgress?.(`${destino} concluído`, Math.round((passo / total) * 100));
+  }
+  return { porDestino, erros };
+}
+
 /** Remove o colaborador de todos os períodos posteriores ao inicial.
  *  Retorna a quantidade de períodos afetados.
  *  Usa collectionGroup p/ varrer todos os subdocumentos colaboradores. */

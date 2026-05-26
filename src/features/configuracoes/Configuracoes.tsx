@@ -1,7 +1,8 @@
 // --- Tela de Configurações com abas internas ---
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Settings, Database, Loader2, Wrench, Tags, FilePen, Eraser, Link2, UserPlus } from 'lucide-react';
+import { Settings, Database, Loader2, Wrench, Tags, FilePen, Eraser, Link2, UserPlus, Copy } from 'lucide-react';
+import { ReplicarAlocacaoModal } from '../perfil/ReplicarAlocacaoModal';
 import { useConfiguracoes } from './useConfiguracoes';
 import { TabCustos } from './TabCustos';
 import { TabRebate } from './TabRebate';
@@ -34,6 +35,7 @@ type AbaId = (typeof ABAS)[number]['id'];
 export function Configuracoes() {
   const { parametros, salvar, salvando, toast } = useConfiguracoes();
   const [aba, setAba] = useState<AbaId>('custos');
+  const [replicarAberto, setReplicarAberto] = useState(false);
   const { usuario } = useAuth();
   const { periodoSelecionado } = useApp();
   const isAdmin = usuario?.role === 'admin';
@@ -445,6 +447,27 @@ export function Configuracoes() {
         {aba === 'colaboradores' && <ColaboradoresVisao />}
         {aba === 'metodologia' && <Metodologia />}
       </div>
+
+      {/* Replicar alocação entre períodos — apenas admin */}
+      {isAdmin && (
+        <div className="bg-white rounded-lg border p-6 space-y-3" style={{ borderColor: '#e2e2e8' }}>
+          <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#160F41' }}>
+            <Copy size={16} /> Replicar alocação entre períodos
+          </h3>
+          <p className="text-xs" style={{ color: '#6b6b8a' }}>
+            Copia os vínculos com % de dedicação &gt; 0 do período selecionado
+            (<strong>{periodoSelecionado || '—'}</strong>) para outros períodos. Modo aditivo:
+            não altera pares onde a origem tem 0.
+          </p>
+          <button onClick={() => setReplicarAberto(true)} disabled={!periodoSelecionado}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-50">
+            <Copy size={14} /> Replicar para...
+          </button>
+        </div>
+      )}
+      {replicarAberto && periodoSelecionado && (
+        <ReplicarAlocacaoModal periodoOrigem={periodoSelecionado} onFechar={() => setReplicarAberto(false)} />
+      )}
 
       {/* Seção Manutenção — apenas admin */}
       {isAdmin && (

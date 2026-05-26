@@ -2,10 +2,12 @@
 // Distribuição automática + override manual; fator = sobrecarga por colaborador.
 
 import { useState } from 'react';
-import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2, Trash2, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { useAlocacaoEmLote } from './useAlocacaoEmLote';
 import { useCapacidade } from '../capacidade/useCapacidade';
 import { CapacidadeDrillDown } from '../capacidade/CapacidadeDrillDown';
+import { ReplicarAlocacaoModal } from './ReplicarAlocacaoModal';
+import { useAuth } from '../../state/AuthContext';
 import { HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
 import type { ChaveOrdAlocacao } from './ordenacaoAlocacao';
@@ -36,6 +38,9 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
   } = useAlocacaoEmLote(selecaoInicial);
   const [toast, setToast] = useState<string | null>(null);
   const [verCapacidade, setVerCapacidade] = useState(false);
+  const [replicarAberto, setReplicarAberto] = useState(false);
+  const { usuario } = useAuth();
+  const isAdmin = usuario?.role === 'admin';
   // Drill-down de capacidade do colaborador selecionado (dados já carregados).
   const { porColaborador } = useCapacidade();
   const capDado = porColaborador.find(p => p.colaborador.nome_colaborador === nomeColabSelecionado) ?? null;
@@ -82,7 +87,18 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
             <RefreshCw size={12} /> Recalcular tudo
           </button>
         )}
+        {isAdmin && periodo && (
+          <button onClick={() => setReplicarAberto(true)} type="button"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ml-auto"
+            style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>
+            <Copy size={12} /> Replicar para...
+          </button>
+        )}
       </div>
+
+      {replicarAberto && periodo && (
+        <ReplicarAlocacaoModal periodoOrigem={periodo} onFechar={() => setReplicarAberto(false)} />
+      )}
 
       {/* Abas de função — só quando o colaborador atende em mais de uma função.
           Com uma só, já vem auto-selecionada (selecionarColaborador). */}
