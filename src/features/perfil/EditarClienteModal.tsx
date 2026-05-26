@@ -7,8 +7,8 @@ import { FUNCOES_ALOCACAO, HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/const
 import { buscarHistoricoAlteracoes, excluirClientePeriodo, excluirClientePermanente } from '../../services/firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { useAuth } from '../../state/AuthContext';
-import { PerfilComplexidadeTab } from './PerfilComplexidadeTab';
-import type { DadosCliente, Cliente, Colaborador, PacoteServico, FuncaoAlocacao, AlteracaoCliente, RegistroPoupanca } from '../../types';
+import { PerfilComplexidadeTab, PERFIL_DEFAULT } from './PerfilComplexidadeTab';
+import type { DadosCliente, Cliente, Colaborador, PacoteServico, FuncaoAlocacao, AlteracaoCliente, RegistroPoupanca, PerfilComplexidade } from '../../types';
 import type { Vinculo } from '../../types/vinculo';
 
 interface Props {
@@ -132,6 +132,13 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const [aba, setAba] = useState<(typeof ABAS)[number]>('Alocação');
+  // Estado da aba Complexidade ELEVADO ao modal — a aba é renderizada
+  // condicionalmente (desmonta ao trocar), então o estado precisa viver aqui
+  // para persistir enquanto o modal está aberto (descartado só ao fechar).
+  const [perfilComplex, setPerfilComplex] = useState<PerfilComplexidade>(
+    () => cliente.perfil_complexidade ?? PERFIL_DEFAULT);
+  const [qtdRecebiveis, setQtdRecebiveis] = useState<number>(cliente.qtd_recebiveis_mes ?? 0);
+  const [qtdContratacoes, setQtdContratacoes] = useState<number>(cliente.qtd_contratacoes_mes ?? 0);
   const [historico, setHistorico] = useState<AlteracaoCliente[]>([]);
   const [historicoLoading, setHistoricoLoading] = useState(false);
   const [exclusao, setExclusao] = useState<ExclusaoEstado | null>(null);
@@ -352,7 +359,10 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
           // Configuração — editar em qualquer lugar reflete no form único.
           <PerfilComplexidadeTab cliente={cliente}
             volumeMovimentosMes={form.volume_movimentos_mes}
-            setVolumeMovimentosMes={v => set('volume_movimentos_mes', v)} />
+            setVolumeMovimentosMes={v => set('volume_movimentos_mes', v)}
+            perfil={perfilComplex} setPerfil={setPerfilComplex}
+            qtdRecebiveis={qtdRecebiveis} setQtdRecebiveis={setQtdRecebiveis}
+            qtdContratacoes={qtdContratacoes} setQtdContratacoes={setQtdContratacoes} />
         )}
 
         {aba === 'Cadastral' && (

@@ -4,6 +4,9 @@
 // Split de armazenamento — ver salvarPerfilComplexidade em firebase.ts.
 
 import { useMemo, useState } from 'react';
+// Estado de complexidade (perfil/recebíveis/contratações) é ELEVADO ao modal
+// (EditarClienteModal) e recebido por props — assim sobrevive à troca de abas,
+// que desmonta este componente. Antes vivia em useState local e era perdido.
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../state/AppContext';
 import { salvarPerfilComplexidade } from '../../services/firebase';
@@ -18,7 +21,7 @@ const LABEL_F: Record<FuncaoAlocacao, string> = {
   serv_adm: 'Adm.', serv_aux_adm: 'Aux. Adm.',
 };
 
-const PERFIL_DEFAULT: PerfilComplexidade = {
+export const PERFIL_DEFAULT: PerfilComplexidade = {
   grupos_financeiros: 1,
   qtd_veiculos: 0, qtd_imoveis: 0, qtd_funcionarios_domesticos: 0,
   planejamento_tributario: false, revisao_contratos: false, gestao_obra: false,
@@ -36,14 +39,20 @@ interface Props {
   // volumetria mensal vem do form do modal (sincronizada com a aba Configuração).
   volumeMovimentosMes: number;
   setVolumeMovimentosMes: (v: number) => void;
+  // Estado controlado pelo modal (persiste entre trocas de aba).
+  perfil: PerfilComplexidade;
+  setPerfil: (p: PerfilComplexidade) => void;
+  qtdRecebiveis: number;
+  setQtdRecebiveis: (v: number) => void;
+  qtdContratacoes: number;
+  setQtdContratacoes: (v: number) => void;
 }
 
-export function PerfilComplexidadeTab({ cliente, volumeMovimentosMes, setVolumeMovimentosMes }: Props) {
+export function PerfilComplexidadeTab({
+  cliente, volumeMovimentosMes, setVolumeMovimentosMes,
+  perfil, setPerfil, qtdRecebiveis, setQtdRecebiveis, qtdContratacoes, setQtdContratacoes,
+}: Props) {
   const { periodoSelecionado, recarregar } = useApp();
-  const [perfil, setPerfil] = useState<PerfilComplexidade>(
-    () => cliente.perfil_complexidade ?? PERFIL_DEFAULT);
-  const [qtdRecebiveis, setQtdRecebiveis] = useState<number>(cliente.qtd_recebiveis_mes ?? 0);
-  const [qtdContratacoes, setQtdContratacoes] = useState<number>(cliente.qtd_contratacoes_mes ?? 0);
   const [salvando, setSalvando] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -57,7 +66,7 @@ export function PerfilComplexidadeTab({ cliente, volumeMovimentosMes, setVolumeM
   const horas = useMemo(() => calcularHorasReais(clienteAtual, perfil), [clienteAtual, perfil]);
 
   const setP = <K extends keyof PerfilComplexidade>(k: K, v: PerfilComplexidade[K]) =>
-    setPerfil(p => ({ ...p, [k]: v }));
+    setPerfil({ ...perfil, [k]: v });
 
   async function handleSalvar() {
     if (!periodoSelecionado) return;
