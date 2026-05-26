@@ -381,14 +381,14 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
               <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>Data de Entrada</label>
               <div className="flex gap-2">
                 <select value={form.data_entrada_mes} onChange={e => set('data_entrada_mes', Number(e.target.value))}
-                  className={`${INP} flex-1`} style={BRD}>
+                  className="rounded px-2 py-1.5 text-sm flex-1 min-w-0" style={BRD}>
                   <option value={0}>Mês...</option>
                   {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'].map((l, i) => (
                     <option key={i} value={i + 1}>{l}</option>
                   ))}
                 </select>
                 <select value={form.data_entrada_ano} onChange={e => set('data_entrada_ano', Number(e.target.value))}
-                  className={`${INP} w-24`} style={BRD}>
+                  className="rounded px-2 py-1.5 text-sm w-24 flex-shrink-0" style={BRD}>
                   <option value={0}>Ano...</option>
                   {Array.from({ length: 11 }, (_, i) => 2020 + i).map(a => (
                     <option key={a} value={a}>{a}</option>
