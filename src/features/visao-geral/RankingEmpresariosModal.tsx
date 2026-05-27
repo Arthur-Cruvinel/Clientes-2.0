@@ -21,6 +21,22 @@ type ChaveOrd = keyof LinhaRanking;
 export function RankingEmpresariosModal({ clientes, onFechar }: { clientes: DadosClienteComPoupanca[]; onFechar: () => void }) {
   const [coluna, setColuna] = useState<ChaveOrd>('receita');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
+  const [empresarioSelecionado, setEmpresarioSelecionado] = useState<string | null>(null);
+
+  // Clientes do empresário no drill-down (ordenados por receita desc).
+  const clientesEmp = useMemo(() => {
+    if (!empresarioSelecionado) return [];
+    return clientes
+      .filter(c => (c.empresario?.trim() || SEM) === empresarioSelecionado)
+      .map(c => ({
+        nome: c.nome_cliente,
+        pacote: c.pacote_servico,
+        pl: (c.pl_onshore ?? 0) + (c.pl_offshore ?? 0),
+        receita: c.receita_bruta ?? 0,
+        margem: c.margem ?? 0,
+      }))
+      .sort((a, b) => b.receita - a.receita);
+  }, [clientes, empresarioSelecionado]);
 
   const linhas = useMemo<LinhaRanking[]>(() => {
     const grupos = new Map<string, { clientes: number; pl: number; receita: number; margXrec: number }>();
@@ -68,6 +84,7 @@ export function RankingEmpresariosModal({ clientes, onFechar }: { clientes: Dado
   };
 
   const TH = 'px-3 py-2 text-[10px] font-bold uppercase tracking-wider cursor-pointer select-none';
+  const THD = 'px-3 py-2 text-[10px] font-bold uppercase tracking-wider';
   const TD = 'px-3 py-2 text-xs';
   const seta = (c: ChaveOrd) => (coluna === c ? (dir === 'asc' ? ' ▲' : ' ▼') : '');
 
@@ -83,6 +100,44 @@ export function RankingEmpresariosModal({ clientes, onFechar }: { clientes: Dado
 
   return (
     <Modal aberto onFechar={onFechar} titulo="🏆 Ranking de Empresários" largura="6xl">
+      {empresarioSelecionado ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold" style={{ color: '#160F41' }}>
+              Clientes de {empresarioSelecionado} — {clientesEmp.length} cliente{clientesEmp.length === 1 ? '' : 's'}
+            </h4>
+            <button type="button" onClick={() => setEmpresarioSelecionado(null)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>
+              ← Voltar ao ranking
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead style={{ backgroundColor: '#160F41', color: '#fff' }}>
+                <tr>
+                  <th className={`${THD} text-left`}>Cliente</th>
+                  <th className={`${THD} text-left`}>Pacote</th>
+                  <th className={`${THD} text-right`}>PL Total</th>
+                  <th className={`${THD} text-right`}>Receita</th>
+                  <th className={`${THD} text-right`}>Margem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
+                {clientesEmp.map(c => (
+                  <tr key={c.nome}>
+                    <td className={TD} style={{ color: '#160F41' }}>{c.nome}</td>
+                    <td className={TD} style={{ color: '#9ca3af' }}>{c.pacote}</td>
+                    <td className={`${TD} text-right`} style={{ color: '#160F41' }}>{formatCurrency(c.pl, true)}</td>
+                    <td className={`${TD} text-right`} style={{ color: '#160F41' }}>{formatCurrency(c.receita, true)}</td>
+                    <td className={`${TD} text-right font-medium`} style={{ color: c.margem >= 0 ? '#16a34a' : '#dc2626' }}>{formatPercent(c.margem * 100, 1)}</td>
+                  </tr>
+                ))}
+                {clientesEmp.length === 0 && <tr><td className={`${TD} italic`} colSpan={5} style={{ color: '#6b6b8a' }}>Sem clientes.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead style={{ backgroundColor: '#160F41', color: '#fff' }}>
@@ -98,7 +153,12 @@ export function RankingEmpresariosModal({ clientes, onFechar }: { clientes: Dado
           <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
             {ordenadas.map(l => (
               <tr key={l.empresario}>
-                <td className={TD} style={{ color: l.empresario === SEM ? '#9ca3af' : '#160F41' }}>{l.empresario}</td>
+                <td className={TD}>
+                  <button type="button" onClick={() => setEmpresarioSelecionado(l.empresario)}
+                    className="hover:underline text-left" style={{ color: l.empresario === SEM ? '#9ca3af' : '#0065FF' }}>
+                    {l.empresario}
+                  </button>
+                </td>
                 <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{l.clientes}</td>
                 <td className={`${TD} text-right`} style={{ color: '#160F41' }}>{formatCurrency(l.pl_total, true)}</td>
                 <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{l.pct_pl.toFixed(1)}%</td>
@@ -115,6 +175,7 @@ export function RankingEmpresariosModal({ clientes, onFechar }: { clientes: Dado
           </tbody>
         </table>
       </div>
+      )}
     </Modal>
   );
 }
