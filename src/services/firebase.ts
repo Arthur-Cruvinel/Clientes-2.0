@@ -1062,19 +1062,22 @@ export async function criarClienteNovo(params: {
 export async function salvarPerfilComplexidade(
   nomeCliente: string,
   perfil: PerfilComplexidade,
-  periodoSelecionado: string,
+  _periodoSelecionado: string,   // vestigial — tudo grava em clientes_base agora
   volume?: { volume_movimentos_mes?: number; qtd_recebiveis_mes?: number; qtd_contratacoes_mes?: number },
-  clienteId?: string,
+  _clienteId?: string,           // vestigial — volumetria agora grava em clientes_base (ver corpo)
 ): Promise<void> {
   const slugCliente = slug(nomeCliente);
   try {
-    await updateDoc(doc(db, 'clientes_base', slugCliente), { perfil_complexidade: perfil });
-    if (volume && clienteId) {
-      const limpo = Object.fromEntries(Object.entries(volume).filter(([_, v]) => v !== undefined));
-      if (Object.keys(limpo).length > 0) {
-        await updateDoc(doc(db, 'fechamentos', periodoSelecionado, 'clientes', clienteId), limpo);
-      }
-    }
+    // Todos os campos de complexidade vão para clientes_base/ — fonte de
+    // leitura do período aberto (AppContext: buscarClientesBase). Antes a
+    // volumetria ia para fechamentos/{periodo}/clientes/, que o período
+    // aberto não lê → dados "sumiam" no reload (split incoerente).
+    await updateDoc(doc(db, 'clientes_base', slugCliente), {
+      perfil_complexidade: perfil,
+      volume_movimentos_mes: volume?.volume_movimentos_mes ?? deleteField(),
+      qtd_recebiveis_mes: volume?.qtd_recebiveis_mes ?? deleteField(),
+      qtd_contratacoes_mes: volume?.qtd_contratacoes_mes ?? deleteField(),
+    });
   } catch (error) {
     console.error('[Firebase] Erro ao salvar perfil de complexidade:', error);
     throw error;
