@@ -39,6 +39,8 @@ interface Props {
   /** Soma do PL inicial de cada cliente no primeiro mês do intervalo —
    *  base para "Variação do AUM" no subtítulo do card AUM. */
   aumInicialPeriodo?: number;
+  /** Σ rentabilidade_total (BRL) dos registros do período — 2ª linha do card AUM. */
+  rentabilidadeLiquidaPeriodo?: number;
   /** Quando definido + onAbrirBurnDetalhe, os 2 cards de burn ficam clicáveis. */
   onAbrirBurnDetalhe?: () => void;
   /** Quando definido, o card "Projeção Dez/anoFim" fica clicável. */
@@ -65,7 +67,7 @@ function KpiCardIcon(
   );
 }
 
-export function PoupancaKpis({ totais, mesInicio, anoInicio, mesFim, anoFim, modoAUM, aumLegadoTotal, clientesQueimando, rebateEmRiscoTotal, projecao, mesesNoPeriodo, aumInicialPeriodo, onAbrirBurnDetalhe, onAbrirProjecao }: Props) {
+export function PoupancaKpis({ totais, mesInicio, anoInicio, mesFim, anoFim, modoAUM, aumLegadoTotal, clientesQueimando, rebateEmRiscoTotal, projecao, mesesNoPeriodo, aumInicialPeriodo, rentabilidadeLiquidaPeriodo, onAbrirBurnDetalhe, onAbrirProjecao }: Props) {
   const mesUnico = mesInicio === mesFim && anoInicio === anoFim;
   const labelNNM = mesUnico ? 'NNM do Mês' : 'NNM do Período';
   const sobGestao = modoAUM === 'sob_gestao';
@@ -94,12 +96,20 @@ export function PoupancaKpis({ totais, mesInicio, anoInicio, mesFim, anoFim, mod
   const subRent = mesesNoPeriodo
     ? `Média: ${((totais.rentabilidade_media * 100) / meses).toFixed(2)}%/mês`
     : undefined;
+  // 2ª linha do card AUM: rentabilidade líquida do período (BRL, soma +/−).
+  const rentLiq = rentabilidadeLiquidaPeriodo;
+  const subAum2 = rentLiq != null ? (
+    <span style={{ color: rentLiq >= 0 ? '#16a34a' : '#dc2626' }}>
+      {rentLiq >= 0 ? '📈' : '📉'} {formatCurrency(Math.abs(rentLiq), true)} rentabilidade líquida
+    </span>
+  ) : undefined;
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard
         titulo={sobGestao ? 'AUM sob Gestao' : 'AUM Total'}
         valor={formatCurrency(aumFinalDisplay, true)}
         subtitulo={subAum}
+        subtitulo2={subAum2}
         cor={variacaoAum != null && !sobGestao
           ? (variacaoAum >= 0 ? 'text-green-600' : 'text-red-600')
           : undefined}

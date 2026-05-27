@@ -2,7 +2,7 @@
 // DRE consolidado: KPIs globais + tabela com filtros/ordenação + modais de custo.
 
 import { useMemo, useState, useCallback } from 'react';
-import { Lock, Unlock, ShieldCheck, Copy, Loader2 } from 'lucide-react';
+import { Lock, Unlock, ShieldCheck, Copy, Loader2, Trophy } from 'lucide-react';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
 import { formatPeriodo, formatCurrency, formatPercent } from '../../utils/formatters';
@@ -19,6 +19,7 @@ import { exportVisaoGeralExcel } from '../../utils/exporters/exportExcel';
 import { exportVisaoGeralPdf } from '../../utils/exporters/exportPdf';
 import { fecharPeriodo, reabrirPeriodo, buscarClientes, db } from '../../services/firebase';
 import { AgenteValidacao } from '../agente/AgenteValidacao';
+import { RankingEmpresariosModal } from './RankingEmpresariosModal';
 import { writeBatch, doc as firestoreDoc, collection, getDocs } from 'firebase/firestore';
 import { BATCH_LIMIT } from '../../utils/constants';
 import { slug } from '../../utils/slug';
@@ -48,6 +49,7 @@ export function VisaoGeral() {
   const [fechandoPeriodo, setFechandoPeriodo] = useState(false);
   const [toastPeriodo, setToastPeriodo] = useState<string | null>(null);
   const [validacaoAberta, setValidacaoAberta] = useState(false);
+  const [rankingAberto, setRankingAberto] = useState(false);
   const [copiandoBase, setCopiandoBase] = useState(false);
 
   const handleFecharPeriodo = useCallback(async () => {
@@ -287,6 +289,13 @@ export function VisaoGeral() {
             </button>
           )}
           {clientes.length > 0 && (
+            <button onClick={() => setRankingAberto(true)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
+              style={{ color: '#6b6b8a', border: '1px solid #e2e2e8' }}>
+              <Trophy size={14} /> Ranking Empresários
+            </button>
+          )}
+          {clientes.length > 0 && (
             <ExportButton
               onExportExcel={() => exportVisaoGeralExcel(clientes, periodoLabel, regimeLabel)}
               onExportPdf={() => exportVisaoGeralPdf(clientes, periodoLabel, regimeLabel)}
@@ -347,6 +356,7 @@ export function VisaoGeral() {
       )}
 
       {validacaoAberta && <AgenteValidacao onFechar={() => setValidacaoAberta(false)} />}
+      {rankingAberto && <RankingEmpresariosModal clientes={clientes} onFechar={() => setRankingAberto(false)} />}
     </div>
   );
 }

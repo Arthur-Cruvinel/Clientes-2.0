@@ -416,6 +416,13 @@ export function usePoupanca(
     });
   }, [todosRegistros, mesInicio, anoInicio, mesFim, anoFim]);
 
+  // Rentabilidade líquida do período = Σ rentabilidade_total (BRL) de todos os
+  // registros do intervalo (soma positivos e negativos). Exibida no card AUM.
+  const rentabilidadeLiquidaPeriodo = useMemo(
+    () => registrosIntervalo.reduce((s, r) => s + (r.rentabilidade_total ?? 0), 0),
+    [registrosIntervalo],
+  );
+
   // Agrupa por cliente
   const registrosPorCliente = useMemo(() => {
     const mapa = new Map<string, RegistroPoupanca[]>();
@@ -1219,6 +1226,7 @@ export function usePoupanca(
     capacidadeNegativaTotal: clientesEmBurnMM6.reduce((s, v) => s + Math.abs(v.mm6_rent_brl), 0),
     mesesNoPeriodo,
     aumInicialPeriodo,
+    rentabilidadeLiquidaPeriodo,
     registroAnteriorPorCliente,
     modoAUM,
     setModoAUM,

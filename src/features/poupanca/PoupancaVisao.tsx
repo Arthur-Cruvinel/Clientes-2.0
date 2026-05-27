@@ -76,7 +76,7 @@ export function PoupancaVisao() {
 
   const { dadosPeriodo } = useApp();
 
-  const { registrosPorCliente, historico, historicoMetaCumprimento, loading, totais, metaNNM, setMetaNNM, metaAUM, setMetaAUM, metasPeriodo, setMetasPeriodo, modoAUM, setModoAUM, aumLegadoTotal, clientesQueimando, rebateEmRiscoTotal, mm6Clientes, clientesEmBurnMM6, projecaoConsolidada, serieAumProjetadaMM6, projecaoSobGestaoConsolidada, serieAumSobGestaoProjetadaMM6, serieAumOrganicoEsperado, serieAumRitmoAtual, serieMetaTrajetoria, coberturaCapacidade, mesesNoPeriodo, aumInicialPeriodo, registroAnteriorPorCliente, recarregar } = usePoupanca(
+  const { registrosPorCliente, historico, historicoMetaCumprimento, loading, totais, metaNNM, setMetaNNM, metaAUM, setMetaAUM, metasPeriodo, setMetasPeriodo, modoAUM, setModoAUM, aumLegadoTotal, clientesQueimando, rebateEmRiscoTotal, mm6Clientes, clientesEmBurnMM6, projecaoConsolidada, serieAumProjetadaMM6, projecaoSobGestaoConsolidada, serieAumSobGestaoProjetadaMM6, serieAumOrganicoEsperado, serieAumRitmoAtual, serieMetaTrajetoria, coberturaCapacidade, mesesNoPeriodo, aumInicialPeriodo, rentabilidadeLiquidaPeriodo, registroAnteriorPorCliente, recarregar } = usePoupanca(
     mesInicio, anoInicio, mesFim, anoFim, dadosPeriodo?.clientes,
   );
 
@@ -195,7 +195,7 @@ export function PoupancaVisao() {
         </div>
       )}
 
-      {!loading && <PoupancaKpis totais={totais} mesInicio={mesInicio} anoInicio={anoInicio} mesFim={mesFim} anoFim={anoFim} modoAUM={modoAUM} aumLegadoTotal={aumLegadoTotal} clientesQueimando={clientesQueimando} rebateEmRiscoTotal={rebateEmRiscoTotal} projecao={projecaoDisplay} mesesNoPeriodo={mesesNoPeriodo} aumInicialPeriodo={aumInicialPeriodo} onAbrirBurnDetalhe={() => setBurnModalAberto(true)} onAbrirProjecao={() => setProjecaoModalAberto(true)} />}
+      {!loading && <PoupancaKpis totais={totais} mesInicio={mesInicio} anoInicio={anoInicio} mesFim={mesFim} anoFim={anoFim} modoAUM={modoAUM} aumLegadoTotal={aumLegadoTotal} clientesQueimando={clientesQueimando} rebateEmRiscoTotal={rebateEmRiscoTotal} projecao={projecaoDisplay} mesesNoPeriodo={mesesNoPeriodo} aumInicialPeriodo={aumInicialPeriodo} rentabilidadeLiquidaPeriodo={rentabilidadeLiquidaPeriodo} onAbrirBurnDetalhe={() => setBurnModalAberto(true)} onAbrirProjecao={() => setProjecaoModalAberto(true)} />}
 
       {burnModalAberto && (
         <BurnRateModal
