@@ -2,8 +2,9 @@
 // Distribuição automática + override manual; fator = sobrecarga por colaborador.
 
 import { useState } from 'react';
-import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2, Trash2, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2, Trash2, ChevronDown, ChevronUp, Copy, Download } from 'lucide-react';
 import { useAlocacaoEmLote } from './useAlocacaoEmLote';
+import { exportAlocacaoExcel } from '../../utils/exportAlocacao';
 import { useCapacidade } from '../capacidade/useCapacidade';
 import { CapacidadeDrillDown } from '../capacidade/CapacidadeDrillDown';
 import { ReplicarAlocacaoModal } from './ReplicarAlocacaoModal';
@@ -35,12 +36,28 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
     horasNormativasTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo,
     removerCliente, removendo, periodoFechado,
+    colaboradores, todosClientes, vinculos,
   } = useAlocacaoEmLote(selecaoInicial);
   const [toast, setToast] = useState<string | null>(null);
   const [verCapacidade, setVerCapacidade] = useState(false);
   const [replicarAberto, setReplicarAberto] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
+
+  const handleExportar = () => {
+    if (!periodo) return;
+    setExportando(true);
+    try {
+      exportAlocacaoExcel(colaboradoresComFuncoes, todosClientes, vinculos, colaboradores, periodo);
+    } catch (err) {
+      console.error('[AlocacaoEmLote] erro ao exportar:', err);
+      setToast('Erro ao exportar Excel.');
+      setTimeout(() => setToast(null), 3500);
+    } finally {
+      setExportando(false);
+    }
+  };
   // Drill-down de capacidade do colaborador selecionado (dados já carregados).
   const { porColaborador } = useCapacidade();
   const capDado = porColaborador.find(p => p.colaborador.nome_colaborador === nomeColabSelecionado) ?? null;
@@ -87,9 +104,16 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
             <RefreshCw size={12} /> Recalcular tudo
           </button>
         )}
+        {periodo && (
+          <button onClick={handleExportar} type="button" disabled={exportando}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ml-auto disabled:opacity-50"
+            style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>
+            {exportando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Exportar Excel
+          </button>
+        )}
         {isAdmin && periodo && (
           <button onClick={() => setReplicarAberto(true)} type="button"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ml-auto"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
             style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>
             <Copy size={12} /> Replicar para...
           </button>

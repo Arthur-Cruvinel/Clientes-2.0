@@ -341,7 +341,7 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
   }, [funcao, periodoSelecionado, periodoFechado, colaboradorSelecionado, colaboradores, vinculos, recarregar]);
 
   return {
-    colaboradores, colaboradorSelecionado,
+    colaboradores, colaboradorSelecionado, todosClientes, vinculos,
     colaboradoresComFuncoes, nomesColaboradores,
     nomeColabSelecionado: nomeSel, selecionarColaborador, selecionarFuncao,
     funcao, clientesOrdenados,
