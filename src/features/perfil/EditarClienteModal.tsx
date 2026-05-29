@@ -36,6 +36,7 @@ type ExclusaoEstado =
   | { tipo: 'confirmar_permanente' }
   | { tipo: 'executando_periodo' }
   | { tipo: 'executando_permanente'; periodo: string; atual: number; total: number }
+  | { tipo: 'sem_doc_no_periodo' }
   | { tipo: 'erro'; msg: string };
 
 const LABEL_F: Record<FuncaoAlocacao, string> = {
@@ -574,7 +575,13 @@ function ConfirmacaoExclusaoCliente({ cliente, periodo, estado, setEstado, onCon
     setEstado({ tipo: 'executando_periodo' });
     try {
       // Passa id_estavel: o snapshot do período tem docId UUID ≠ slug (id).
-      await excluirClientePeriodo(id, periodo, cliente.id_estavel);
+      const r = await excluirClientePeriodo(id, periodo, cliente.id_estavel);
+      if (!r.sucesso && r.motivo === 'sem_doc_no_periodo') {
+        // Cliente aparece via fallback de clientes_base/ num período sem
+        // snapshot próprio — não há o que excluir aqui. Avisa honestamente.
+        setEstado({ tipo: 'sem_doc_no_periodo' });
+        return;
+      }
       onConcluido();
     } catch (e) {
       setEstado({ tipo: 'erro', msg: e instanceof Error ? e.message : 'Falha ao excluir.' });
@@ -599,6 +606,7 @@ function ConfirmacaoExclusaoCliente({ cliente, periodo, estado, setEstado, onCon
   const titulo = estado.tipo === 'menu' ? 'Excluir cliente'
     : estado.tipo === 'confirmar_periodo' ? `Excluir de ${periodo}?`
     : estado.tipo === 'confirmar_permanente' ? 'Excluir PERMANENTEMENTE?'
+    : estado.tipo === 'sem_doc_no_periodo' ? 'Sem registro neste período'
     : estado.tipo === 'erro' ? 'Erro' : 'Excluindo…';
 
   // Bloqueia fechar durante execução.
@@ -668,6 +676,22 @@ function ConfirmacaoExclusaoCliente({ cliente, periodo, estado, setEstado, onCon
               <div className="h-full bg-gradient-brand transition-all" style={{ width: `${(estado.atual / estado.total) * 100}%` }} />
             </div>
           )}
+        </div>
+      )}
+
+      {estado.tipo === 'sem_doc_no_periodo' && (
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            <p className="text-sm">
+              Este cliente não possui registro no período <code>{periodo}</code>.
+              Para removê-lo completamente, use <strong>Excluir permanentemente</strong>.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
+            <button onClick={() => setEstado(null)} className="px-4 py-2 rounded-lg text-sm" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>Fechar</button>
+            <button onClick={() => setEstado({ tipo: 'confirmar_permanente' })} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#dc2626' }}>Excluir permanentemente</button>
+          </div>
         </div>
       )}
 

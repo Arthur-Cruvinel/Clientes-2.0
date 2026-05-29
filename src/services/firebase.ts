@@ -1658,18 +1658,33 @@ async function excluirVinculosClientePeriodo(
  *  é um UUID, ≠ do slug usado como docId em `clientes_base/` (de onde vem
  *  `clienteId`). Por isso resolvemos o docId real via `id_estavel` antes de
  *  deletar — senão o deleteDoc no slug é um no-op silencioso. Também limpa os
- *  vínculos do cliente no período. */
+ *  vínculos do cliente no período.
+ *
+ *  Caso Odilon: cliente que aparece na UI via fallback de `clientes_base/` em
+ *  um período SEM snapshot próprio. Antes, o resolver caía no slug, o deleteDoc
+ *  era no-op e a UI fingia sucesso. Agora confirmamos a existência do doc com
+ *  `getDoc` antes de deletar; se não existe, devolvemos
+ *  `{ sucesso:false, motivo:'sem_doc_no_periodo' }` para a UI orientar o uso da
+ *  exclusão permanente. */
 export async function excluirClientePeriodo(
   clienteId: string,
   periodo: string,
   idEstavel?: string,
-): Promise<void> {
+): Promise<{ sucesso: boolean; motivo?: 'sem_doc_no_periodo' }> {
   try {
     const docIdReal = await resolverDocIdClientePorIdEstavel(periodo, idEstavel, clienteId);
-    await deleteDoc(doc(db, 'fechamentos', periodo, 'clientes', docIdReal));
+    const ref = doc(db, 'fechamentos', periodo, 'clientes', docIdReal);
+    const existente = await getDoc(ref);
+    if (!existente.exists()) {
+      // Sem snapshot no período — não fingir exclusão deletando um docId que
+      // não existe (no-op enganoso). Reporta honestamente para a UI.
+      return { sucesso: false, motivo: 'sem_doc_no_periodo' };
+    }
+    await deleteDoc(ref);
     if (idEstavel) {
       await excluirVinculosClientePeriodo(periodo, idEstavel);
     }
+    return { sucesso: true };
   } catch (error) {
     console.error(`[Firebase] Erro ao excluir cliente ${clienteId} de ${periodo}:`, error);
     throw error;
