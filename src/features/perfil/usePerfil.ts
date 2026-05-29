@@ -1,13 +1,37 @@
 // --- Hook da aba Perfil — gerencia seleção, busca e edição de clientes ---
 // Usa dados do AppContext (que auto-detecta o período mais recente).
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useApp } from '../../state/AppContext';
-import { salvarClienteBase, registrarAlteracao, sincronizarVinculoFuncao } from '../../services/firebase';
+import { salvarClienteBase, registrarAlteracao, sincronizarVinculoFuncao, buscarPtaxDiaAnterior, buscarPrimeiroRegistroPoupanca } from '../../services/firebase';
 import { useAuth } from '../../state/AuthContext';
 import { mesclarTodos } from '../../utils/dadosClienteAdapter';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
-import type { DadosCliente, Cliente, FuncaoAlocacao } from '../../types';
+import type { OrdenacaoState } from '../../components/ui/HeaderOrdenavel';
+import type { DadosCliente, Cliente, FuncaoAlocacao, PacoteServico } from '../../types';
+
+/** Colunas ordenáveis/filtráveis da lista de clientes do Perfil. */
+export type ColunaListaCliente = 'nome' | 'pacote';
+
+// Ordem canônica dos pacotes (mais completo → menos) para opções de filtro.
+const ORDEM_PACOTES: PacoteServico[] = ['full', 'advanced', 'light', 'future', 'asset_only'];
+
+// Campos calculados pelo motor (DRE) + PL injetado pelo adapter — não pertencem
+// ao cadastro mestre (clientes_base/) e devem ser removidos antes de persistir.
+const CAMPOS_CALCULADOS_DRE = [
+  'receita_fee_mensal', 'receita_rebate', 'receita_bruta', 'custo_direto',
+  'custo_dedicado', 'custo_indireto_rateado', 'custo_total', 'impostos_faturamento',
+  'impostos_lucro', 'margem_contribuicao', 'ebitda', 'margem', 'classificacao',
+  'horas_totais', 'custo_direto_detalhe', 'pl_onshore', 'pl_offshore',
+];
+
+/** Devolve apenas o que pertence ao cadastro (Cliente) de um DadosCliente,
+ *  descartando campos derivados (ebitda, custos, PL) — para não poluir o mestre. */
+function extrairCadastro(dc: DadosCliente): Cliente {
+  const cadastro = { ...dc } as Record<string, unknown>;
+  for (const k of CAMPOS_CALCULADOS_DRE) delete cadastro[k];
+  return cadastro as unknown as Cliente;
+}
 
 /** Campo aceito pela atribuição em lote — banker/empresário (cadastrais)
  *  + funções de alocação (responsável por função). Todos persistem em
@@ -16,7 +40,7 @@ export type CampoAtribuicaoLote = 'banker' | 'empresario' | FuncaoAlocacao;
 
 // Campos monitorados para histórico de alterações
 const CAMPOS_MONITORADOS: (keyof Cliente)[] = [
-  'receita_fee', 'pacote_servico', 'banker', 'empresario', 'data_entrada',
+  'receita_fee', 'moeda_fee', 'pacote_servico', 'banker', 'empresario', 'data_entrada',
   'percentual_rebate_anual_onshore', 'percentual_rebate_anual_offshore',
   'aliquota_impostos_rebate',
   'pct_consultoria_gestao', 'pct_consultoria_planejamento',
@@ -41,6 +65,13 @@ export function usePerfil() {
   const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
+  // Estado de ordenação + filtros de coluna da lista (CLAUDE.md: estado de
+  // ordenação vive no hook da feature, não no componente).
+  const [ordenacaoLista, setOrdenacaoLista] = useState<OrdenacaoState<ColunaListaCliente>>(
+    { coluna: 'nome', direcao: 'asc' });
+  const [filtroNomeColuna, setFiltroNomeColuna] = useState('');
+  const [filtroPacotes, setFiltroPacotes] = useState<PacoteServico[]>([]);
+
   // Mescla cadastro + DRE + PL (poupança) para que as abas tenham tudo em um
   // único objeto, como antes. PL é injetado pelo adapter a partir do
   // RegistroPoupanca do período.
@@ -55,6 +86,41 @@ export function usePerfil() {
     [dadosPeriodo],
   );
   const colaboradores = dadosPeriodo?.colaboradores ?? [];
+
+  // ── Backfill silencioso de data_entrada para Pure Assets ──────────────────
+  // Pure Assets entram via lâmina (poupanca/) e em geral não têm cadastro com
+  // data de entrada. Aqui, para cada Pure Asset (pacote_servico='asset_only')
+  // sem data_entrada, buscamos o registro de poupança mais antigo e gravamos
+  // data_entrada = 'YYYY-MM' desse registro em clientes_base/. Sem feedback ao
+  // usuário; nunca sobrescreve data_entrada existente; roda no máximo uma vez
+  // por cliente por sessão (ref) — duas camadas contra reprocessamento + loop.
+  const pureAssetsProcessados = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const alvos = clientes.filter(c =>
+      c.pacote_servico === 'asset_only'
+      && !c.data_entrada
+      && !pureAssetsProcessados.current.has(c.nome_cliente));
+    if (alvos.length === 0) return;
+    let cancelado = false;
+    (async () => {
+      let algumSalvo = false;
+      for (const c of alvos) {
+        pureAssetsProcessados.current.add(c.nome_cliente);
+        try {
+          const primeiro = await buscarPrimeiroRegistroPoupanca(c.nome_cliente);
+          if (!primeiro) continue;
+          const dataEntrada = `${primeiro.ano}-${String(primeiro.mes).padStart(2, '0')}`;
+          await salvarClienteBase({ ...extrairCadastro(c), data_entrada: dataEntrada });
+          algumSalvo = true;
+        } catch { /* silencioso — backfill best-effort */ }
+      }
+      // Recarrega só se algo mudou, para o data_entrada novo refletir na UI
+      // (e o filtro de visibilidade do AppContext reavaliar). Já-salvos não
+      // reentram (passam a ter data_entrada); sem-histórico ficam no ref.
+      if (algumSalvo && !cancelado) recarregar();
+    })();
+    return () => { cancelado = true; };
+  }, [clientes, recarregar]);
 
   // Label do período para exibição
   const periodoLabel = useMemo(() => {
@@ -71,12 +137,41 @@ export function usePerfil() {
     [...new Set(clientes.map((c: DadosCliente) => c.empresario).filter((e): e is string => !!e))].sort(),
   [clientes]);
 
-  const clientesFiltrados = useMemo(() =>
-    clientes
-      .filter((c: DadosCliente) => c.nome_cliente.toLowerCase().includes(busca.toLowerCase()))
-      .sort((a: DadosCliente, b: DadosCliente) => a.nome_cliente.localeCompare(b.nome_cliente)),
-    [clientes, busca],
-  );
+  // Pacotes presentes na carteira atual, em ordem canônica — opções do filtro
+  // de coluna "Pacote". Derivado do conjunto completo (não do já filtrado), p/
+  // as opções não sumirem conforme o usuário marca/desmarca.
+  const pacotesDisponiveis = useMemo<PacoteServico[]>(() => {
+    const presentes = new Set(clientes.map((c: DadosCliente) => c.pacote_servico));
+    return ORDEM_PACOTES.filter(p => presentes.has(p));
+  }, [clientes]);
+
+  // Lista final: busca geral + filtro de coluna (nome texto, pacote checkboxes)
+  // + ordenação. Todos compostos em AND. Ordenação alfabética 'pt-BR' por nome
+  // como base; para a coluna 'pacote', ordena por pacote com desempate por nome.
+  const clientesFiltrados = useMemo(() => {
+    const buscaLower = busca.toLowerCase();
+    const nomeColLower = filtroNomeColuna.toLowerCase();
+    const lista = clientes.filter((c: DadosCliente) => {
+      if (buscaLower && !c.nome_cliente.toLowerCase().includes(buscaLower)) return false;
+      if (nomeColLower && !c.nome_cliente.toLowerCase().includes(nomeColLower)) return false;
+      if (filtroPacotes.length > 0 && !filtroPacotes.includes(c.pacote_servico)) return false;
+      return true;
+    });
+    const dir = ordenacaoLista.direcao === 'asc' ? 1 : -1;
+    return [...lista].sort((a, b) => {
+      if (ordenacaoLista.coluna === 'pacote') {
+        const cmp = a.pacote_servico.localeCompare(b.pacote_servico, 'pt-BR');
+        if (cmp !== 0) return cmp * dir;
+        return a.nome_cliente.localeCompare(b.nome_cliente, 'pt-BR') * dir;
+      }
+      return a.nome_cliente.localeCompare(b.nome_cliente, 'pt-BR') * dir;
+    });
+  }, [clientes, busca, filtroNomeColuna, filtroPacotes, ordenacaoLista]);
+
+  const limparFiltrosColuna = useCallback(() => {
+    setFiltroNomeColuna('');
+    setFiltroPacotes([]);
+  }, []);
 
   const clienteSelecionado = useMemo(() =>
     clientes.find((c: DadosCliente) => c.id === clienteSelecionadoId) ?? null,
@@ -91,11 +186,43 @@ export function usePerfil() {
     if (!clienteSelecionado) return;
     setSalvando(true);
     try {
+      // ── Conversão de fee em moeda estrangeira → BRL ─────────────────────
+      // Quando moeda_fee ≠ BRL, o valor que chega em dados.receita_fee está na
+      // moeda original. Buscamos a PTAX (venda) do dia anterior, convertemos
+      // para BRL — que é o que o pipeline de DRE lê em receita_fee — e
+      // preservamos a trilha de auditoria (receita_fee_original / moeda_fee_
+      // original / ptax_usado). moeda_fee = BRL limpa esses campos de uma
+      // conversão anterior. PTAX indisponível (0): mantém o valor sem converter
+      // e não marca auditoria (não quebra o save).
+      const dadosFinal: Partial<Cliente> = { ...dados };
+      if ('receita_fee' in dados || 'moeda_fee' in dados) {
+        const moeda = dados.moeda_fee ?? clienteSelecionado.moeda_fee ?? 'BRL';
+        const feeOriginal = dados.receita_fee ?? clienteSelecionado.receita_fee ?? 0;
+        if (moeda !== 'BRL') {
+          const ptaxes = await buscarPtaxDiaAnterior();
+          const ptax = ptaxes[moeda];
+          if (ptax > 0) {
+            dadosFinal.receita_fee = feeOriginal * ptax;
+            dadosFinal.receita_fee_original = feeOriginal;
+            dadosFinal.moeda_fee = moeda;
+            dadosFinal.moeda_fee_original = moeda;
+            dadosFinal.ptax_usado = ptax;
+          } else {
+            console.warn(`[Perfil] PTAX indisponível para ${moeda} — fee mantido sem conversão.`);
+          }
+        } else {
+          dadosFinal.moeda_fee = 'BRL';
+          dadosFinal.receita_fee_original = undefined;
+          dadosFinal.moeda_fee_original = undefined;
+          dadosFinal.ptax_usado = undefined;
+        }
+      }
+
       // Detectar campos alterados e registrar no histórico
       const agora = new Date().toISOString();
       const email = usuario?.email ?? 'desconhecido';
       const clienteAnterior = clienteSelecionado as unknown as Record<string, unknown>;
-      const dadosNovos = dados as Record<string, unknown>;
+      const dadosNovos = dadosFinal as Record<string, unknown>;
 
       for (const campo of CAMPOS_MONITORADOS) {
         if (!(campo in dadosNovos)) continue;
@@ -111,7 +238,7 @@ export function usePerfil() {
       }
 
       // Mescla dados existentes com alterações e salva em clientes_base/
-      const clienteAtualizado = { ...clienteSelecionado, ...dados } as Cliente;
+      const clienteAtualizado = { ...clienteSelecionado, ...dadosFinal } as Cliente;
       await salvarClienteBase(clienteAtualizado);
 
       // Sincroniza vinculos/ para cada função cujo colaborador mudou.
@@ -122,7 +249,7 @@ export function usePerfil() {
       if (periodoSelecionado) {
         const vinculosPeriodo = dadosPeriodo?.vinculos ?? [];
         const colaboradoresPeriodo = dadosPeriodo?.colaboradores ?? [];
-        const dadosNovosRec = dados as Record<string, unknown>;
+        const dadosNovosRec = dadosFinal as Record<string, unknown>;
         const anteriorRec = clienteSelecionado as unknown as Record<string, unknown>;
         for (const funcao of FUNCOES_ALOCACAO) {
           if (!(funcao in dadosNovosRec)) continue;
@@ -189,5 +316,10 @@ export function usePerfil() {
     colaboradores, parametros, salvarCliente, salvando,
     loading, periodoLabel, bankersUnicos, empresariosUnicos,
     atualizarCampoEmLote, carregar,
+    // Ordenação + filtros de coluna da lista de clientes (tabela do Perfil)
+    ordenacaoLista, setOrdenacaoLista,
+    filtroNomeColuna, setFiltroNomeColuna,
+    filtroPacotes, setFiltroPacotes,
+    pacotesDisponiveis, limparFiltrosColuna,
   };
 }

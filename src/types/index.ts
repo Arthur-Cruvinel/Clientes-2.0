@@ -15,6 +15,11 @@ export type FuncaoAlocacao =
 
 export type PacoteServico = 'full' | 'advanced' | 'light' | 'future' | 'asset_only';
 
+// Moeda em que o fee do cliente é contratado. Fee em moeda estrangeira é
+// convertido para BRL na gravação (PTAX do dia anterior) — o pipeline de DRE
+// sempre lê receita_fee já em BRL.
+export type MoedaFee = 'BRL' | 'USD' | 'EUR' | 'GBP';
+
 export type RegimeTributario = 'presumido' | 'real';
 
 export type ClassificacaoCliente = 'Pure Asset' | 'Fee' | 'Híbrido' | 'Fee Isento';
@@ -114,6 +119,16 @@ export interface Cliente {
 
   // Data de entrada do cliente — formato "YYYY-MM" (ex: "2025-07")
   data_entrada?: string;
+
+  // ── FEE EM MOEDA ESTRANGEIRA ──────────────────────────────────────────────
+  // moeda_fee = moeda em que o fee foi contratado (default BRL). Quando ≠ BRL,
+  // receita_fee é gravado já convertido em BRL (PTAX do dia anterior) — o
+  // pipeline de DRE nunca precisa converter. Os campos *_original + ptax_usado
+  // preservam a trilha de auditoria da conversão para reedição/exibição.
+  moeda_fee?: MoedaFee;
+  receita_fee_original?: number;   // fee na moeda original, antes da conversão
+  moeda_fee_original?: string;     // moeda aplicada na conversão gravada
+  ptax_usado?: number;             // PTAX (venda) do dia da gravação usada na conversão
 }
 
 /** Drivers de complexidade fixos (perenes) por cliente.

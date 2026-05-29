@@ -8,7 +8,7 @@ import { buscarHistoricoAlteracoes, excluirClientePeriodo, excluirClientePermane
 import { formatCurrency } from '../../utils/formatters';
 import { useAuth } from '../../state/AuthContext';
 import { PerfilComplexidadeTab, PERFIL_DEFAULT } from './PerfilComplexidadeTab';
-import type { DadosCliente, Cliente, Colaborador, PacoteServico, FuncaoAlocacao, AlteracaoCliente, RegistroPoupanca, PerfilComplexidade } from '../../types';
+import type { DadosCliente, Cliente, Colaborador, PacoteServico, FuncaoAlocacao, AlteracaoCliente, RegistroPoupanca, PerfilComplexidade, MoedaFee } from '../../types';
 import type { Vinculo } from '../../types/vinculo';
 
 interface Props {
@@ -48,7 +48,7 @@ const ABAS = ['Alocação', 'Configuração', 'Complexidade', 'Cadastral', 'Hist
 
 const LABEL_CAMPO: Record<string, string> = {
   receita_fee: 'Fee', pacote_servico: 'Pacote', banker: 'Banker', empresario: 'Empresário',
-  data_entrada: 'Data entrada',
+  data_entrada: 'Data entrada', moeda_fee: 'Moeda do fee',
   percentual_rebate_anual_onshore: 'Rebate onshore', percentual_rebate_anual_offshore: 'Rebate offshore',
   aliquota_impostos_rebate: 'Alíq. imp. rebate',
   pct_consultoria_gestao: '% Gestão', pct_consultoria_planejamento: '% Planejamento',
@@ -183,7 +183,13 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
     aliquota_impostos_rebate: (cliente.aliquota_impostos_rebate ?? 0) * 100,
     empresario: cliente.empresario ?? '',
     banker: cliente.banker ?? '',
-    receita_fee: cliente.receita_fee,
+    // Fee em moeda estrangeira: o input mostra o valor na moeda ORIGINAL
+    // (receita_fee_original); receita_fee persistido fica em BRL. Para BRL ou
+    // clientes sem conversão, mostra receita_fee direto (retrocompat).
+    receita_fee: (cliente.moeda_fee && cliente.moeda_fee !== 'BRL' && cliente.receita_fee_original != null)
+      ? cliente.receita_fee_original
+      : cliente.receita_fee,
+    moeda_fee: (cliente.moeda_fee ?? 'BRL') as MoedaFee,
     custo_contabilidade_dedicado: cliente.custo_contabilidade_dedicado ?? 0,
     custo_pagamento_dedicado: cliente.custo_pagamento_dedicado ?? 0,
     custo_administrativo_dedicado: cliente.custo_administrativo_dedicado ?? 0,
@@ -238,7 +244,11 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
       aliquota_impostos_rebate: form.aliquota_impostos_rebate / 100,
       empresario: form.empresario || undefined,
       banker: form.banker || undefined,
+      // receita_fee aqui é o valor na moeda selecionada (form.moeda_fee). A
+      // conversão p/ BRL + gravação dos campos de auditoria acontece em
+      // usePerfil.salvarCliente, que tem acesso ao buscarPtaxDiaAnterior.
       receita_fee: form.receita_fee,
+      moeda_fee: form.moeda_fee,
       custo_contabilidade_dedicado: form.custo_contabilidade_dedicado,
       custo_pagamento_dedicado: form.custo_pagamento_dedicado,
       custo_administrativo_dedicado: form.custo_administrativo_dedicado,
@@ -405,14 +415,31 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
                 <select value={form.data_entrada_ano} onChange={e => set('data_entrada_ano', Number(e.target.value))}
                   className="rounded px-2 py-1.5 text-sm w-24 flex-shrink-0" style={BRD}>
                   <option value={0}>Ano...</option>
-                  {Array.from({ length: 11 }, (_, i) => 2020 + i).map(a => (
+                  {Array.from({ length: 21 }, (_, i) => 2010 + i).map(a => (
                     <option key={a} value={a}>{a}</option>
                   ))}
                 </select>
               </div>
             </div>
+            {/* Receita fee + moeda. Fee em moeda estrangeira é convertido para
+                BRL na gravação (PTAX do dia anterior — ver usePerfil). */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>Receita fee</label>
+              <div className="flex gap-2">
+                <input type="number" step="0.01" value={form.receita_fee}
+                  onChange={e => set('receita_fee', Number(e.target.value))} className={INP} style={BRD} />
+                <select value={form.moeda_fee} onChange={e => set('moeda_fee', e.target.value as MoedaFee)}
+                  className="rounded px-2 py-1.5 text-sm w-20 flex-shrink-0" style={BRD}>
+                  {(['BRL', 'USD', 'EUR', 'GBP'] as const).map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              {form.moeda_fee !== 'BRL' && (
+                <p className="text-[10px]" style={{ color: '#6b6b8a' }}>
+                  Fee em {form.moeda_fee} — convertido para BRL ao salvar, pela PTAX de venda do dia anterior.
+                </p>
+              )}
+            </div>
             {[
-              ['receita_fee', 'Receita fee'],
               ['custo_contabilidade_dedicado', 'Custo contabilidade'],
               ['custo_pagamento_dedicado', 'Custo pagamento'],
               ['custo_administrativo_dedicado', 'Custo administrativo'],

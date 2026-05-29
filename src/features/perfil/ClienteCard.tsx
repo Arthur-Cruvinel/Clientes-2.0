@@ -2,9 +2,14 @@
 
 import type { DadosCliente } from '../../types';
 
-const COR_PACOTE: Record<string, string> = {
+export const COR_PACOTE: Record<string, string> = {
   full: '#160F41', advanced: '#7c3aed', light: '#3b82f6', future: '#9ca3af', asset_only: '#d97706',
 };
+
+/** Rótulo curto do pacote para badge (asset_only → 'asset'). */
+export function labelPacote(pacote: string): string {
+  return pacote === 'asset_only' ? 'asset' : pacote;
+}
 
 const MESES_LABEL = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -40,7 +45,7 @@ export function ClienteCard({ cliente, selecionado, onClick }: Props) {
           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white"
             title={tooltipPacote}
             style={{ backgroundColor: COR_PACOTE[cliente.pacote_servico] ?? '#9ca3af' }}>
-            {cliente.pacote_servico === 'asset_only' ? 'asset' : cliente.pacote_servico}
+            {labelPacote(cliente.pacote_servico)}
           </span>
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: lucro ? '#16a34a' : '#dc2626' }} />
         </div>

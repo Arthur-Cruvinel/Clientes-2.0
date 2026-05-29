@@ -2,15 +2,15 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Pencil, UserPlus, X } from 'lucide-react';
+import { Pencil, UserPlus } from 'lucide-react';
 import { formatCurrency, formatPercent, encontrarPoupanca } from '../../utils/formatters';
 import { FUNCOES_ALOCACAO, HORAS_CLT_MES } from '../../utils/constants';
 import type { Vinculo } from '../../types/vinculo';
 import { calcularFatoresEscopo } from '../../utils/financials';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
-import { usePerfil } from './usePerfil';
-import { ClienteCard } from './ClienteCard';
+import { usePerfil, type ColunaListaCliente } from './usePerfil';
+import { ListaClientesTabela } from './ListaClientesTabela';
 import { EditarClienteModal } from './EditarClienteModal';
 import { NovoClienteModal } from './NovoClienteModal';
 import { AlocacaoLote } from './AlocacaoLote';
@@ -29,7 +29,10 @@ export function Perfil() {
     clientes, clienteSelecionado, selecionar, busca, setBusca,
     modalAberto, setModalAberto, colaboradores, parametros, salvarCliente, salvando,
     loading, periodoLabel, bankersUnicos, empresariosUnicos, atualizarCampoEmLote, carregar,
+    ordenacaoLista, setOrdenacaoLista, filtroNomeColuna, setFiltroNomeColuna,
+    filtroPacotes, setFiltroPacotes, pacotesDisponiveis, limparFiltrosColuna,
   } = usePerfil();
+  const [dropdownFiltro, setDropdownFiltro] = useState<ColunaListaCliente | null>(null);
   const { dadosPeriodo, periodoSelecionado } = useApp();
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
@@ -116,34 +119,15 @@ export function Perfil() {
 
       {visao === 'individual' && (
     <div className="flex gap-6 h-[calc(100vh-190px)]">
-      {/* Painel esquerdo — lista */}
-      <div className="w-[280px] flex-shrink-0 rounded-lg border overflow-hidden flex flex-col" style={{ borderColor: '#e2e2e8' }}>
-        {periodoLabel && (
-          <div className="px-3 pt-2 pb-0">
-            <p className="text-[10px]" style={{ color: '#6b6b8a' }}>Dados cadastrais — referência: {periodoLabel}</p>
-          </div>
-        )}
-        <div className="p-3 border-b" style={{ borderColor: '#e2e2e8' }}>
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ border: '1px solid #e2e2e8' }}>
-            <Search size={14} style={{ color: '#6b6b8a' }} />
-            <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cliente..."
-              className="text-sm w-full outline-none bg-transparent" style={{ color: '#160F41' }} />
-            {busca && (
-              <button type="button" onClick={() => setBusca('')} title="Limpar filtro"
-                className="text-gray-400 hover:text-gray-600">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto divide-y" style={{ borderColor: '#e2e2e8' }}>
-          {clientes.map((cli: DadosCliente) => (
-            <ClienteCard key={cli.id ?? cli.nome_cliente} cliente={cli}
-              selecionado={cli.id === c?.id} onClick={() => selecionar(cli)} />
-          ))}
-          {clientes.length === 0 && <p className="p-4 text-sm text-center" style={{ color: '#6b6b8a' }}>Nenhum cliente encontrado</p>}
-        </div>
-      </div>
+      {/* Painel esquerdo — lista em tabela com filtros e ordenação */}
+      <ListaClientesTabela
+        clientes={clientes} selecionadoId={c?.id} onSelecionar={selecionar}
+        busca={busca} setBusca={setBusca} periodoLabel={periodoLabel}
+        ordenacao={ordenacaoLista} setOrdenacao={setOrdenacaoLista}
+        filtroNomeColuna={filtroNomeColuna} setFiltroNomeColuna={setFiltroNomeColuna}
+        filtroPacotes={filtroPacotes} setFiltroPacotes={setFiltroPacotes}
+        pacotesDisponiveis={pacotesDisponiveis} limparFiltros={limparFiltrosColuna}
+        dropdown={dropdownFiltro} setDropdown={setDropdownFiltro} />
 
       {/* Painel direito — detalhe */}
       <div className="flex-1 min-w-0">

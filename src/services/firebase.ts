@@ -815,6 +815,35 @@ export async function buscarRegistrosPoupancaPorPeriodo(
   }
 }
 
+/** Busca o registro de poupança mais antigo de um cliente (menor ano; em
+ *  empate, menor mês), identificado por `nome_cliente`. Usado para preencher
+ *  automaticamente `data_entrada` de Pure Assets (que entram via lâmina e
+ *  raramente têm cadastro com data). Ignora docs em quarentena
+ *  (status='pendente_normalizacao'). Retorna `{ ano, mes }` ou `null` quando
+ *  o cliente não tem nenhum registro. Erros são engolidos (retorna null) —
+ *  o caller é um backfill silencioso, não deve quebrar o carregamento. */
+export async function buscarPrimeiroRegistroPoupanca(
+  nomeCliente: string,
+): Promise<{ ano: number; mes: number } | null> {
+  try {
+    const ref = collection(db, 'poupanca');
+    const snap = await getDocs(query(ref, where('nome_cliente', '==', nomeCliente)));
+    let melhor: { ano: number; mes: number } | null = null;
+    for (const d of snap.docs) {
+      const r = d.data() as RegistroPoupanca;
+      if (r.status === 'pendente_normalizacao') continue;
+      if (typeof r.ano !== 'number' || typeof r.mes !== 'number') continue;
+      if (!melhor || r.ano < melhor.ano || (r.ano === melhor.ano && r.mes < melhor.mes)) {
+        melhor = { ano: r.ano, mes: r.mes };
+      }
+    }
+    return melhor;
+  } catch (error) {
+    console.error(`[Firebase] Erro ao buscar primeiro registro de poupança de "${nomeCliente}":`, error);
+    return null;
+  }
+}
+
 // ============================================================
 // Atualização de cliente individual
 // ============================================================
@@ -963,6 +992,51 @@ export async function salvarClienteBase(cliente: Cliente): Promise<void> {
     console.error('[Firebase] Erro ao salvar cliente_base:', error);
     throw error;
   }
+}
+
+/** Busca a PTAX de venda (fechamento) do dia útil anterior para USD, EUR e GBP.
+ *
+ *  Usado para converter `receita_fee` de clientes com `moeda_fee` estrangeira
+ *  para BRL no momento da gravação (usePerfil.salvarCliente). Usa o proxy
+ *  Netlify `cotacao-proxy` (olinda.bcb.gov.br) — mesma rota de cotacaoMoeda.ts.
+ *
+ *  Estratégia: janela [hoje−8d, ontem] com `orderby desc top 1` no proxy →
+ *  pega a cotação mais recente disponível até ontem, lidando naturalmente com
+ *  fins de semana e feriados (o BCB não publica PTAX nesses dias).
+ *
+ *  Falha por moeda é não-fatal: retorna 0 para a moeda que não resolveu — o
+ *  caller deve tratar 0 como "sem cotação" e não converter. */
+export async function buscarPtaxDiaAnterior(): Promise<{ USD: number; EUR: number; GBP: number }> {
+  const PROXY = '/.netlify/functions/cotacao-proxy';
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+  const inicio = new Date(hoje);
+  inicio.setDate(inicio.getDate() - 8); // janela cobre fim de semana + feriado
+
+  const fmt = (d: Date): string =>
+    `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${d.getFullYear()}`;
+
+  const moedas = ['USD', 'EUR', 'GBP'] as const;
+  const entradas = await Promise.all(moedas.map(async (moeda) => {
+    const url = `${PROXY}?moeda=${moeda}&dataInicial=${fmt(inicio)}&dataFinal=${fmt(ontem)}`;
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json();
+      const valores: { cotacaoVenda: number; dataHoraCotacao: string }[] = json.value ?? [];
+      if (!valores.length) throw new Error('sem cotação no intervalo');
+      const cotacao = valores[0].cotacaoVenda;
+      console.log(`[PTAX] ${moeda} dia anterior: ${cotacao.toFixed(4)} (${valores[0].dataHoraCotacao})`);
+      return [moeda, cotacao] as const;
+    } catch (e) {
+      console.warn(`[PTAX] Falha ao buscar ${moeda} do dia anterior:`, e instanceof Error ? e.message : e);
+      return [moeda, 0] as const;
+    }
+  }));
+
+  const mapa = Object.fromEntries(entradas) as Record<'USD' | 'EUR' | 'GBP', number>;
+  return { USD: mapa.USD, EUR: mapa.EUR, GBP: mapa.GBP };
 }
 
 /** Cria cliente novo em `clientes_base/` + snapshot inicial em
