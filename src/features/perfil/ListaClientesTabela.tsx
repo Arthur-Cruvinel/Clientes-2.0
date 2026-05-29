@@ -3,6 +3,7 @@
 // ordenável + filtro por coluna (texto no Nome, checkboxes no Pacote), busca
 // geral e badge de pacote. Estado de ordenação/filtros vive em usePerfil.
 
+import { useRef, useEffect } from 'react';
 import { Search, X, Filter } from 'lucide-react';
 import { HeaderOrdenavel, type OrdenacaoState } from '../../components/ui/HeaderOrdenavel';
 import { COR_PACOTE, labelPacote } from './ClienteCard';
@@ -38,6 +39,21 @@ function BadgePacote({ pacote }: { pacote: string }) {
   );
 }
 
+/** Checkbox "Todos" com estado indeterminado (traço) — React não expõe
+ *  `indeterminate` como prop, então é setado via ref após cada render. */
+function CheckboxTodos({ checked, indeterminado, onChange }: {
+  checked: boolean; indeterminado: boolean; onChange: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminado;
+  }, [indeterminado]);
+  return (
+    <input ref={ref} type="checkbox" checked={checked} onChange={onChange}
+      onClick={e => e.stopPropagation()} className="rounded" />
+  );
+}
+
 const TH = 'px-3 py-2 text-[10px] font-bold uppercase';
 
 export function ListaClientesTabela({
@@ -52,6 +68,13 @@ export function ListaClientesTabela({
     setFiltroPacotes(filtroPacotes.includes(p)
       ? filtroPacotes.filter(x => x !== p)
       : [...filtroPacotes, p]);
+
+  // "Todos": marcado quando todos os pacotes disponíveis estão selecionados;
+  // indeterminado quando alguns (mas não todos). Toggle alterna tudo ↔ nada.
+  const todosMarcados = pacotesDisponiveis.length > 0
+    && pacotesDisponiveis.every(p => filtroPacotes.includes(p));
+  const algunsMarcados = filtroPacotes.length > 0 && !todosMarcados;
+  const toggleTodos = () => setFiltroPacotes(todosMarcados ? [] : [...pacotesDisponiveis]);
 
   // Botão de filtro no header — abre/fecha o dropdown da coluna e sinaliza ativo.
   const IconeFiltro = ({ coluna, ativo }: { coluna: ColunaListaCliente; ativo: boolean }) => (
@@ -139,18 +162,31 @@ export function ListaClientesTabela({
                   <IconeFiltro coluna="pacote" ativo={filtroPacotes.length > 0} />
                 </div>
                 {dropdown === 'pacote' && (
-                  <div className="absolute right-2 top-full mt-1 z-50 w-40 rounded-lg border bg-white shadow-lg p-2"
+                  // stopPropagation no container + nos checkboxes: cliques dentro
+                  // não sobem para o backdrop (que fecha o dropdown).
+                  <div className="absolute right-2 top-full mt-1 z-50 w-44 rounded-lg border bg-white shadow-lg p-2"
                     style={{ borderColor: '#e2e2e8' }} onClick={e => e.stopPropagation()}>
                     {pacotesDisponiveis.length === 0 && (
                       <p className="text-[11px] px-1 py-1" style={{ color: '#6b6b8a' }}>Nenhum pacote</p>
                     )}
-                    {pacotesDisponiveis.map(p => (
-                      <label key={p} className="flex items-center gap-2 px-1 py-1 rounded cursor-pointer hover:bg-gray-50 normal-case"
-                        style={{ textTransform: 'none' }}>
-                        <input type="checkbox" checked={filtroPacotes.includes(p)} onChange={() => togglePacote(p)} className="rounded" />
-                        <BadgePacote pacote={p} />
-                      </label>
-                    ))}
+                    {pacotesDisponiveis.length > 0 && (
+                      <>
+                        <label className="flex items-center gap-2 px-1 py-1 rounded cursor-pointer hover:bg-gray-50 normal-case"
+                          style={{ textTransform: 'none' }} onClick={e => e.stopPropagation()}>
+                          <CheckboxTodos checked={todosMarcados} indeterminado={algunsMarcados} onChange={toggleTodos} />
+                          <span className="text-xs font-semibold" style={{ color: '#160F41' }}>Todos</span>
+                        </label>
+                        <div className="my-1 border-t" style={{ borderColor: '#e2e2e8' }} />
+                        {pacotesDisponiveis.map(p => (
+                          <label key={p} className="flex items-center gap-2 px-1 py-1 rounded cursor-pointer hover:bg-gray-50 normal-case"
+                            style={{ textTransform: 'none' }} onClick={e => e.stopPropagation()}>
+                            <input type="checkbox" checked={filtroPacotes.includes(p)} onChange={() => togglePacote(p)}
+                              onClick={e => e.stopPropagation()} className="rounded" />
+                            <BadgePacote pacote={p} />
+                          </label>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
               </th>
@@ -178,8 +214,11 @@ export function ListaClientesTabela({
         </table>
       </div>
 
-      {/* Backdrop p/ fechar dropdown ao clicar fora */}
-      {dropdown && <div className="fixed inset-0 z-40" onClick={() => setDropdown(null)} />}
+      {/* Backdrop p/ fechar dropdown ao clicar fora. z-20 fica ABAIXO do thead
+          (sticky, z-30) — senão o backdrop cobriria o dropdown (preso no
+          contexto de empilhamento do thead) e interceptaria os cliques nos
+          checkboxes. Ainda cobre busca/linhas (z-auto), fechando ao clicar lá. */}
+      {dropdown && <div className="fixed inset-0 z-20" onClick={() => setDropdown(null)} />}
     </div>
   );
 }
