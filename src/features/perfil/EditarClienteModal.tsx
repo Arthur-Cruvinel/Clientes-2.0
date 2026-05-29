@@ -573,7 +573,8 @@ function ConfirmacaoExclusaoCliente({ cliente, periodo, estado, setEstado, onCon
   async function executarPeriodo() {
     setEstado({ tipo: 'executando_periodo' });
     try {
-      await excluirClientePeriodo(id, periodo);
+      // Passa id_estavel: o snapshot do período tem docId UUID ≠ slug (id).
+      await excluirClientePeriodo(id, periodo, cliente.id_estavel);
       onConcluido();
     } catch (e) {
       setEstado({ tipo: 'erro', msg: e instanceof Error ? e.message : 'Falha ao excluir.' });
@@ -583,7 +584,7 @@ function ConfirmacaoExclusaoCliente({ cliente, periodo, estado, setEstado, onCon
   async function executarPermanente() {
     setEstado({ tipo: 'executando_permanente', periodo: '…', atual: 0, total: 0 });
     try {
-      const r = await excluirClientePermanente(id, (p, atual, total) =>
+      const r = await excluirClientePermanente(id, cliente.id_estavel, (p, atual, total) =>
         setEstado({ tipo: 'executando_permanente', periodo: p, atual, total }));
       if (r.erros.length > 0) {
         setEstado({ tipo: 'erro', msg: `Falhas em ${r.erros.length} operação(ões): ${r.erros.slice(0, 3).join('; ')}…` });

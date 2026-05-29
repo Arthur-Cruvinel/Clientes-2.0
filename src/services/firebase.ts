@@ -1626,33 +1626,82 @@ export async function zerarCampoTombamento(
 // Exclusão de cliente
 // ============================================================
 
+/** Remove todos os vínculos de um cliente (por `id_estavel_cliente`) num
+ *  período. Evita vínculos órfãos após a exclusão do cliente. Query por campo
+ *  com igualdade simples em coleção comum — auto-indexado, sem índice composto.
+ *  Retorna a quantidade removida. */
+async function excluirVinculosClientePeriodo(
+  periodo: string,
+  idEstavelCliente: string,
+): Promise<number> {
+  const q = query(
+    collection(db, 'fechamentos', periodo, 'vinculos'),
+    where('id_estavel_cliente', '==', idEstavelCliente),
+  );
+  const snap = await getDocs(q);
+  let removidos = 0;
+  for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
+    const chunk = snap.docs.slice(i, i + BATCH_LIMIT);
+    const batch = writeBatch(db);
+    for (const d of chunk) batch.delete(d.ref);
+    await batch.commit();
+    removidos += chunk.length;
+  }
+  return removidos;
+}
+
 /** Remove cliente APENAS do período indicado (não toca clientes_base/ nem
  *  outros períodos). Usado quando o cliente saiu da carteira em um mês mas
- *  pode voltar — preserva histórico. */
+ *  pode voltar — preserva histórico.
+ *
+ *  Bug Arquitetural #1: o docId do snapshot em `fechamentos/{periodo}/clientes/`
+ *  é um UUID, ≠ do slug usado como docId em `clientes_base/` (de onde vem
+ *  `clienteId`). Por isso resolvemos o docId real via `id_estavel` antes de
+ *  deletar — senão o deleteDoc no slug é um no-op silencioso. Também limpa os
+ *  vínculos do cliente no período. */
 export async function excluirClientePeriodo(
   clienteId: string,
   periodo: string,
+  idEstavel?: string,
 ): Promise<void> {
   try {
-    await deleteDoc(doc(db, 'fechamentos', periodo, 'clientes', clienteId));
+    const docIdReal = await resolverDocIdClientePorIdEstavel(periodo, idEstavel, clienteId);
+    await deleteDoc(doc(db, 'fechamentos', periodo, 'clientes', docIdReal));
+    if (idEstavel) {
+      await excluirVinculosClientePeriodo(periodo, idEstavel);
+    }
   } catch (error) {
     console.error(`[Firebase] Erro ao excluir cliente ${clienteId} de ${periodo}:`, error);
     throw error;
   }
 }
 
-/** Exclui PERMANENTEMENTE o cliente: remove de todos os períodos via
- *  collectionGroup('clientes') + remove de clientes_base/. Operação
- *  irreversível. Reporta progresso por período. */
+/** Exclui PERMANENTEMENTE o cliente: remove de todos os períodos + de
+ *  clientes_base/ + todos os vínculos. Operação irreversível. Reporta progresso
+ *  por período.
+ *
+ *  Bug Arquitetural #1: os snapshots de período têm docId UUID (≠ slug), então
+ *  filtrar `collectionGroup('clientes')` por `d.id === clienteId` (slug) não
+ *  acha nada. Filtramos pelo campo `id_estavel` (consistente em todos os docs).
+ *  O cadastro mestre (clientes_base/) usa docId slug — resolvido por id_estavel
+ *  também, pois quando a exclusão parte de um período fechado o `clienteId`
+ *  recebido é o UUID do snapshot, não o slug. */
 export async function excluirClientePermanente(
   clienteId: string,
+  idEstavel: string | undefined,
   onProgress?: (periodo: string, atual: number, total: number) => void,
-): Promise<{ periodosRemovidos: number; erros: string[] }> {
+): Promise<{ periodosRemovidos: number; vinculosRemovidos: number; erros: string[] }> {
   const erros: string[] = [];
   let periodosRemovidos = 0;
+  let vinculosRemovidos = 0;
   try {
+    // 1) Snapshots de cliente em todos os períodos — filtra por id_estavel
+    //    (campo), não por docId. Fallback legado: docId === clienteId quando o
+    //    cliente não tem id_estavel (Fase 3 não migrada).
     const snap = await getDocs(collectionGroup(db, 'clientes'));
-    const docsAlvo = snap.docs.filter(d => d.id === clienteId);
+    const docsAlvo = idEstavel
+      ? snap.docs.filter(d => (d.data() as { id_estavel?: string }).id_estavel === idEstavel)
+      : snap.docs.filter(d => d.id === clienteId);
     const total = docsAlvo.length;
     for (let i = 0; i < docsAlvo.length; i++) {
       const d = docsAlvo[i];
@@ -1665,13 +1714,47 @@ export async function excluirClientePermanente(
         erros.push(`${periodo}: ${err instanceof Error ? err.message : 'erro'}`);
       }
     }
-    // Cadastro mestre — collectionGroup não alcança coleção top-level.
+
+    // 2) Cadastro mestre — collectionGroup não alcança coleção top-level.
+    //    Resolve o docId (slug) por id_estavel: o clienteId recebido pode ser
+    //    o UUID do snapshot (exclusão a partir de período fechado).
+    let baseDocId = clienteId;
+    if (idEstavel) {
+      try {
+        const baseSnap = await getDocs(
+          query(collection(db, 'clientes_base'), where('id_estavel', '==', idEstavel)),
+        );
+        if (!baseSnap.empty) baseDocId = baseSnap.docs[0].id;
+      } catch { /* mantém fallback clienteId */ }
+    }
     try {
-      await deleteDoc(doc(db, 'clientes_base', clienteId));
+      await deleteDoc(doc(db, 'clientes_base', baseDocId));
     } catch (err) {
       erros.push(`clientes_base: ${err instanceof Error ? err.message : 'erro'}`);
     }
-    return { periodosRemovidos, erros };
+
+    // 3) Vínculos órfãos em todos os períodos. Lê o grupo inteiro e filtra em
+    //    memória (mesmo padrão de clientes) — evita exigir índice de
+    //    collectionGroup sobre id_estavel_cliente.
+    if (idEstavel) {
+      try {
+        const vsnap = await getDocs(collectionGroup(db, 'vinculos'));
+        const vAlvo = vsnap.docs.filter(
+          d => (d.data() as { id_estavel_cliente?: string }).id_estavel_cliente === idEstavel,
+        );
+        for (let i = 0; i < vAlvo.length; i += BATCH_LIMIT) {
+          const chunk = vAlvo.slice(i, i + BATCH_LIMIT);
+          const batch = writeBatch(db);
+          for (const d of chunk) batch.delete(d.ref);
+          await batch.commit();
+          vinculosRemovidos += chunk.length;
+        }
+      } catch (err) {
+        erros.push(`vinculos: ${err instanceof Error ? err.message : 'erro'}`);
+      }
+    }
+
+    return { periodosRemovidos, vinculosRemovidos, erros };
   } catch (error) {
     console.error(`[Firebase] Erro ao excluir cliente ${clienteId} permanentemente:`, error);
     throw error;
