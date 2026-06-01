@@ -1,5 +1,6 @@
 // --- Preview da tabela multi-período (import onshore) ---
 
+import { AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '../../../utils/formatters';
 import type { RegistroMensal } from './parsers/parseMultiPeriodoComClaude';
 
@@ -15,13 +16,11 @@ interface Props {
   onLimpar: () => void;
 }
 
-// NNM exibido = aporte bruto sem tombamento embutido.
-// Quando nnm_linha_abertura > 0, o parser somou o tombamento DUAS vezes
-// em aporte_mes_total (uma vez em E_(i), outra em E_mes) — subtrai pra
-// mostrar o NNM real (= B - C = NNM bruto).
+// NNM exibido = aporte CHEIO (= B − C, inclui a abertura). Regra de mês de
+// entrada: o tombamento de abertura é informação PARALELA (nnm_linha_abertura),
+// NÃO sai do NNM. Coerente com salvarMultiPeriodo e pickR (mês de entrada).
 function nnmExibido(r: RegistroMensal): number {
-  const tomb = r.nnm_linha_abertura ?? 0;
-  return tomb > 0 ? r.aporte_mes_total - tomb : r.aporte_mes_total;
+  return r.aporte_mes_total;
 }
 
 export function PreviewMultiPeriodo({ registros, nomeCliente, salvando, onSalvar, onLimpar }: Props) {
@@ -47,11 +46,27 @@ export function PreviewMultiPeriodo({ registros, nomeCliente, salvando, onSalvar
             </tr>
           </thead>
           <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
-            {registros.map((r, i) => (
-              <tr key={i}>
-                <td className="px-3 py-2 text-xs font-medium">{MESES[r.mes - 1]}/{r.ano}</td>
+            {registros.map((r, i) => {
+              const corrigido = r._corrigido_por_identidade === true;
+              const tooltipCorrecao = corrigido
+                ? `NNM ajustado pela identidade contábil. Valor lido na importação: `
+                  + `${formatCurrency(r._aporte_original_llm ?? 0)}. Valor corrigido: `
+                  + `${formatCurrency(r.aporte_mes_total)}. Confira antes de salvar.`
+                : undefined;
+              return (
+              <tr key={i} style={corrigido ? { backgroundColor: '#fef3c7' } : undefined}>
+                <td className="px-3 py-2 text-xs font-medium">
+                  {corrigido && (
+                    <AlertTriangle size={12} className="inline mr-1 align-text-bottom" style={{ color: '#d97706' }} />
+                  )}
+                  {MESES[r.mes - 1]}/{r.ano}
+                </td>
                 <td className={TD}>{formatCurrency(r.pl_inicial_total)}</td>
-                <td className={TD}>{formatCurrency(nnmExibido(r))}</td>
+                <td className={TD} title={tooltipCorrecao}
+                  style={corrigido ? { color: '#b45309', fontWeight: 600, cursor: 'help' } : undefined}>
+                  {formatCurrency(nnmExibido(r))}
+                  {corrigido && ' ⚠'}
+                </td>
                 <td className={TD} style={(r.impostos_mes ?? 0) > 0 ? { color: '#991b1b' } : undefined}>
                   {formatCurrency(r.impostos_mes ?? 0)}
                 </td>
@@ -60,7 +75,8 @@ export function PreviewMultiPeriodo({ registros, nomeCliente, salvando, onSalvar
                 <td className={TD}>{r.cdi_mes_pct != null ? `${(r.cdi_mes_pct * 100).toFixed(2)}%` : '—'}</td>
                 <td className={TD}>{formatCurrency(r.pl_total)}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
           <tfoot>
             <tr style={{ backgroundColor: '#f3f4f6' }}>

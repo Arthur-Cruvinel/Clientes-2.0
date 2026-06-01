@@ -301,6 +301,12 @@ Extraia as seguintes informações e retorne APENAS um objeto JSON válido, sem 
 
 Todos os valores numéricos devem ser numbers JavaScript (sem R$, sem pontos de milhar, vírgula decimal → ponto decimal).
 
+ATENÇÃO CRÍTICA — NÚMEROS GRANDES EM pt-BR (não trunque os milhões):
+Ponto = separador de MILHAR, vírgula = decimal. Leia TODOS os dígitos, com
+atenção especial aos grupos de milhão/dezena de milhão. NÃO descarte o grupo
+da frente. Ex.: "70.516.612,99" → 70516612.99 (NÃO 516612.99 — não perca os
+70 milhões); "1.234.567,89" → 1234567.89 (NÃO 234567.89).
+
 IMPORTANTE: Retorne APENAS o objeto JSON puro, sem blocos de código, sem markdown, sem aspas triplas, sem nenhum texto antes ou depois.
 
 Texto do PDF:

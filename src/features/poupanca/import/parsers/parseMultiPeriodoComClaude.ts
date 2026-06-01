@@ -21,6 +21,11 @@ export interface RegistroMensal {
   // Usado para pro-rata do benchmark (CDI) em meses de tombamento.
   // null em meses normais.
   dia_inicio?: number | null;
+  // Flags de auditoria — preenchidas quando a identidade contábil corrige o
+  // aporte truncado pelo LLM (ver validarRegistro). Alimentam o alerta visual
+  // no preview. Ausentes em registros sem correção.
+  _corrigido_por_identidade?: boolean;
+  _aporte_original_llm?: number;
 }
 
 const SYSTEM = 'Você é um parser financeiro especializado. Responda APENAS com JSON válido, sem texto adicional, sem markdown, sem explicações.';
@@ -102,6 +107,18 @@ REGRA DE SANIDADE ao extrair aporte_mes_total:
 - Valide: pl_total ≈ pl_inicial_total + aporte_mes_total + rentabilidade_total - impostos_mes
   (diferença < R$ 1; se ≈ pl_inicial_total, você somou A por engano)
 
+ATENÇÃO CRÍTICA — NÚMEROS GRANDES EM pt-BR (não trunque os milhões):
+- Os valores usam ponto como separador de MILHAR e vírgula como decimal.
+  Leia TODOS os dígitos, com atenção especial aos grupos de milhão e dezena
+  de milhão. NÃO descarte o grupo da frente.
+- Exemplos de conversão correta:
+    "70.516.612,99"  → 70516612.99   (NÃO 516612.99 — não perca os 70 milhões)
+    "1.234.567,89"   → 1234567.89    (NÃO 234567.89)
+    "70.369.560,60"  → 70369560.60   (NÃO 369560.60)
+- Confira o pl_total (Saldo Final) e o aporte com a identidade
+  pl_total = pl_inicial + aporte + rendimento − impostos antes de responder.
+  Se não fechar, você provavelmente truncou um número grande — releia.
+
 REGRAS ADICIONAIS:
 1. Extrair APENAS meses individuais (ex: "Jan/2025", "Jun/2025")
 2. IGNORAR linhas de subtotal anual (ex: "2025", "2026")
@@ -137,7 +154,7 @@ function validarRegistro(r: Record<string, unknown>): RegistroMensal | null {
   const mes = Number(r.mes);
   const ano = Number(r.ano);
   const plIni = Number(r.pl_inicial_total);
-  const aporte = Number(r.aporte_mes_total);
+  let aporte = Number(r.aporte_mes_total);   // let: corrigível pela identidade
   const rent = Number(r.rentabilidade_total);
   const plFim = Number(r.pl_total);
   const rentPct = Number(r.rentabilidade_pct);
@@ -152,14 +169,31 @@ function validarRegistro(r: Record<string, unknown>): RegistroMensal | null {
   const nnmAbertura = r.nnm_linha_abertura != null ? Number(r.nnm_linha_abertura) : null;
   const diaIni = r.dia_inicio != null ? Number(r.dia_inicio) : null;
 
-  // Validação de consistência: pl_total ≈ pl_inicial + aporte + rent - impostos (tol R$ 1)
-  // Impostos entram na conta — rendimento_nominal (F) NÃO é líquido de impostos
-  // no Comdinheiro. Sem subtrair, meses com IR teriam warning falso.
+  // ── Correção determinística por identidade contábil ──────────────────────
+  // A identidade do Comdinheiro é EXATA (impostos entram na conta; o
+  // rendimento_nominal F NÃO é líquido de imposto):
+  //   pl_total = pl_inicial + aporte + rentabilidade − impostos
+  // Logo, quando o saldo não fecha (diff > R$ 1), o suspeito nº 1 é o LLM ter
+  // truncado o grupo dos milhões num número grande pt-BR (ex.: leu
+  // 70.516.612,99 como 516.612,99). Recomputamos o aporte pela identidade —
+  // é a rede de segurança definitiva. As flags _corrigido_* alimentam o
+  // alerta visual no preview para conferência humana antes de salvar.
   const impVal = imp != null && !isNaN(imp) ? imp : 0;
-  const esperado = plIni + (isNaN(aporte) ? 0 : aporte) + (isNaN(rent) ? 0 : rent) - impVal;
+  const aporteLLM = isNaN(aporte) ? 0 : aporte;
+  const rentVal = isNaN(rent) ? 0 : rent;
+  const esperado = plIni + aporteLLM + rentVal - impVal;
   const diff = Math.abs(plFim - esperado);
+  let corrigido = false;
+  let aporteOriginalLlm: number | undefined;
   if (diff > 1) {
-    console.warn(`[MultiPeriodo] ${mes}/${ano}: diff R$ ${diff.toFixed(2)} (esperado ${esperado.toFixed(2)}, obteve ${plFim.toFixed(2)})`);
+    const aporteCorreto = plFim - plIni - rentVal + impVal;
+    console.warn(
+      `[NNM] ${mes}/${ano} corrigido por identidade contábil: `
+      + `LLM leu ${aporteLLM}, correto ${aporteCorreto} (diff R$ ${diff.toFixed(2)})`,
+    );
+    aporteOriginalLlm = aporteLLM;
+    aporte = aporteCorreto;
+    corrigido = true;
   }
 
   return {
@@ -173,6 +207,8 @@ function validarRegistro(r: Record<string, unknown>): RegistroMensal | null {
     impostos_mes: imp != null && !isNaN(imp) && imp > 0 ? imp : null,
     nnm_linha_abertura: nnmAbertura != null && !isNaN(nnmAbertura) ? nnmAbertura : null,
     dia_inicio: diaIni != null && !isNaN(diaIni) && diaIni >= 1 && diaIni <= 31 ? diaIni : null,
+    _corrigido_por_identidade: corrigido || undefined,
+    _aporte_original_llm: aporteOriginalLlm,
   };
 }
 
