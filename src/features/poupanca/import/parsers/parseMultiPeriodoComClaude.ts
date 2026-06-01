@@ -22,10 +22,16 @@ export interface RegistroMensal {
   // null em meses normais.
   dia_inicio?: number | null;
   // Flags de auditoria — preenchidas quando a identidade contábil corrige o
-  // aporte truncado pelo LLM (ver validarRegistro). Alimentam o alerta visual
-  // no preview. Ausentes em registros sem correção.
+  // aporte lido pelo LLM (ver validarRegistro). Alimentam o alerta visual
+  // no preview (âmbar). Ausentes em registros sem correção.
   _corrigido_por_identidade?: boolean;
   _aporte_original_llm?: number;
+  // Alerta-only (vermelho): o pl_inicial deste mês não bate com o pl_total do
+  // mês anterior (gap, movimentação entre contas, ou leitura suspeita do LLM).
+  // NÃO altera o NNM — é só sinalização para conferência humana. Preenchida em
+  // marcarEncadeamento (pós-parse), pois exige o registro do mês anterior.
+  _encadeamento_quebrado?: boolean;
+  _pl_inicial_esperado?: number;   // pl_total do mês anterior (para o tooltip)
 }
 
 const SYSTEM = 'Você é um parser financeiro especializado. Responda APENAS com JSON válido, sem texto adicional, sem markdown, sem explicações.';
@@ -38,12 +44,21 @@ A tabela tem dois tipos de linha para cada mês:
 - Linha "(i) DD/MM/YYYY": saldo de abertura do mês + movimentações do primeiro dia útil
 - Linha "Mês/Ano" (ex: "Abr/2026"): demais movimentações do mês + saldo final
 
-Para cada mês, COMBINE as duas linhas assim:
-- pl_inicial_total = coluna A da linha "(i)" do mês (saldo de abertura PURO, antes de qualquer movimentação)
-- aporte_mes_total = SOMA do campo E (Saldo Movimentações) das DUAS linhas: linha "(i)" + linha "Mês/Ano"
+FONTE DE VERDADE — leia estes 4 campos com MÁXIMA atenção (o NNM do mês é
+DERIVADO deles pela identidade contábil, NÃO da soma de movimentações):
+- pl_total = coluna G da linha "Mês/Ano" (saldo final do mês) ← CRÍTICO, leia todos os dígitos
+- pl_inicial_total = coluna A da linha "(i)" (saldo de abertura PURO, antes de qualquer
+  movimentação). NO MÊS DE ENTRADA (carteira aberta no meio do mês) = 0.
+- rentabilidade_total = SOMA do campo F (Rendimento Nominal) das DUAS linhas
 - impostos_mes = SOMA do campo D (Impostos) das DUAS linhas
-- rentabilidade_total = SOMA do campo F (Rendimento Nominal) das DUAS linhas: linha "(i)" + linha "Mês/Ano"
-- pl_total = coluna G da linha "Mês/Ano" (saldo final do mês)
+
+O sistema calcula o NNM assim: aporte = pl_total − pl_inicial − rentabilidade + impostos.
+
+CAMPO DE CROSS-CHECK (NÃO é a fonte do NNM):
+- aporte_mes_total = SOMA do campo E (Saldo Movimentações) das DUAS linhas: "(i)" + "Mês/Ano".
+  Forneça o melhor valor que conseguir ler; o sistema compara com a identidade e,
+  se divergir, usa a identidade e sinaliza para conferência. NÃO force esse valor
+  para bater com a identidade — reporte o que a coluna E realmente mostra.
 - nnm_linha_abertura = campo E da linha "(i)" SE a data dessa linha NÃO for o dia 1 do mês
                        (ex: "(i) 10/10/2025" → extrair E; "(i) 01/04/2026" → null)
                        Indica tombamento em carteira nova. null em meses normais.
@@ -56,11 +71,12 @@ EXEMPLO REAL:
 Abr/2026         22.766.743,42   396.144,97  395.155,83   6.731,66   989,13   77.437,37   22.838.438,26
 
 Resultado correto para Abril/2026:
+- pl_total = 22838438.26 (coluna G da linha Abr) ← campo crítico
 - pl_inicial_total = 23132427.07 (coluna A da linha (i), NÃO da linha Abr)
-- aporte_mes_total = -391754.56 + 989.13 = -390765.43
-- impostos_mes = 0 + 6731.66 = 6731.66
 - rentabilidade_total = 26070.91 + 77437.37 = 103508.28
-- pl_total = 22838438.26
+- impostos_mes = 0 + 6731.66 = 6731.66
+- aporte_mes_total (cross-check, soma E) = -391754.56 + 989.13 = -390765.43
+- conferência pela identidade: 22838438.26 − 23132427.07 − 103508.28 + 6731.66 = -390765.43 ✓
 - nnm_linha_abertura = null (linha (i) é de 01/04 — dia 1, então não é abertura)
 - dia_inicio = null (linha (i) é de 01/04 — dia 1)
 
@@ -169,32 +185,38 @@ function validarRegistro(r: Record<string, unknown>): RegistroMensal | null {
   const nnmAbertura = r.nnm_linha_abertura != null ? Number(r.nnm_linha_abertura) : null;
   const diaIni = r.dia_inicio != null ? Number(r.dia_inicio) : null;
 
-  // ── Correção determinística por identidade contábil ──────────────────────
+  // ── Identidade contábil como FONTE PRIMÁRIA do NNM ───────────────────────
   // A identidade do Comdinheiro é EXATA (impostos entram na conta; o
   // rendimento_nominal F NÃO é líquido de imposto):
   //   pl_total = pl_inicial + aporte + rentabilidade − impostos
-  // Logo, quando o saldo não fecha (diff > R$ 1), o suspeito nº 1 é o LLM ter
-  // truncado o grupo dos milhões num número grande pt-BR (ex.: leu
-  // 70.516.612,99 como 516.612,99). Recomputamos o aporte pela identidade —
-  // é a rede de segurança definitiva. As flags _corrigido_* alimentam o
-  // alerta visual no preview para conferência humana antes de salvar.
+  // Logo:
+  //   aporte = pl_total − pl_inicial − rentabilidade + impostos
+  // O NNM é DERIVADO dessa identidade — não da soma E(i)+E(mes) lida pelo LLM,
+  // que sofria dois bugs: truncamento de números grandes (Eduardo) e
+  // duplicação quando a linha-mês já traz o saldo de abertura (Aline).
+  // A identidade usa o pl_inicial DO PRÓPRIO MÊS (validado: bate com o aporte
+  // salvo em 99,3% dos meses normais; o pl_inicial encadeado quebraria 9% e
+  // por isso fica só como alerta — ver marcarEncadeamento).
+  // Quando o valor lido pelo LLM diverge da identidade por > R$ 0,01, marcamos
+  // _corrigido_por_identidade para o alerta visual (âmbar) — auditoria humana.
   const impVal = imp != null && !isNaN(imp) ? imp : 0;
   const aporteLLM = isNaN(aporte) ? 0 : aporte;
   const rentVal = isNaN(rent) ? 0 : rent;
-  const esperado = plIni + aporteLLM + rentVal - impVal;
-  const diff = Math.abs(plFim - esperado);
+  const aporteIdentidade = plFim - plIni - rentVal + impVal;
+  const diff = Math.abs(aporteIdentidade - aporteLLM);
   let corrigido = false;
   let aporteOriginalLlm: number | undefined;
-  if (diff > 1) {
-    const aporteCorreto = plFim - plIni - rentVal + impVal;
+  if (diff > 0.01) {
     console.warn(
-      `[NNM] ${mes}/${ano} corrigido por identidade contábil: `
-      + `LLM leu ${aporteLLM}, correto ${aporteCorreto} (diff R$ ${diff.toFixed(2)})`,
+      `[NNM] ${mes}/${ano} NNM derivado por identidade contábil: `
+      + `LLM leu ${aporteLLM}, identidade ${aporteIdentidade} (diff R$ ${diff.toFixed(2)})`,
     );
     aporteOriginalLlm = aporteLLM;
-    aporte = aporteCorreto;
     corrigido = true;
   }
+  // Fonte primária: sempre a identidade (no caso sem divergência, é igual ao
+  // que o LLM leu, então não muda nada).
+  aporte = aporteIdentidade;
 
   return {
     mes, ano,
@@ -210,6 +232,33 @@ function validarRegistro(r: Record<string, unknown>): RegistroMensal | null {
     _corrigido_por_identidade: corrigido || undefined,
     _aporte_original_llm: aporteOriginalLlm,
   };
+}
+
+/** Salvaguarda ALERTA-ONLY de encadeamento mês a mês.
+ *  Para cada mês (exceto o primeiro da sequência), confere se o pl_inicial
+ *  bate com o pl_total do mês anterior. Se não bate (tolerância R$ 0,01),
+ *  marca _encadeamento_quebrado + _pl_inicial_esperado para o alerta visual
+ *  (vermelho/laranja). NÃO altera o NNM nem o pl_inicial — é só sinalização.
+ *  Motivo de ser alerta-only: o encadeamento diverge legitimamente em ~9% dos
+ *  meses reais (gaps, movimentação entre contas, meses offshore-only), então
+ *  derivar o NNM dele regrediria a maioria — ver diagnóstico da Etapa 1. */
+function marcarEncadeamento(registros: RegistroMensal[]): RegistroMensal[] {
+  for (let i = 1; i < registros.length; i++) {
+    const prev = registros[i - 1];
+    const curr = registros[i];
+    // Só faz sentido conferir quando o mês anterior tem saldo final positivo
+    // e o mês atual não é uma reentrada (pl_inicial > 0).
+    if ((prev.pl_total ?? 0) <= 0.01 || (curr.pl_inicial_total ?? 0) <= 0.01) continue;
+    if (Math.abs(curr.pl_inicial_total - prev.pl_total) > 0.01) {
+      curr._encadeamento_quebrado = true;
+      curr._pl_inicial_esperado = prev.pl_total;
+      console.warn(
+        `[Encadeamento] ${curr.mes}/${curr.ano}: pl_inicial ${curr.pl_inicial_total} `
+        + `≠ pl_total anterior ${prev.pl_total} (diff R$ ${Math.abs(curr.pl_inicial_total - prev.pl_total).toFixed(2)}) — alerta-only`,
+      );
+    }
+  }
+  return registros;
 }
 
 async function tentarParsear(texto: string, temperatura: number): Promise<RegistroMensal[]> {
@@ -233,7 +282,8 @@ async function tentarParsear(texto: string, temperatura: number): Promise<Regist
     if (v) validos.push(v);
   }
 
-  return validos.sort((a, b) => a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes);
+  const ordenados = validos.sort((a, b) => a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes);
+  return marcarEncadeamento(ordenados);
 }
 
 export async function parseMultiPeriodoComClaude(

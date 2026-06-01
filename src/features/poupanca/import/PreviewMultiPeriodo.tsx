@@ -48,20 +48,35 @@ export function PreviewMultiPeriodo({ registros, nomeCliente, salvando, onSalvar
           <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
             {registros.map((r, i) => {
               const corrigido = r._corrigido_por_identidade === true;
+              const quebrado = r._encadeamento_quebrado === true;
               const tooltipCorrecao = corrigido
                 ? `NNM ajustado pela identidade contábil. Valor lido na importação: `
                   + `${formatCurrency(r._aporte_original_llm ?? 0)}. Valor corrigido: `
                   + `${formatCurrency(r.aporte_mes_total)}. Confira antes de salvar.`
                 : undefined;
+              const tooltipEncadeamento = quebrado
+                ? `AUM inicial (${formatCurrency(r.pl_inicial_total)}) não bate com o AUM final `
+                  + `do mês anterior (${formatCurrency(r._pl_inicial_esperado ?? 0)}). Pode ser gap de `
+                  + `meses, movimentação entre contas ou leitura suspeita. O NNM NÃO foi alterado por isso — confira.`
+                : undefined;
+              // Cor da linha: encadeamento quebrado (vermelho claro) tem prioridade
+              // sobre correção por identidade (âmbar).
+              const bgLinha = quebrado ? '#fee2e2' : corrigido ? '#fef3c7' : undefined;
               return (
-              <tr key={i} style={corrigido ? { backgroundColor: '#fef3c7' } : undefined}>
+              <tr key={i} style={bgLinha ? { backgroundColor: bgLinha } : undefined}>
                 <td className="px-3 py-2 text-xs font-medium">
                   {corrigido && (
                     <AlertTriangle size={12} className="inline mr-1 align-text-bottom" style={{ color: '#d97706' }} />
                   )}
                   {MESES[r.mes - 1]}/{r.ano}
                 </td>
-                <td className={TD}>{formatCurrency(r.pl_inicial_total)}</td>
+                <td className={TD} title={tooltipEncadeamento}
+                  style={quebrado ? { color: '#b91c1c', fontWeight: 600, cursor: 'help' } : undefined}>
+                  {quebrado && (
+                    <AlertTriangle size={12} className="inline mr-1 align-text-bottom" style={{ color: '#dc2626' }} />
+                  )}
+                  {formatCurrency(r.pl_inicial_total)}
+                </td>
                 <td className={TD} title={tooltipCorrecao}
                   style={corrigido ? { color: '#b45309', fontWeight: 600, cursor: 'help' } : undefined}>
                   {formatCurrency(nnmExibido(r))}
