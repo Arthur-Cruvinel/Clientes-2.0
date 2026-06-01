@@ -1,6 +1,8 @@
 // --- Modal: ranking de empresários (agregado a partir dos clientes da Visão Geral) ---
 import { useMemo, useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
+import { HeaderOrdenavel, type OrdenacaoState } from '../../components/ui/HeaderOrdenavel';
+import { FiltroCheckbox } from '../poupanca/FiltroCheckbox';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import type { DadosClienteComPoupanca } from '../../utils/dadosClienteAdapter';
 
@@ -19,8 +21,11 @@ interface LinhaRanking {
 type ChaveOrd = keyof LinhaRanking;
 
 export function RankingEmpresariosModal({ clientes, onFechar }: { clientes: DadosClienteComPoupanca[]; onFechar: () => void }) {
-  const [coluna, setColuna] = useState<ChaveOrd>('receita');
-  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
+  // Ordenação via componente compartilhado HeaderOrdenavel (consistente com a
+  // lista de clientes do Perfil). Default: receita desc.
+  const [ordenacao, setOrdenacao] = useState<OrdenacaoState<ChaveOrd>>({ coluna: 'receita', direcao: 'desc' });
+  // Filtro estilo Excel na coluna Empresário (null = todos, sem filtro).
+  const [filtroEmpresarios, setFiltroEmpresarios] = useState<Set<string> | null>(null);
   const [empresarioSelecionado, setEmpresarioSelecionado] = useState<string | null>(null);
 
   // Clientes do empresário no drill-down (ordenados por receita desc).
@@ -66,27 +71,26 @@ export function RankingEmpresariosModal({ clientes, onFechar }: { clientes: Dado
     }));
   }, [clientes]);
 
+  // Valores únicos para o filtro Excel da coluna Empresário (ordem alfabética).
+  const empresariosDisponiveis = useMemo(
+    () => linhas.map(l => l.empresario).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [linhas],
+  );
+
+  // Filtra (por Empresário) e então ordena pela coluna ativa.
   const ordenadas = useMemo(() => {
-    const arr = [...linhas];
+    const arr = linhas.filter(l => !filtroEmpresarios || filtroEmpresarios.has(l.empresario));
+    const mult = ordenacao.direcao === 'asc' ? 1 : -1;
     arr.sort((a, b) => {
-      const va = a[coluna]; const vb = b[coluna];
-      if (typeof va === 'number' && typeof vb === 'number') return dir === 'asc' ? va - vb : vb - va;
-      return dir === 'asc'
-        ? String(va).localeCompare(String(vb), 'pt-BR')
-        : String(vb).localeCompare(String(va), 'pt-BR');
+      const va = a[ordenacao.coluna]; const vb = b[ordenacao.coluna];
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * mult;
+      return String(va).localeCompare(String(vb), 'pt-BR') * mult;
     });
     return arr;
-  }, [linhas, coluna, dir]);
+  }, [linhas, ordenacao, filtroEmpresarios]);
 
-  const ordenar = (c: ChaveOrd) => {
-    if (c === coluna) setDir(d => (d === 'asc' ? 'desc' : 'asc'));
-    else { setColuna(c); setDir(c === 'empresario' ? 'asc' : 'desc'); }
-  };
-
-  const TH = 'px-3 py-2 text-[10px] font-bold uppercase tracking-wider cursor-pointer select-none';
   const THD = 'px-3 py-2 text-[10px] font-bold uppercase tracking-wider';
   const TD = 'px-3 py-2 text-xs';
-  const seta = (c: ChaveOrd) => (coluna === c ? (dir === 'asc' ? ' ▲' : ' ▼') : '');
 
   const cols: { chave: ChaveOrd; label: string; align: 'left' | 'right' }[] = [
     { chave: 'empresario', label: 'Empresário', align: 'left' },
@@ -140,12 +144,19 @@ export function RankingEmpresariosModal({ clientes, onFechar }: { clientes: Dado
       ) : (
       <div className="overflow-x-auto">
         <table className="min-w-full">
-          <thead style={{ backgroundColor: '#160F41', color: '#fff' }}>
+          <thead className="sticky top-0 z-10" style={{ backgroundColor: '#f9f9fb' }}>
             <tr>
               {cols.map(col => (
-                <th key={col.chave} onClick={() => ordenar(col.chave)}
-                  className={`${TH} ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
-                  {col.label}{seta(col.chave)}
+                <th key={col.chave} className={`${THD} ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                  style={{ position: 'relative' }}>
+                  <div className={`flex items-center ${col.align === 'right' ? 'justify-end' : 'justify-start'}`}>
+                    <HeaderOrdenavel titulo={col.label} chave={col.chave} alinhamento={col.align}
+                      ordenacao={ordenacao} onOrdenar={setOrdenacao} />
+                    {col.chave === 'empresario' && (
+                      <FiltroCheckbox valores={empresariosDisponiveis}
+                        selecionados={filtroEmpresarios} onAplicar={setFiltroEmpresarios} />
+                    )}
+                  </div>
                 </th>
               ))}
             </tr>
