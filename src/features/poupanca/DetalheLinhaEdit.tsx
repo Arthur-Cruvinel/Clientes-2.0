@@ -103,8 +103,13 @@ export function DetalheLinhaEdit({ registro: r, periodo, colSpan, visao, onSalvo
       dados.pl_onshore = plOn;
       dados.aporte_mes_onshore = nnmOn;
       dados.rentabilidade_onshore = rentOn;
+      // Mês de entrada (pl_inicial_onshore <= 0.01): NÃO regravar rentabilidade_pct
+      // como rentBRL/NNM — isso inflaria a rent% (bug do Eduardo). Preserva o % da
+      // lâmina já gravado (mesma regra do ramo primeiroMes em pickR). Em mês normal,
+      // mantém o recálculo rentBRL/(pl_inicial + NNM).
+      const primeiroMesOnshore = (plIniOn ?? 0) <= 0.01;
       const denomOn = (plIniOn ?? 0) + (nnmOn ?? 0);
-      if (denomOn > 0) dados.rentabilidade_pct = (rentOn ?? 0) / denomOn;
+      if (!primeiroMesOnshore && denomOn > 0) dados.rentabilidade_pct = (rentOn ?? 0) / denomOn;
     }
 
     if (isOff || isCons) {

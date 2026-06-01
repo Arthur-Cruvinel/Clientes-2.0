@@ -737,7 +737,14 @@ export function usePoupanca(
         // expor `mm6_cdi_pct` e `spread` como métricas informativas
         // (vs CDI). Não entram mais no compounding da projeção, que agora
         // usa benchmark puro por dimensão.
-        const cdiPromessas = mm6.ultimos6.map(r => buscarCDIMensal(r.ano, r.mes).catch(() => 0));
+        // Pro-rata por dias úteis quando o mês é parcial (dia_inicio>1 ou
+        // dia_corte definido), espelhando PoupancaClienteDetalhe — assim o
+        // mês de entrada compara contra o CDI proporcional, não o cheio.
+        const cdiPromessas = mm6.ultimos6.map(r => buscarCDIMensal(
+          r.ano, r.mes,
+          r.dia_inicio != null && r.dia_inicio > 1 ? r.dia_inicio : undefined,
+          r.dia_corte != null && r.dia_corte > 0 ? r.dia_corte : undefined,
+        ).catch(() => 0));
         const cdis = await Promise.all(cdiPromessas);
         if (cancelado) return;
         const validCdis = cdis.filter(v => v > 0);

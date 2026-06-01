@@ -314,10 +314,12 @@ export function useImportPoupanca() {
           const docId = `${slugBase}_${r.ano}_${r.mes}`;
 
           // ── Detecção de mês de tombamento (Comdinheiro) ──
-          // Convenção do sistema (alinhada ao resto do código):
-          //   aporte_mes_onshore armazenado = NNM BRUTO (B - C, INCLUI tomb)
-          //   nnm_tombamento_onshore       = valor do tombamento separado
+          // Convenção do sistema (regra de mês de entrada — espelha offshore):
+          //   aporte_mes_onshore armazenado = NNM CHEIO (B - C, INCLUI a abertura)
+          //   nnm_tombamento_onshore       = tombamento da abertura, à PARTE
           //   poupança líquida = aporte - tomb (computada em tempo de display)
+          // O tombamento NÃO sai do NNM — é informação paralela usada só para
+          // excluir da meta/poupança líquida. O NNM exibido é o valor cheio.
           //
           // Fonte prioritária: campo `nnm_linha_abertura` do parser. Quando > 0,
           // indica que a linha "(i) DD/MM/YYYY" tem data != dia 1 do mês
@@ -354,14 +356,16 @@ export function useImportPoupanca() {
           let tombVal = 0;
 
           if (tombAbertura != null && tombAbertura > TOL && tombAbertura <= NNM + 1) {
-            // Fonte prioritária: parser extraiu a linha de abertura.
-            // Claude soma E_(i) + E_mes em aporte_mes_total, fazendo o tombamento
-            // aparecer 2 vezes (uma na soma, outra em nnm_linha_abertura).
-            // Identidade: NNM_bruto + tombamento = aporte_mes_total → NNM_bruto = NNM - tomb
-            // Convenção do sistema: aporte armazenado = NNM bruto (= B - C, sem double count).
+            // Fonte prioritária: parser extraiu a linha de abertura (carteira nova).
+            // REGRA MÊS DE ENTRADA: o depósito de abertura é NNM CHEIO — NÃO é
+            // subtraído do aporte. `aporte_mes_total` (NNM) já é o B − C cheio
+            // (soma das duas linhas, inclui a abertura). O tombamento vira
+            // informação PARALELA em nnm_tombamento_onshore, usada só para
+            // excluir da meta/poupança líquida — nunca do NNM. Espelha a lógica
+            // de calcOffshore.primeiroMes (que também não tira a abertura do NNM).
             storedPi = 0;
-            storedAporte = NNM - tombAbertura;
-            tombVal = tombAbertura;
+            storedAporte = NNM;            // cheio — não subtrai o tombamento
+            tombVal = tombAbertura;        // rastreado à parte (não sai do NNM)
           } else {
             // Fallback matemático
             const d0 = Math.abs((A + NNM + F - D) - G);

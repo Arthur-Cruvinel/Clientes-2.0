@@ -121,10 +121,18 @@ export function calcOffshore(r: RegistroPoupanca, prev: RegistroPoupanca | null 
 
 export function pickR(r: RegistroPoupanca, v: Visao, prev?: RegistroPoupanca | null) {
   if (v === 'onshore') {
+    const piOn = r.pl_inicial_onshore ?? 0;
+    if (piOn <= 0.01) {
+      // Mês de entrada (espelha calcOffshore.primeiroMes): não havia capital
+      // exposto antes do mês, então a rent% vem do % da lâmina — NÃO se divide
+      // rentBRL pelo NNM (isso inflaria a rent%, bug do Eduardo). NNM fica cheio.
+      return { pi: 0, pf: r.pl_onshore ?? 0, nnm: nnmRealOnshore(r),
+        rb: r.rentabilidade_onshore ?? 0, rp: r.rentabilidade_pct ?? null };
+    }
     // d (denominador da rent%) usa o capital BRUTO exposto durante o mês —
     // transferência interna não muda o capital exposto, portanto fica bruto.
-    const d = (r.pl_inicial_onshore ?? 0) + (r.aporte_mes_onshore ?? 0);
-    return { pi: r.pl_inicial_onshore ?? 0, pf: r.pl_onshore ?? 0, nnm: nnmRealOnshore(r),
+    const d = piOn + (r.aporte_mes_onshore ?? 0);
+    return { pi: piOn, pf: r.pl_onshore ?? 0, nnm: nnmRealOnshore(r),
       rb: r.rentabilidade_onshore ?? 0, rp: d > 0 ? (r.rentabilidade_onshore ?? 0) / d : null };
   }
   if (v === 'offshore') {
@@ -148,9 +156,13 @@ export function pickR(r: RegistroPoupanca, v: Visao, prev?: RegistroPoupanca | n
     // Only offshore
     rpCons = off.rp;
   } else if (off.plUsdFinal <= 0.01 && piOn > 0.01) {
-    // Only onshore
+    // Only onshore (mês normal)
     const dOn = piOn + (r.aporte_mes_onshore ?? 0);
     rpCons = dOn > 0 ? rentOnshore / dOn : null;
+  } else if (piOn <= 0.01 && off.plUsdFinal <= 0.01 && piOffBrl <= 0.01) {
+    // Mês de entrada puramente onshore (sem posição offshore): espelha o ramo
+    // primeiroMes onshore — rent% da lâmina, não rentBRL/NNM.
+    rpCons = r.rentabilidade_pct ?? null;
   } else {
     // Ambos
     const baseCons = (r.pl_inicial_total ?? 0) + nnmCons;
