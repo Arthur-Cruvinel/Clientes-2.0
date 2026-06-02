@@ -48,7 +48,9 @@ FONTE DE VERDADE — leia estes 4 campos com MÁXIMA atenção (o NNM do mês é
 DERIVADO deles pela identidade contábil, NÃO da soma de movimentações):
 - pl_total = coluna G da linha "Mês/Ano" (saldo final do mês) ← CRÍTICO, leia todos os dígitos
 - pl_inicial_total = coluna A da linha "(i)" (saldo de abertura PURO, antes de qualquer
-  movimentação). NO MÊS DE ENTRADA (carteira aberta no meio do mês) = 0.
+  movimentação). É a coluna A REAL — NÃO zere por causa da data: se A > R$ 1, use A
+  (continuação, mesmo que a linha (i) seja "02/01" porque o dia 1 foi feriado/fim de
+  semana). Só é 0 quando A da linha (i) for genuinamente ≈ 0 (ABERTURA REAL de carteira).
 - rentabilidade_total = SOMA do campo F (Rendimento Nominal) das DUAS linhas
 - impostos_mes = SOMA do campo D (Impostos) das DUAS linhas
 
@@ -59,12 +61,11 @@ CAMPO DE CROSS-CHECK (NÃO é a fonte do NNM):
   Forneça o melhor valor que conseguir ler; o sistema compara com a identidade e,
   se divergir, usa a identidade e sinaliza para conferência. NÃO force esse valor
   para bater com a identidade — reporte o que a coluna E realmente mostra.
-- nnm_linha_abertura = campo E da linha "(i)" SE a data dessa linha NÃO for o dia 1 do mês
-                       (ex: "(i) 10/10/2025" → extrair E; "(i) 01/04/2026" → null)
-                       Indica tombamento em carteira nova. null em meses normais.
-- dia_inicio = dia DD da linha "(i) DD/MM/YYYY" SE a data NÃO for o dia 1 do mês
-               (ex: "(i) 10/10/2025" → 10; "(i) 01/04/2026" → null)
-               null em meses normais.
+- nnm_linha_abertura = campo E da linha "(i)" SOMENTE quando A (Saldo Inicial) da
+                       linha "(i)" for ≈ 0 (≤ R$ 1), ou seja, ABERTURA REAL de carteira.
+                       Se A > R$ 1 (continuação), use null. null em meses normais.
+- dia_inicio = dia DD da linha "(i) DD/MM/YYYY" SOMENTE quando A da linha "(i)" for ≈ 0
+               (abertura real). Se A > R$ 1 (continuação), use null. null em meses normais.
 
 EXEMPLO REAL:
 (i) 01/04/2026   23.132.427,07   8.245,32   399.999,88   0,00   -391.754,56   26.070,91   22.766.743,42
@@ -77,8 +78,8 @@ Resultado correto para Abril/2026:
 - impostos_mes = 0 + 6731.66 = 6731.66
 - aporte_mes_total (cross-check, soma E) = -391754.56 + 989.13 = -390765.43
 - conferência pela identidade: 22838438.26 − 23132427.07 − 103508.28 + 6731.66 = -390765.43 ✓
-- nnm_linha_abertura = null (linha (i) é de 01/04 — dia 1, então não é abertura)
-- dia_inicio = null (linha (i) é de 01/04 — dia 1)
+- nnm_linha_abertura = null (A da linha (i) = 23.132.427,07 > 0 → continuação, não abertura)
+- dia_inicio = null (continuação)
 
 COMO IDENTIFICAR a linha "(i)" de cada mês:
 - A linha "(i)" que aparece ANTES de "Abr/2026" pertence a Abril
@@ -86,11 +87,18 @@ COMO IDENTIFICAR a linha "(i)" de cada mês:
 - E assim por diante
 
 CASO ESPECIAL — CARTEIRA ABERTA NO MEIO DO MÊS (TOMBAMENTO):
-Quando a linha "(i)" NÃO é do primeiro dia do mês (ex: "(i) 10/10/2025"
-em vez de "(i) 01/10/2025"), a carteira abriu nesse mês. Nesse caso:
+O SINAL de abertura de carteira é a coluna **A (Saldo Inicial) da linha "(i)" ≈ 0**,
+NÃO a data da linha. Carteira nova não tinha saldo antes → A = 0 e o campo E da
+linha "(i)" traz o tombamento (aporte de abertura). Nesse caso:
 - pl_inicial_total = 0 (carteira NÃO EXISTIA antes da abertura)
-- O valor da coluna A da linha "(i)" é geralmente 0 também
-- O campo E da linha "(i)" contém o valor do tombamento (aporte de abertura)
+- nnm_linha_abertura = E da linha "(i)"; dia_inicio = DD da linha "(i)"
+
+ATENÇÃO — NÃO confunda feriado no dia 1 com abertura:
+Quando o dia 1 do mês é feriado/fim de semana, a linha "(i)" vem com a data do
+primeiro dia útil (ex: "(i) 02/01" porque 01/01 é Ano Novo), mas a carteira JÁ
+EXISTIA. O sinal é a coluna A: se A > R$ 1, é CONTINUAÇÃO:
+- pl_inicial_total = A da linha "(i)" (o saldo inicial real, ex: 21.402.074,90)
+- nnm_linha_abertura = null; dia_inicio = null (mês cheio, sem pro-rata)
 
 REGRA LINHA (i) COM DATA FUTURA:
 Se a linha "(i) DD/MM/YYYY" tiver data POSTERIOR ao mês de referência
@@ -109,13 +117,23 @@ EXEMPLO TOMBAMENTO (carteira aberta em 10/10/2025):
 Out/2025         2.684.056,72  1.934.084,50  1.170.551,53  22,36    763.532,97     28.902,25  3.476.472,58
 
 Resultado correto para Out/2025:
-- pl_inicial_total = 0 (não 2.684.056,72 — aquele é saldo APÓS abertura)
+- pl_inicial_total = 0 (A da linha (i) = 0,00 → ABERTURA REAL)
 - aporte_mes_total = 2.684.059,71 + 763.532,97 = 3.447.592,68 (soma E das 2 linhas)
 - rentabilidade_total = -2,99 + 28.902,25 = 28.899,26 (soma F das 2 linhas)
 - impostos_mes = 0 + 22,36 = 22,36
 - pl_total = 3.476.472,58
-- nnm_linha_abertura = 2.684.059,71 (E da linha "(i) 10/10/2025" — data != dia 1)
+- nnm_linha_abertura = 2.684.059,71 (A=0 → abertura; E da linha "(i)" é o tombamento)
 - dia_inicio = 10 (dia da linha "(i) 10/10/2025")
+
+EXEMPLO CONTINUAÇÃO COM FERIADO NO DIA 1 (NÃO é abertura — A > 0):
+(i) 02/01/2026   21.402.074,90   ...        ...          ...      ...            ...        ...
+Jan/2026         ...             ...        ...          ...      ...            ...        26.415.199,36
+
+Resultado correto para Jan/2026:
+- pl_inicial_total = 21.402.074,90 (A da linha (i) > 0 → CONTINUAÇÃO, apesar de "02/01")
+- nnm_linha_abertura = null (NÃO é abertura — a carteira já existia)
+- dia_inicio = null (mês cheio para o cliente; sem pro-rata de CDI)
+- aporte derivado pela identidade: pl_total − pl_inicial − rent + impostos
 
 REGRA DE SANIDADE ao extrair aporte_mes_total:
 - aporte_mes_total = (soma de E das 2 linhas) = B_total - C_total
@@ -182,8 +200,20 @@ function validarRegistro(r: Record<string, unknown>): RegistroMensal | null {
 
   const cdi = r.cdi_mes_pct != null ? Number(r.cdi_mes_pct) : null;
   const imp = r.impostos_mes != null ? Number(r.impostos_mes) : null;
-  const nnmAbertura = r.nnm_linha_abertura != null ? Number(r.nnm_linha_abertura) : null;
-  const diaIni = r.dia_inicio != null ? Number(r.dia_inicio) : null;
+  let nnmAbertura = r.nnm_linha_abertura != null ? Number(r.nnm_linha_abertura) : null;
+  let diaIni = r.dia_inicio != null ? Number(r.dia_inicio) : null;
+
+  // Defesa em profundidade — detecção de carteira nova por A(linha i)≈0, não por
+  // data. Se há saldo inicial (pl_inicial > R$ 1), é CONTINUAÇÃO: anula qualquer
+  // abertura/pro-rata que o LLM tenha marcado por engano (ex.: "(i) 02/01" quando
+  // o dia 1 foi feriado). Abertura real (pl_inicial ≈ 0) preserva os campos.
+  if (plIni > 1) {
+    if (nnmAbertura != null || diaIni != null) {
+      console.warn(`[Entrada] ${mes}/${ano}: pl_inicial=${plIni} > 0 → continuação; ignorando nnm_linha_abertura/dia_inicio marcados pelo LLM.`);
+    }
+    nnmAbertura = null;
+    diaIni = null;
+  }
 
   // ── Identidade contábil como FONTE PRIMÁRIA do NNM ───────────────────────
   // A identidade do Comdinheiro é EXATA (impostos entram na conta; o
