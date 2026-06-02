@@ -2,6 +2,7 @@
 // Extrai registros mensais da tabela "Aplicações e Resgates" e "Performance Histórica".
 
 import { chamarClaude } from './parseComClaude';
+import { classificarLinhaI } from './classificarLinhaI';
 
 export interface RegistroMensal {
   mes: number;                    // 1–12
@@ -66,6 +67,17 @@ CAMPO DE CROSS-CHECK (NÃO é a fonte do NNM):
                        Se A > R$ 1 (continuação), use null. null em meses normais.
 - dia_inicio = dia DD da linha "(i) DD/MM/YYYY" SOMENTE quando A da linha "(i)" for ≈ 0
                (abertura real). Se A > R$ 1 (continuação), use null. null em meses normais.
+
+CÉLULAS CRUAS DA LINHA "(i)" — EXTRAIA SEMPRE (o SISTEMA classifica, você só extrai):
+- data_linha_i = data da linha "(i)" como "DD/MM/AAAA" (ex: "30/04/2026"). null se não houver linha "(i)".
+- g_linha_i = coluna G (Saldo Final) da linha "(i)". null se não houver.
+- f_linha_i = coluna F (Rendimento Nominal) da linha "(i)". null se não houver.
+- d_linha_i = coluna D (Impostos) da linha "(i)". null se não houver.
+NÃO tente decidir entrada/continuação/ponte — apenas reporte essas células com fidelidade.
+O sistema compara o MÊS de data_linha_i com o mês de referência e classifica sozinho:
+  • data_linha_i no MÊS de referência → usa a linha "(i)" (entrada se A≈0, senão continuação).
+  • data_linha_i no MÊS ANTERIOR (ex: "(i) 30/04" numa lâmina de Maio) → PONTE: o sistema
+    usa só a linha "Mês" (A=g_linha_i) e descarta E/F/D da "(i)" (são do mês anterior).
 
 EXEMPLO REAL:
 (i) 01/04/2026   23.132.427,07   8.245,32   399.999,88   0,00   -391.754,56   26.070,91   22.766.743,42
@@ -135,6 +147,19 @@ Resultado correto para Jan/2026:
 - dia_inicio = null (mês cheio para o cliente; sem pro-rata de CDI)
 - aporte derivado pela identidade: pl_total − pl_inicial − rent + impostos
 
+EXEMPLO PONTE — linha "(i)" datada no MÊS ANTERIOR (Ronaldo, lâmina de Maio):
+(i) 30/04/2026   22.875.798,38   ...   ...   0,00   −3.499.999,98   12.706,54   19.388.504,94
+Mai/2026         19.388.504,94   ...   ...   3.943,86   4.026.151,67   235.084,68   23.645.797,42
+
+Células a extrair (você NÃO classifica — só reporta):
+- pl_inicial_total = 22.875.798,38 (A da linha "(i)")
+- pl_total = 23.645.797,42 (G da linha "Mai")
+- rentabilidade_total = 12.706,54 + 235.084,68 = 247.791,22 (soma F)
+- impostos_mes = 0,00 + 3.943,86 = 3.943,86 (soma D)
+- data_linha_i = "30/04/2026" ; g_linha_i = 19.388.504,94 ; f_linha_i = 12.706,54 ; d_linha_i = 0,00
+O SISTEMA detecta que 04/2026 < 05/2026 (mês anterior) → PONTE → usa pl_inicial = g_linha_i
+(19.388.504,94), rent = 247.791,22 − 12.706,54 = 235.084,68, e NNM = 4.026.151,67 (só Maio).
+
 REGRA DE SANIDADE ao extrair aporte_mes_total:
 - aporte_mes_total = (soma de E das 2 linhas) = B_total - C_total
 - NUNCA inclua a coluna A no cálculo de aporte_mes_total
@@ -175,7 +200,11 @@ Retorne SOMENTE este JSON:
       "cdi_mes_pct": 0.0096,
       "impostos_mes": 12.45,
       "nnm_linha_abertura": null,
-      "dia_inicio": null
+      "dia_inicio": null,
+      "data_linha_i": "01/04/2026",
+      "g_linha_i": 22766743.42,
+      "f_linha_i": 26070.91,
+      "d_linha_i": 0.00
     }
   ]
 }
@@ -187,8 +216,8 @@ ${texto}`;
 function validarRegistro(r: Record<string, unknown>): RegistroMensal | null {
   const mes = Number(r.mes);
   const ano = Number(r.ano);
-  const plIni = Number(r.pl_inicial_total);
-  let aporte = Number(r.aporte_mes_total);   // let: corrigível pela identidade
+  const plIni = Number(r.pl_inicial_total);   // A da linha "(i)" (input do caso C)
+  const aporteLLM = Number(r.aporte_mes_total); // soma E das 2 linhas — só cross-check
   const rent = Number(r.rentabilidade_total);
   const plFim = Number(r.pl_total);
   const rentPct = Number(r.rentabilidade_pct);
@@ -200,65 +229,56 @@ function validarRegistro(r: Record<string, unknown>): RegistroMensal | null {
 
   const cdi = r.cdi_mes_pct != null ? Number(r.cdi_mes_pct) : null;
   const imp = r.impostos_mes != null ? Number(r.impostos_mes) : null;
-  let nnmAbertura = r.nnm_linha_abertura != null ? Number(r.nnm_linha_abertura) : null;
-  let diaIni = r.dia_inicio != null ? Number(r.dia_inicio) : null;
-
-  // Defesa em profundidade — detecção de carteira nova por A(linha i)≈0, não por
-  // data. Se há saldo inicial (pl_inicial > R$ 1), é CONTINUAÇÃO: anula qualquer
-  // abertura/pro-rata que o LLM tenha marcado por engano (ex.: "(i) 02/01" quando
-  // o dia 1 foi feriado). Abertura real (pl_inicial ≈ 0) preserva os campos.
-  if (plIni > 1) {
-    if (nnmAbertura != null || diaIni != null) {
-      console.warn(`[Entrada] ${mes}/${ano}: pl_inicial=${plIni} > 0 → continuação; ignorando nnm_linha_abertura/dia_inicio marcados pelo LLM.`);
-    }
-    nnmAbertura = null;
-    diaIni = null;
-  }
-
-  // ── Identidade contábil como FONTE PRIMÁRIA do NNM ───────────────────────
-  // A identidade do Comdinheiro é EXATA (impostos entram na conta; o
-  // rendimento_nominal F NÃO é líquido de imposto):
-  //   pl_total = pl_inicial + aporte + rentabilidade − impostos
-  // Logo:
-  //   aporte = pl_total − pl_inicial − rentabilidade + impostos
-  // O NNM é DERIVADO dessa identidade — não da soma E(i)+E(mes) lida pelo LLM,
-  // que sofria dois bugs: truncamento de números grandes (Eduardo) e
-  // duplicação quando a linha-mês já traz o saldo de abertura (Aline).
-  // A identidade usa o pl_inicial DO PRÓPRIO MÊS (validado: bate com o aporte
-  // salvo em 99,3% dos meses normais; o pl_inicial encadeado quebraria 9% e
-  // por isso fica só como alerta — ver marcarEncadeamento).
-  // Quando o valor lido pelo LLM diverge da identidade por > R$ 0,01, marcamos
-  // _corrigido_por_identidade para o alerta visual (âmbar) — auditoria humana.
   const impVal = imp != null && !isNaN(imp) ? imp : 0;
-  const aporteLLM = isNaN(aporte) ? 0 : aporte;
   const rentVal = isNaN(rent) ? 0 : rent;
-  const aporteIdentidade = plFim - plIni - rentVal + impVal;
-  const diff = Math.abs(aporteIdentidade - aporteLLM);
+
+  // Células CRUAS da linha "(i)" — o LLM só extrai; ESTE código classifica.
+  const gI = r.g_linha_i != null ? Number(r.g_linha_i) : null;
+  const fI = r.f_linha_i != null ? Number(r.f_linha_i) : null;
+  const dI = r.d_linha_i != null ? Number(r.d_linha_i) : null;
+  const dataI = typeof r.data_linha_i === 'string' ? r.data_linha_i : null;
+
+  // ── Classificação determinística por DATA da linha "(i)" ─────────────────
+  // Mês corrente → entrada (A(i)≈0) ou continuação (usa A(i)+soma, inclui 1º dia).
+  // Mês anterior → PONTE (usa só a linha "Mês"; descarta E/F/D da "(i)").
+  // Data futura/ausente → linha "Mês" como veio. NNM SEMPRE pela identidade.
+  const cls = classificarLinhaI({
+    mes, ano,
+    pl_inicial_total: plIni,
+    rentabilidade_total: rentVal,
+    impostos_mes: impVal,
+    pl_total: plFim,
+    data_linha_i: dataI,
+    g_linha_i: gI != null && !isNaN(gI) ? gI : null,
+    f_linha_i: fI != null && !isNaN(fI) ? fI : null,
+    d_linha_i: dI != null && !isNaN(dI) ? dI : null,
+  });
+
+  // Cross-check: a soma E lida pelo LLM diverge do NNM (identidade)? → âmbar.
+  const aporteLLMv = isNaN(aporteLLM) ? 0 : aporteLLM;
+  const diff = Math.abs(cls.nnm - aporteLLMv);
   let corrigido = false;
   let aporteOriginalLlm: number | undefined;
   if (diff > 0.01) {
     console.warn(
-      `[NNM] ${mes}/${ano} NNM derivado por identidade contábil: `
-      + `LLM leu ${aporteLLM}, identidade ${aporteIdentidade} (diff R$ ${diff.toFixed(2)})`,
+      `[NNM] ${mes}/${ano} (${cls.caso}) NNM=${cls.nnm.toFixed(2)} `
+      + `vs soma E do LLM=${aporteLLMv.toFixed(2)} (diff R$ ${diff.toFixed(2)})`,
     );
-    aporteOriginalLlm = aporteLLM;
+    aporteOriginalLlm = aporteLLMv;
     corrigido = true;
   }
-  // Fonte primária: sempre a identidade (no caso sem divergência, é igual ao
-  // que o LLM leu, então não muda nada).
-  aporte = aporteIdentidade;
 
   return {
     mes, ano,
-    pl_inicial_total: plIni,
-    aporte_mes_total: isNaN(aporte) ? 0 : aporte,
-    rentabilidade_total: isNaN(rent) ? 0 : rent,
+    pl_inicial_total: cls.pl_inicial,
+    aporte_mes_total: cls.nnm,
+    rentabilidade_total: cls.rentabilidade,
     pl_total: plFim,
     rentabilidade_pct: rentPct,
     cdi_mes_pct: cdi != null && !isNaN(cdi) ? cdi : null,
-    impostos_mes: imp != null && !isNaN(imp) && imp > 0 ? imp : null,
-    nnm_linha_abertura: nnmAbertura != null && !isNaN(nnmAbertura) ? nnmAbertura : null,
-    dia_inicio: diaIni != null && !isNaN(diaIni) && diaIni >= 1 && diaIni <= 31 ? diaIni : null,
+    impostos_mes: cls.impostos > 0 ? cls.impostos : null,
+    nnm_linha_abertura: cls.nnm_linha_abertura,
+    dia_inicio: cls.dia_inicio != null && cls.dia_inicio >= 1 && cls.dia_inicio <= 31 ? cls.dia_inicio : null,
     _corrigido_por_identidade: corrigido || undefined,
     _aporte_original_llm: aporteOriginalLlm,
   };
