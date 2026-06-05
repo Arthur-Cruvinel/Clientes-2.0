@@ -7,7 +7,7 @@ import { buscarCDIMensal } from '../../services/cdi';
 import { buscarFedFundsRate } from '../../services/fedFundsRate';
 import { ultimoDiaDoMes } from '../../services/diasUteis';
 import { calcularAcumulado, alinharCDI } from '../../utils/acumulado';
-import { pickR } from './DetalheTabela';
+import { pickR, calcOffshore } from './DetalheTabela';
 import { siglaPorNome } from './import/MAPEAMENTO_SIGLAS';
 import { formatCurrency } from '../../utils/formatters';
 import { DetalheGrafico } from './DetalheGrafico';
@@ -36,6 +36,9 @@ interface Props {
 
 export interface LinhaDetalhe {
   periodo: string; r: RegistroPoupanca; idx: number; ganhoCambial: number | null;
+  // Sinaliza quando o GC veio do fallback clássico por anomalia estrutural
+  // (mês faltando / transferência interna) — câmbio não confiável, revisar.
+  gcAnomalia?: boolean; gcAnomaliaReason?: string | null;
 }
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -186,19 +189,11 @@ export function PoupancaClienteDetalhe({
     sortedAsc.map((r, i) => {
       const periodo = `${MESES[r.mes - 1]}/${String(r.ano).slice(2)}`;
       const prev = i > 0 ? sortedAsc[i - 1] : null;
-      // Ganho cambial incide sobre prev.pl_offshore_usd (pré-accrued).
-      // O accrued interest está capturado em aporte_mes_offshore, não aqui.
-      const ptax = r.ptax_fechamento ?? 0;
-      const ptaxPrev = prev?.ptax_fechamento ?? 0;
-      let startUsd = prev?.pl_offshore_usd ?? 0;
-      if (startUsd <= 0.01 && (r.pl_inicial_offshore ?? 0) > 0.01 && ptaxPrev > 0) {
-        startUsd = (r.pl_inicial_offshore ?? 0) / ptaxPrev;
-      }
-      // Ganho cambial: startUsd × (ptaxAtual - ptaxAnterior)
-      // Null se: sem posição inicial, ou sem PTAX anterior/atual
-      const gc = (startUsd > 0.01 && ptax > 0 && ptaxPrev > 0)
-        ? startUsd * (ptax - ptaxPrev) : null;
-      return { periodo, r, idx: i, ganhoCambial: gc };
+      // Ganho cambial = resíduo que fecha a identidade BRL (com guard estrutural),
+      // fonte única em calcOffshore — mesma do pickR e da tabela geral.
+      const off = calcOffshore(r, prev);
+      return { periodo, r, idx: i, ganhoCambial: off.gcBrl,
+        gcAnomalia: off.gcAnomalia, gcAnomaliaReason: off.gcAnomaliaReason };
     }),
   [sortedAsc]);
 

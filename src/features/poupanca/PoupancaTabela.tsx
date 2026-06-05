@@ -8,8 +8,8 @@ import { ExportButton } from '../../components/ui/ExportButton';
 import { exportAumExcel } from '../../utils/exporters/exportExcel';
 import { exportAumPdf } from '../../utils/exporters/exportPdf';
 import { calcularAcumulado } from '../../utils/acumulado';
-import { pickR } from './DetalheTabela';
-import { nnmPoupancaLiquida } from '../../utils/financials';
+import { pickR, calcOffshore } from './DetalheTabela';
+import { nnmPoupancaLiquida, nnmRealOffshore } from '../../utils/financials';
 
 export type Visao = 'consolidado' | 'onshore' | 'offshore';
 
@@ -47,30 +47,6 @@ function twrUltimo(rps: (number | null)[]): number | null {
   return acum[acum.length - 1];
 }
 
-function calcGC(sorted: RegistroPoupanca[], regAnterior?: RegistroPoupanca | null): number | null {
-  let total = 0, tem = false;
-  for (let i = 0; i < sorted.length; i++) {
-    const curr = sorted[i];
-    // No primeiro mês do intervalo, usa o registro anterior (de fora do
-    // intervalo) como prev — sem isso, ganho cambial do mês ficava sempre 0.
-    const prev = i > 0 ? sorted[i - 1] : (regAnterior ?? null);
-    const ptaxAtual = curr.ptax_fechamento ?? 0;
-    const ptaxPrev = prev?.ptax_fechamento ?? 0;
-    // Ganho cambial incide sobre prev.pl_offshore_usd (pré-accrued).
-    // O accrued interest está capturado em aporte_mes_offshore, não aqui.
-    // Fallback: pl_inicial_offshore BRL / ptaxPrev (gravado no ptax anterior).
-    let startUsd = prev?.pl_offshore_usd ?? 0;
-    if (startUsd <= 0.01 && (curr.pl_inicial_offshore ?? 0) > 0.01 && ptaxPrev > 0) {
-      startUsd = (curr.pl_inicial_offshore ?? 0) / ptaxPrev;
-    }
-    if (startUsd > 0.01 && ptaxAtual > 0 && ptaxPrev > 0) {
-      total += startUsd * (ptaxAtual - ptaxPrev);
-      tem = true;
-    }
-  }
-  return tem ? total : null;
-}
-
 export interface LinhaTabela {
   nome: string;
   // Consolidado
@@ -86,6 +62,9 @@ export interface LinhaTabela {
   rentBrlOffUsd: number; // rent em USD (não BRL)
   // Cambial + meta
   ganhoCambial: number | null;
+  // Sinaliza GC vindo do fallback clássico por anomalia estrutural offshore
+  // (mês faltando / transferência interna) — câmbio não confiável, revisar.
+  gcAnomalia?: boolean;
   temOffshore: boolean;
   metaMensal: number | null;
   metaPeriodo: number | null;
@@ -111,8 +90,12 @@ export function PoupancaTabela({
       let nnmOn = 0, rOn = 0, tomb = 0;
       let imp = 0, temImp = false;
 
-      // Offshore: acumular por mês com mesma lógica do DetalheTabela pickR
+      // Offshore: acumular por mês via calcOffshore (fonte única, mesma do detalhe)
       let nnmOffBrl = 0, rentOffBrl = 0, nnmOffUsdTotal = 0, rentOffUsdTotal = 0;
+      let gcOff = 0, temGcOff = false, gcAnomaliaOff = false;
+      // Registro anterior AO intervalo (de fora) — prev do 1º mês p/ câmbio/
+      // encadeamento offshore. Sem isso, o 1º mês do filtro zerava o câmbio.
+      const regAnterior = registroAnteriorPorCliente?.get(nome) ?? null;
       // Arrays de retornos mensais (decimais) p/ TWR via calcularAcumulado.
       // Mesma fórmula do detalhe individual — fim da divergência entre
       // tabela (pseudo-rent simples inflada) e detalhe (TWR composta).
@@ -121,10 +104,9 @@ export function PoupancaTabela({
       const rpsCons: (number | null)[] = [];
       for (let i = 0; i < sorted.length; i++) {
         const r = sorted[i];
-        const prev = i > 0 ? sorted[i - 1] : null;
+        const prev = i > 0 ? sorted[i - 1] : (regAnterior ?? null);
         // Coleta retornos mensais via pickR (fonte única, mesma do detalhe).
         rpsOn.push(pickR(r, 'onshore', prev).rp);
-        rpsOff.push(pickR(r, 'offshore', prev).rp);
         rpsCons.push(pickR(r, 'consolidado', prev).rp);
 
         // Onshore: NNM real = aporte − transferência interna (movimentos
@@ -134,68 +116,19 @@ export function PoupancaTabela({
         tomb += safe(r.nnm_tombamento);
         if (r.impostos_mes != null) { imp += r.impostos_mes; temImp = true; }
 
-        // Offshore: mesma fórmula do DetalheTabela calcOffshore
-        const plUsdFin = r.pl_offshore_usd ?? 0;
+        // Offshore: fonte ÚNICA calcOffshore (fim da duplicação do recálculo
+        // inline). nnm/rent/gc idênticos ao detalhe individual. GC = resíduo
+        // que fecha a identidade BRL, com guard estrutural contra anomalias.
+        const off = calcOffshore(r, prev);
         const ptaxAtual = r.ptax_fechamento ?? 1;
-        const rentPctLamina = r.rentabilidade_pct_offshore ?? 0;
-
-        // Starting USD: preferir prev.ending, fallback para campo BRL do registro
-        let plUsdIni = prev?.pl_offshore_usd ?? 0;
-        if (plUsdIni <= 0.01 && (r.pl_inicial_offshore ?? 0) > 0.01 && ptaxAtual > 0) {
-          plUsdIni = (r.pl_inicial_offshore ?? 0) / ptaxAtual;
-        }
-        const primeiroMes = plUsdIni <= 0.01;
-
-        if (primeiroMes) {
-          // Primeiro mês (tombamento): determinar NNM e rent
-          const cashBrl = safe(r.aporte_mes_offshore);
-          const temCashflow = Math.abs(cashBrl) > 0.01;
-          let nnmBrlMes: number;
-          let nnmUsdMes: number;
-          let rentUsdMes: number;
-
-          if (temCashflow) {
-            // Caso 1: cashflow informado
-            nnmBrlMes = cashBrl;
-            nnmUsdMes = ptaxAtual > 0 ? nnmBrlMes / ptaxAtual : plUsdFin;
-            rentUsdMes = nnmUsdMes * rentPctLamina;
-          } else if (rentPctLamina > 0 && plUsdFin > 0.01) {
-            // Caso 2: cashflow = 0 mas rent% > 0 → derivar do ending
-            rentUsdMes = plUsdFin * rentPctLamina / (1 + rentPctLamina);
-            nnmUsdMes = plUsdFin - rentUsdMes;
-            nnmBrlMes = nnmUsdMes * ptaxAtual;
-          } else {
-            // Caso 3: sem cashflow e sem rent% → tudo é NNM
-            nnmUsdMes = plUsdFin;
-            nnmBrlMes = plUsdFin * ptaxAtual;
-            rentUsdMes = 0;
-          }
-
-          nnmOffBrl += nnmBrlMes;
-          nnmOffUsdTotal += nnmUsdMes;
-          rentOffBrl += rentUsdMes * ptaxAtual;
-          rentOffUsdTotal += rentUsdMes;
-        } else if (!primeiroMes) {
-          // Mês normal: rent = startingUsd × %lamina
-          const rentUsdMes = plUsdIni * rentPctLamina;
-          const nnmBrlMes = safe(r.aporte_mes_offshore);
-          const nnmUsdMes = ptaxAtual > 0 ? nnmBrlMes / ptaxAtual : 0;
-          nnmOffBrl += nnmBrlMes;
-          nnmOffUsdTotal += nnmUsdMes;
-          rentOffBrl += rentUsdMes * ptaxAtual;
-          rentOffUsdTotal += rentUsdMes;
-        }
-
-        // Subtrai transferência interna offshore (BRL e USD equivalente).
-        // Aplica em ambos os branches porque o usuário pode marcar
-        // transferência mesmo num primeiro mês (se MOVEU dinheiro de outra
-        // conta sua para abrir a posição visível na lâmina). Convenção:
-        // positivo = saída da conta da lâmina, negativo = entrada.
-        const transOffBrl = safe(r.transferencia_interna_offshore);
-        if (transOffBrl !== 0) {
-          nnmOffBrl -= transOffBrl;
-          nnmOffUsdTotal -= ptaxAtual > 0 ? transOffBrl / ptaxAtual : 0;
-        }
+        const transOffUsd = ptaxAtual > 0 ? safe(r.transferencia_interna_offshore) / ptaxAtual : 0;
+        rpsOff.push(off.rp);
+        nnmOffBrl += nnmRealOffshore(r);                 // já desconta transferência
+        rentOffBrl += off.rentBrl;
+        nnmOffUsdTotal += off.nnmUsdCalc - transOffUsd;
+        rentOffUsdTotal += off.rentUsd;
+        if (off.gcBrl != null) { gcOff += off.gcBrl; temGcOff = true; }
+        if (off.gcAnomalia) gcAnomaliaOff = true;
       }
 
       // Consolidado: onshore + offshore corrigido (não usar campos _total do DB)
@@ -218,9 +151,6 @@ export function PoupancaTabela({
       const rentPctConsTwr = twrUltimo(rpsCons);
       const rentPctOnTwr = twrUltimo(rpsOn);
       const rentPctOffTwr = twrUltimo(rpsOff);
-      // Registro anterior ao intervalo para o cliente — corrige Ganho Cambial
-      // do primeiro mês do intervalo (sem prev, o cálculo zerava).
-      const regAnterior = registroAnteriorPorCliente?.get(nome) ?? null;
 
       resultado.push({
         nome,
@@ -228,7 +158,8 @@ export function PoupancaTabela({
         plIniOn: piOn, plFimOn: safe(ult.pl_onshore), nnmOn, rentBrlOn: rOn, rentPctOn: rentPctOnTwr,
         plIniOff: piOff, plFimOff: safe(ult.pl_offshore), nnmOff: nnmOffBrl, rentBrlOff: rentOffBrl, rentPctOff: rentPctOffTwr,
         plIniOffUsd: piOffUsd, plFimOffUsd, nnmOffUsd: nnmOffUsdTotal, rentBrlOffUsd: rentOffUsdTotal,
-        ganhoCambial: calcGC(sorted, regAnterior),
+        ganhoCambial: temGcOff ? gcOff : null,
+        gcAnomalia: gcAnomaliaOff,
         temOffshore: sorted.some(r => (r.pl_offshore ?? 0) > 0 || (r.pl_offshore_usd ?? 0) > 0),
         // Meta: usa meta individual se definida, senão auto-fill (média NNM líquido)
         metaMensal: (() => {

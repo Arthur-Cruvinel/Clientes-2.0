@@ -1,7 +1,7 @@
 // --- Tabela histórica do detalhe (premium, por visão, CDI, edição, ordenação, filtro) ---
 
 import { useMemo, useState, useCallback } from 'react';
-import { Pencil, Info, Flag } from 'lucide-react';
+import { Pencil, Info, Flag, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import type { RegistroPoupanca } from '../../types';
 import type { LinhaDetalhe } from './PoupancaClienteDetalhe';
@@ -113,9 +113,36 @@ export function calcOffshore(r: RegistroPoupanca, prev: RegistroPoupanca | null 
 
   const piBrl = primeiroMes ? 0 : plUsdInicial * ptaxAnterior;
 
+  // ── Ganho cambial = RESÍDUO que fecha a identidade BRL por construção ──────
+  // GC = pl_BRL_final − pl_BRL_inicial − NNM_real_BRL − Rent_BRL.
+  // Captura, além do câmbio sobre o PL de abertura (pl_ini_usd × ΔPTAX), os
+  // termos cruzados de fluxo intra-mês que a fórmula simples ignora.
+  //
+  // GUARD ESTRUTURAL: quando a cadeia offshore está inconsistente — gap de
+  // competência (mês faltando) ou transferência interna no mês — a residual
+  // absorveria o erro de dado como "câmbio fantasma". Nesses casos mantém a
+  // fórmula clássica (startUsd × ΔPTAX) e SINALIZA (gcAnomalia) para revisão,
+  // em vez de inventar câmbio. Entrada real (primeiroMes) NÃO é anomalia:
+  // GC = null (não havia posição anterior).
+  const prevTemPosicao = (prev?.pl_offshore_usd ?? 0) > 0.01;
+  const mesFaltando = prev != null && prevTemPosicao
+    && ((r.ano * 12 + r.mes) - (prev.ano * 12 + prev.mes) > 1);
+  const temTransfOff = Math.abs(r.transferencia_interna_offshore ?? 0) > 0.01;
+  const gcAnomalia = !primeiroMes && (mesFaltando || temTransfOff);
+  const gcAnomaliaReason: string | null = !gcAnomalia ? null
+    : mesFaltando ? 'mes_faltando' : 'transferencia_interna';
+
+  const gcSimples = (plUsdInicial > 0.01 && ptaxAtual > 0 && ptaxAnterior > 0)
+    ? plUsdInicial * (ptaxAtual - ptaxAnterior) : null;
+  const plOffFinalBrl = r.pl_offshore ?? (plUsdFinal * ptaxAtual);
+  const gcResidual = plOffFinalBrl - piBrl
+    - ((r.aporte_mes_offshore ?? 0) - (r.transferencia_interna_offshore ?? 0)) - rentBrl;
+  const gcBrl = primeiroMes ? null : (gcAnomalia ? gcSimples : gcResidual);
+
   return {
     plUsdInicial, plUsdFinal, ptaxAtual, ptaxAnterior, primeiroMes,
     rentUsd, rentBrl, rp, nnmBrl, nnmUsdCalc, piBrl,
+    gcBrl, gcAnomalia, gcAnomaliaReason,
   };
 }
 
@@ -140,6 +167,7 @@ export function pickR(r: RegistroPoupanca, v: Visao, prev?: RegistroPoupanca | n
     return { pi: off.piBrl, pf: r.pl_offshore ?? 0, nnm: nnmRealOffshore(r),
       rb: off.rentBrl, rp: off.rp,
       piUsd: off.plUsdInicial, rentUsd: off.rentUsd, nnmUsd: off.nnmUsdCalc,
+      gc: off.gcBrl, gcAnomalia: off.gcAnomalia, gcAnomaliaReason: off.gcAnomaliaReason,
       ptaxIni: off.ptaxAnterior !== off.ptaxAtual ? off.ptaxAnterior : null, ptaxFin: off.ptaxAtual };
   }
   // Consolidado: onshore + offshore (mesma fórmula)
@@ -409,7 +437,14 @@ export function DetalheTabela({ linhas, cdiPorMes, fedPorMes, cdiCheioPorMes, fe
                 </td>
                 {mostrarGC && (
                   <td className="px-3 py-2 text-right" style={{ ...CS, ...cor(l.ganhoCambial) }}>
-                    {l.ganhoCambial != null ? formatCurrency(l.ganhoCambial) : <span style={DASH}>—</span>}
+                    <span className="inline-flex items-center gap-0.5 justify-end">
+                      {l.ganhoCambial != null ? formatCurrency(l.ganhoCambial) : <span style={DASH}>—</span>}
+                      {l.gcAnomalia && (
+                        <span title="Cadeia offshore inconsistente (mês faltando ou transferência interna) — câmbio pelo método clássico, não confiável. Revisar a lâmina.">
+                          <AlertTriangle size={12} style={{ color: '#f59e0b' }} />
+                        </span>
+                      )}
+                    </span>
                     {isOff && 'ptaxIni' in d && 'ptaxFin' in d && (d as { ptaxFin: number | null }).ptaxFin && (
                       <>
                         {(d as { ptaxIni: number | null }).ptaxIni != null && (

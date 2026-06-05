@@ -220,7 +220,14 @@ export function PoupancaTabelaLinhas({
                 </td>
                 {mostrarGC && (
                   <td className={TD_R} style={cor(l.ganhoCambial)}>
-                    {l.ganhoCambial != null ? formatCurrency(l.ganhoCambial) : '—'}
+                    <span className="inline-flex items-center gap-0.5 justify-end">
+                      {l.ganhoCambial != null ? formatCurrency(l.ganhoCambial) : '—'}
+                      {l.gcAnomalia && (
+                        <span title="Cadeia offshore inconsistente (mês faltando ou transferência interna) — câmbio pelo método clássico, não confiável. Revisar.">
+                          <AlertTriangle size={11} style={{ color: '#f59e0b' }} />
+                        </span>
+                      )}
+                    </span>
                   </td>
                 )}
                 <td className={TD_R}>
