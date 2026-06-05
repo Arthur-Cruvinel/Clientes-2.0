@@ -8,6 +8,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { useAuth } from '../../state/AuthContext';
 import { useColaboradores, type ColaboradorDerivado } from './useColaboradores';
+import type { Colaborador } from '../../types';
 import { CHAVE_ORD } from './ordenacao';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
 import { ColaboradorCard } from './ColaboradorCard';
@@ -63,6 +64,22 @@ export function ColaboradoresVisao() {
   function flash(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
+  }
+
+  // Persiste a folha + dispara rename quando o nome muda. NÃO fecha nem navega
+  // — quem chama decide o pós-save (fechar no Salvar normal, avançar na
+  // navegação). Retorna sucesso. Caminho de gravação inalterado (salvarFolha).
+  async function persistirFolha(atualizado: Colaborador, antigoNome?: string): Promise<boolean> {
+    const novo = atualizado.nome_colaborador?.trim();
+    try {
+      await salvarFolha(atualizado);
+      flash('Folha atualizada.');
+      if (antigoNome && novo && antigoNome !== novo) setRenomearInfo({ antigo: antigoNome, novo });
+      return true;
+    } catch (e) {
+      flash(`Erro: ${e instanceof Error ? e.message : 'falha ao salvar'}`);
+      return false;
+    }
   }
 
   return (
@@ -151,35 +168,44 @@ export function ColaboradoresVisao() {
       )}
 
       {/* Modais (editar/criar) */}
-      {modal?.tipo === 'editar' && periodo && (
-        <ColaboradorModal modo="editar" derivado={modal.derivado} clientes={clientes} periodo={periodo}
-          salvando={salvando} onSalvarPct={salvarPct} onFechar={() => setModal(null)}
-          onSalvarFolha={async (atualizado) => {
-            // Captura nome antigo ANTES do save — depois do recarregar() o
-            // derivado.colaborador já reflete o nome novo.
-            const antigo = modal.derivado.colaborador.nome_colaborador?.trim();
-            const novo = atualizado.nome_colaborador?.trim();
-            try {
-              await salvarFolha(atualizado);
-              flash('Folha atualizada.');
-              setModal(null);
-              if (antigo && novo && antigo !== novo) {
-                setRenomearInfo({ antigo, novo });
+      {modal?.tipo === 'editar' && periodo && (() => {
+        // Vizinhos na MESMA ordenação da tabela (derivados já vem ordenado).
+        // Match por id (slug docId); fallback ao nome para docs sem id.
+        const chaveDe = (d: ColaboradorDerivado) =>
+          d.colaborador.id ?? d.colaborador.nome_colaborador;
+        const chaveAtual = chaveDe(modal.derivado);
+        const idx = derivados.findIndex(d => chaveDe(d) === chaveAtual);
+        const anterior = idx > 0 ? derivados[idx - 1] : null;
+        const proximo = idx >= 0 && idx < derivados.length - 1 ? derivados[idx + 1] : null;
+        return (
+          <ColaboradorModal key={chaveAtual} modo="editar" derivado={modal.derivado}
+            clientes={clientes} periodo={periodo}
+            salvando={salvando} onSalvarPct={salvarPct} onFechar={() => setModal(null)}
+            anterior={anterior} proximo={proximo}
+            onNavegar={(destino) => setModal({ tipo: 'editar', derivado: destino })}
+            onSalvarFolha={async (atualizado) => {
+              // Captura nome antigo ANTES do save — depois do recarregar() o
+              // derivado.colaborador já reflete o nome novo.
+              const antigo = modal.derivado.colaborador.nome_colaborador?.trim();
+              if (await persistirFolha(atualizado, antigo)) setModal(null);
+            }}
+            onSalvarFolhaEAvancar={async (atualizado, destino) => {
+              const antigo = modal.derivado.colaborador.nome_colaborador?.trim();
+              // Persiste e navega para o destino (em vez de fechar).
+              if (await persistirFolha(atualizado, antigo)) setModal({ tipo: 'editar', derivado: destino });
+            }}
+            onExcluir={async (id, futuros) => {
+              try {
+                const r = await excluirColaborador(id, futuros);
+                flash(futuros ? `Removido do período + ${r.periodosFuturos} futuros.` : 'Removido do período.');
+                return r;
+              } catch (e) {
+                flash(`Erro: ${e instanceof Error ? e.message : 'falha ao excluir'}`);
+                return { periodosFuturos: 0 };
               }
-            }
-            catch (e) { flash(`Erro: ${e instanceof Error ? e.message : 'falha ao salvar'}`); }
-          }}
-          onExcluir={async (id, futuros) => {
-            try {
-              const r = await excluirColaborador(id, futuros);
-              flash(futuros ? `Removido do período + ${r.periodosFuturos} futuros.` : 'Removido do período.');
-              return r;
-            } catch (e) {
-              flash(`Erro: ${e instanceof Error ? e.message : 'falha ao excluir'}`);
-              return { periodosFuturos: 0 };
-            }
-          }} />
-      )}
+            }} />
+        );
+      })()}
       {renomearInfo && (
         <RenomearColaboradorModal
           nomeAntigo={renomearInfo.antigo}

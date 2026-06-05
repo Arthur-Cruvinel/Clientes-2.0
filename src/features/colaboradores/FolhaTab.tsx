@@ -41,6 +41,13 @@ interface Props {
   onCancelar: () => void;
   /** Slot opcional alinhado à esquerda do rodapé fixo (ex: botão Excluir). */
   extraFooterLeft?: ReactNode;
+  /** Reporta se o form está sujo (diferente do snapshot inicial). Usado pela
+   *  navegação anterior/próximo no cabeçalho para confirmar perda de edições. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Registra a função que valida + monta o payload (sem persistir), para o
+   *  fluxo "Salvar e avançar" orquestrado pelo modal pai. Retorna null se a
+   *  validação falhar (o erro já é exibido aqui). */
+  registrarMontarPayload?: (fn: () => Colaborador | null) => void;
 }
 
 /** Resolve teto/líquido vigentes para o período a partir do colaborador
@@ -51,27 +58,36 @@ function tetoVigente(c: Colaborador, periodo: string): { teto: number; liquido: 
   return { teto: r.salario_teto_cargo, liquido: r.liquido_acordado };
 }
 
-export function FolhaTab({ modo, inicial, periodo, salvando, onSalvar, onCancelar, extraFooterLeft }: Props) {
+/** Monta o estado inicial do form a partir do colaborador + período.
+ *  Fonte única para init (useState), ressincronização (useEffect) e o
+ *  snapshot de comparação do dirty-check. */
+function construirFormInicial(inicial: Colaborador, periodo: string): FolhaForm {
+  const v = tetoVigente(inicial, periodo);
+  return {
+    nome_colaborador: inicial.nome_colaborador, cargo: inicial.cargo,
+    funcao_principal: inicial.funcao_principal,
+    tipo_vinculo: inicial.tipo_vinculo === 'pro_labore' ? 'pro_labore' : 'clt',
+    localidade: inicial.localidade ?? 'SP',
+    alocavel: inicial.alocavel ?? true,
+    percentual_alocavel: inicial.percentual_alocavel ?? 0.7,
+    percentual_institucional: inicial.percentual_institucional ?? 0.3,
+    salario_base: inicial.salario_base ?? 0,
+    // Init via buscarTetoPorPeriodo — abrir Fev/2026 carrega valores de
+    // Jan/2026 se não houve reajuste registrado entre eles.
+    salario_teto_cargo: v.teto,
+    liquido_acordado: v.liquido,
+    qtd_dependentes: inicial.qtd_dependentes ?? 0,
+    beneficios_fixos: inicial.beneficios_fixos ?? 0,
+    historico_reajustes: inicial.historico_reajustes ?? [],
+  };
+}
+
+export function FolhaTab({
+  modo, inicial, periodo, salvando, onSalvar, onCancelar, extraFooterLeft,
+  onDirtyChange, registrarMontarPayload,
+}: Props) {
   const { usuario } = useAuth();
-  const [form, setForm] = useState<FolhaForm>(() => {
-    const v = tetoVigente(inicial, periodo);
-    return {
-      nome_colaborador: inicial.nome_colaborador, cargo: inicial.cargo,
-      funcao_principal: inicial.funcao_principal,
-      tipo_vinculo: inicial.tipo_vinculo === 'pro_labore' ? 'pro_labore' : 'clt', localidade: inicial.localidade ?? 'SP',
-      alocavel: inicial.alocavel ?? true,
-      percentual_alocavel: inicial.percentual_alocavel ?? 0.7,
-      percentual_institucional: inicial.percentual_institucional ?? 0.3,
-      salario_base: inicial.salario_base ?? 0,
-      // Init via buscarTetoPorPeriodo — abrir Fev/2026 carrega valores de
-      // Jan/2026 se não houve reajuste registrado entre eles.
-      salario_teto_cargo: v.teto,
-      liquido_acordado: v.liquido,
-      qtd_dependentes: inicial.qtd_dependentes ?? 0,
-      beneficios_fixos: inicial.beneficios_fixos ?? 0,
-      historico_reajustes: inicial.historico_reajustes ?? [],
-    };
-  });
+  const [form, setForm] = useState<FolhaForm>(() => construirFormInicial(inicial, periodo));
   const [erro, setErro] = useState<string | null>(null);
   const [resumoAberto, setResumoAberto] = useState(true);
   const [aplicarTodosAberto, setAplicarTodosAberto] = useState(false);
@@ -84,24 +100,25 @@ export function FolhaTab({ modo, inicial, periodo, salvando, onSalvar, onCancela
   // Re-inicializa o form quando muda o colaborador editado OU o período.
   // Garante que abrir um período diferente recarrega o teto vigente correto
   // sem sobrescrever a digitação em curso (deps são apenas chaves de identidade).
+  // Obs: a navegação anterior/próximo remonta o modal via key={id}, então este
+  // efeito atua principalmente na troca de período (mesmo colaborador).
   useEffect(() => {
-    const v = tetoVigente(inicial, periodo);
-    setForm({
-      nome_colaborador: inicial.nome_colaborador, cargo: inicial.cargo,
-      funcao_principal: inicial.funcao_principal,
-      tipo_vinculo: inicial.tipo_vinculo === 'pro_labore' ? 'pro_labore' : 'clt', localidade: inicial.localidade ?? 'SP',
-      alocavel: inicial.alocavel ?? true,
-      percentual_alocavel: inicial.percentual_alocavel ?? 0.7,
-      percentual_institucional: inicial.percentual_institucional ?? 0.3,
-      salario_base: inicial.salario_base ?? 0,
-      salario_teto_cargo: v.teto,
-      liquido_acordado: v.liquido,
-      qtd_dependentes: inicial.qtd_dependentes ?? 0,
-      beneficios_fixos: inicial.beneficios_fixos ?? 0,
-      historico_reajustes: inicial.historico_reajustes ?? [],
-    });
+    setForm(construirFormInicial(inicial, periodo));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inicial.nome_colaborador, periodo]);
+
+  // Snapshot inicial para o dirty-check — mesma construção do init, recomputado
+  // só quando muda a identidade (colaborador/período).
+  const snapshotInicial = useMemo(
+    () => construirFormInicial(inicial, periodo),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [inicial.nome_colaborador, periodo],
+  );
+  const dirty = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(snapshotInicial),
+    [form, snapshotInicial],
+  );
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   // Apenas reflete a deleção de uma entrada não-vigente — não sincroniza
   // campos principais (estes são fonte da verdade para o save automático).
@@ -138,17 +155,21 @@ export function FolhaTab({ modo, inicial, periodo, salvando, onSalvar, onCancela
     }
   }
 
-  async function handleSalvar() {
+  // Valida e monta o payload final SEM persistir. Retorna null (e exibe erro)
+  // quando a validação falha. Usado tanto pelo botão Salvar quanto pelo fluxo
+  // "Salvar e avançar" da navegação (que persiste via o pai). Validações e
+  // payload são idênticos ao comportamento anterior — só a persistência saiu.
+  function montarPayload(): Colaborador | null {
     setErro(null);
     if (modo === 'criar') {
-      if (!form.nome_colaborador.trim()) return setErro('Nome é obrigatório.');
-      if (!form.cargo.trim()) return setErro('Cargo é obrigatório.');
-      if (!form.funcao_principal.trim()) return setErro('Função é obrigatória.');
-      if (isCLT && form.salario_teto_cargo <= 0) return setErro('Teto CLT deve ser > 0.');
-      if (!isCLT && form.salario_base <= 0) return setErro('Salário base deve ser > 0.');
+      if (!form.nome_colaborador.trim()) { setErro('Nome é obrigatório.'); return null; }
+      if (!form.cargo.trim()) { setErro('Cargo é obrigatório.'); return null; }
+      if (!form.funcao_principal.trim()) { setErro('Função é obrigatória.'); return null; }
+      if (isCLT && form.salario_teto_cargo <= 0) { setErro('Teto CLT deve ser > 0.'); return null; }
+      if (!isCLT && form.salario_base <= 0) { setErro('Salário base deve ser > 0.'); return null; }
     }
     const soma = form.percentual_alocavel + form.percentual_institucional;
-    if (Math.abs(soma - 1) > 0.001) return setErro(`% Alocável + Institucional deve ser 1,00 (atual: ${soma.toFixed(2)}).`);
+    if (Math.abs(soma - 1) > 0.001) { setErro(`% Alocável + Institucional deve ser 1,00 (atual: ${soma.toFixed(2)}).`); return null; }
 
     // Auto-registro de reajuste (CLT): se o usuário alterou teto OU líquido
     // em relação ao baseline (vigente no período do `inicial`), injeta uma
@@ -172,14 +193,24 @@ export function FolhaTab({ modo, inicial, periodo, salvando, onSalvar, onCancela
       }
     }
 
-    await onSalvar({
+    return {
       ...colabCalc,
       historico_reajustes: historicoFinal,
       custo_total_mensal: resultado.custo_total_mensal, custo_hora: resultado.custo_hora,
       inss: resultado.inss, irrf: resultado.irrf_liquido,
       complemento_plr: resultado.complemento_plr, reflexos_plr_mensal: resultado.reflexos_plr_mensal,
       encargos_patronais: resultado.encargos_patronais, decimo_terceiro_ferias: resultado.decimo_terceiro_ferias,
-    });
+    };
+  }
+
+  // Registra montarPayload para o modal pai (fluxo Salvar e avançar). Sem array
+  // de deps: re-registra a cada render para manter a closure atual de form.
+  useEffect(() => { registrarMontarPayload?.(montarPayload); });
+
+  async function handleSalvar() {
+    const payload = montarPayload();
+    if (!payload) return;
+    await onSalvar(payload);
   }
 
   return (

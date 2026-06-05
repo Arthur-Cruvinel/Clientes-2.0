@@ -10,6 +10,9 @@ interface ModalProps {
   /** Largura máxima Tailwind. Default '2xl' (672px) — modais com tabela
    *  larga (BurnRateModal, ProjecaoModal) usam '7xl' (1280px). */
   largura?: Largura;
+  /** Slot opcional à esquerda do título no cabeçalho (ex: setas de
+   *  navegação anterior/próximo). Default undefined → cabeçalho inalterado. */
+  acoesCabecalho?: ReactNode;
   children: ReactNode;
 }
 
@@ -24,7 +27,7 @@ const LARGURA_CLASS: Record<Largura, string> = {
   '7xl': 'max-w-7xl',
 };
 
-export function Modal({ aberto, onFechar, titulo, largura = '2xl', children }: ModalProps) {
+export function Modal({ aberto, onFechar, titulo, largura = '2xl', acoesCabecalho, children }: ModalProps) {
   useEffect(() => {
     if (aberto) {
       document.body.style.overflow = 'hidden';
@@ -38,9 +41,12 @@ export function Modal({ aberto, onFechar, titulo, largura = '2xl', children }: M
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onFechar} />
       <div className={`relative bg-white rounded-lg shadow-xl ${LARGURA_CLASS[largura]} w-full mx-4 max-h-[90vh] overflow-y-auto`}>
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-800">{titulo}</h2>
-          <button onClick={onFechar} className="text-gray-400 hover:text-gray-600">
+        <div className="flex items-center justify-between p-4 border-b gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {acoesCabecalho}
+            <h2 className="text-lg font-semibold text-gray-800 truncate">{titulo}</h2>
+          </div>
+          <button onClick={onFechar} className="text-gray-400 hover:text-gray-600 shrink-0">
             <X size={20} />
           </button>
         </div>
