@@ -103,6 +103,13 @@ export function parseColaboradores(wb: XLSX.WorkBook): Colaborador[] {
       liquido_acordado: num(row['liquido_acordado']),
       qtd_dependentes: num(row['qtd_dependentes']),
       beneficios_fixos: num(row['beneficios_fixos']),
+      // Herança fechada (CFO): a coluna única importada vira vale_alimentacao;
+      // os outros 3 ficam zero. Mantém o invariante beneficios_fixos = soma
+      // sem alterar o template Excel nesta etapa.
+      vale_alimentacao: num(row['beneficios_fixos']),
+      vale_transporte: 0,
+      plano_saude: 0,
+      outros_beneficios: 0,
       // custo_total_mensal/custo_hora vêm da planilha mas o motor sempre
       // recalcula a partir dos inputs — a coluna existe só por compatibilidade
       // com auditorias antigas.

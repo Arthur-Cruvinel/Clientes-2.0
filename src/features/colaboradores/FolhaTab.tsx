@@ -28,8 +28,17 @@ export interface FolhaForm {
   tipo_vinculo: 'clt' | 'pro_labore'; localidade: 'SP' | 'RJ';
   alocavel: boolean; percentual_alocavel: number; percentual_institucional: number;
   salario_base: number; salario_teto_cargo: number; liquido_acordado: number;
-  qtd_dependentes: number; beneficios_fixos: number;
+  qtd_dependentes: number;
+  // beneficios_fixos é DERIVADO (= soma dos 4 abaixo) — read-only na UI.
+  beneficios_fixos: number;
+  vale_alimentacao: number; vale_transporte: number;
+  plano_saude: number; outros_beneficios: number;
   historico_reajustes: ReajusteSalarial[];
+}
+
+/** Invariante do sistema: beneficios_fixos = VA + VT + plano + outros. */
+function somaBeneficios(va: number, vt: number, ps: number, ob: number): number {
+  return (va || 0) + (vt || 0) + (ps || 0) + (ob || 0);
 }
 
 interface Props {
@@ -63,6 +72,20 @@ function tetoVigente(c: Colaborador, periodo: string): { teto: number; liquido: 
  *  snapshot de comparação do dirty-check. */
 function construirFormInicial(inicial: Colaborador, periodo: string): FolhaForm {
   const v = tetoVigente(inicial, periodo);
+
+  // Resolve os 4 subcampos de benefício. Doc já migrado tem ao menos um deles
+  // → usa os valores persistidos. Doc legado (nenhum subcampo) com
+  // beneficios_fixos > 0 → herança fechada pelo CFO: vale_alimentacao recebe o
+  // total, os demais 3 ficam zero. beneficios_fixos é sempre a soma (invariante).
+  const algumPresente =
+    inicial.vale_alimentacao !== undefined || inicial.vale_transporte !== undefined ||
+    inicial.plano_saude !== undefined || inicial.outros_beneficios !== undefined;
+  const benefTotalLegado = inicial.beneficios_fixos ?? 0;
+  const vale_alimentacao = algumPresente ? (inicial.vale_alimentacao ?? 0) : benefTotalLegado;
+  const vale_transporte = algumPresente ? (inicial.vale_transporte ?? 0) : 0;
+  const plano_saude = algumPresente ? (inicial.plano_saude ?? 0) : 0;
+  const outros_beneficios = algumPresente ? (inicial.outros_beneficios ?? 0) : 0;
+
   return {
     nome_colaborador: inicial.nome_colaborador, cargo: inicial.cargo,
     funcao_principal: inicial.funcao_principal,
@@ -77,7 +100,9 @@ function construirFormInicial(inicial: Colaborador, periodo: string): FolhaForm 
     salario_teto_cargo: v.teto,
     liquido_acordado: v.liquido,
     qtd_dependentes: inicial.qtd_dependentes ?? 0,
-    beneficios_fixos: inicial.beneficios_fixos ?? 0,
+    vale_alimentacao, vale_transporte, plano_saude, outros_beneficios,
+    // Derivado da soma — preserva o valor original (herança = identidade).
+    beneficios_fixos: somaBeneficios(vale_alimentacao, vale_transporte, plano_saude, outros_beneficios),
     historico_reajustes: inicial.historico_reajustes ?? [],
   };
 }
@@ -96,6 +121,17 @@ export function FolhaTab({
 
   const isCLT = form.tipo_vinculo === 'clt';
   const set = <K extends keyof FolhaForm>(k: K, v: FolhaForm[K]) => setForm(p => ({ ...p, [k]: v }));
+
+  // Atualiza um dos 4 subcampos de benefício e recalcula beneficios_fixos
+  // (derivado = soma). Mantém o invariante a cada digitação.
+  type SubBeneficio = 'vale_alimentacao' | 'vale_transporte' | 'plano_saude' | 'outros_beneficios';
+  const setBeneficio = (k: SubBeneficio, v: number) => setForm(p => {
+    const next = { ...p, [k]: v };
+    next.beneficios_fixos = somaBeneficios(
+      next.vale_alimentacao, next.vale_transporte, next.plano_saude, next.outros_beneficios,
+    );
+    return next;
+  });
 
   // Re-inicializa o form quando muda o colaborador editado OU o período.
   // Garante que abrir um período diferente recarrega o teto vigente correto
@@ -254,7 +290,22 @@ export function FolhaTab({
           ) : (
             <Campo label="Salário Pró-labore" tipo="number" step={0.01} valor={form.salario_base} onNum={v => set('salario_base', v)} />
           )}
-          <Campo label="Benefícios Fixos" tipo="number" step={0.01} valor={form.beneficios_fixos} onNum={v => set('beneficios_fixos', v)} />
+          {/* Benefícios detalhados em 4 subcampos. beneficios_fixos é DERIVADO
+              (soma) e read-only — só ele entra no custo (motor lê só ele). */}
+          <div className="space-y-2 pt-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Benefícios</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Campo label="Vale Alimentação" tipo="number" step={0.01} valor={form.vale_alimentacao} onNum={v => setBeneficio('vale_alimentacao', v)} />
+              <Campo label="Vale Transporte" tipo="number" step={0.01} valor={form.vale_transporte} onNum={v => setBeneficio('vale_transporte', v)} />
+              <Campo label="Plano de Saúde" tipo="number" step={0.01} valor={form.plano_saude} onNum={v => setBeneficio('plano_saude', v)} />
+              <Campo label="Outros Benefícios" tipo="number" step={0.01} valor={form.outros_beneficios} onNum={v => setBeneficio('outros_beneficios', v)} />
+            </div>
+            <div className="flex items-center justify-between rounded px-2 py-1.5" style={{ backgroundColor: '#f3f4f6' }}
+              title="Calculado automaticamente (soma dos 4 benefícios). É o valor que entra no custo.">
+              <span className="text-xs font-medium" style={{ color: '#6b6b8a' }}>Benefícios Fixos (total)</span>
+              <span className="text-sm font-bold" style={{ color: '#160F41' }}>{formatCurrency(form.beneficios_fixos)}</span>
+            </div>
+          </div>
         </section>
 
         {isCLT && (

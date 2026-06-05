@@ -52,6 +52,7 @@ const COLABORADOR_VAZIO: Colaborador = {
   funcao_principal: '', alocavel: true, tipo_vinculo: 'clt',
   percentual_alocavel: 0.7, percentual_institucional: 0.3,
   salario_base: 0, beneficios_fixos: 0,
+  vale_alimentacao: 0, vale_transporte: 0, plano_saude: 0, outros_beneficios: 0,
   custo_total_mensal: 0, custo_hora: 0,
   salario_teto_cargo: 0, liquido_acordado: 0, qtd_dependentes: 0,
 };

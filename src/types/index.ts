@@ -243,6 +243,18 @@ export interface Colaborador {
   // VT/VR/plano de saúde — valor fixo, fora da base de encargos.
   beneficios_fixos: number;
 
+  // ── DETALHAMENTO DE BENEFÍCIOS (opcional) ────────────────────────────────
+  // INVARIANTE: beneficios_fixos = vale_alimentacao + vale_transporte
+  //           + plano_saude + outros_beneficios.
+  // Só `beneficios_fixos` entra no custo (o motor lê apenas ele); os 4 abaixo
+  // são detalhamento e são derivados na UI (beneficios_fixos = soma, read-only).
+  // Opcionais para retrocompat com docs legados que só têm beneficios_fixos —
+  // herança: vale_alimentacao recebe o total, demais = 0.
+  vale_alimentacao?: number;
+  vale_transporte?: number;
+  plano_saude?: number;
+  outros_beneficios?: number;
+
   // @deprecated CLT — usar liquido_acordado. Mantido para pro_labore (base
   // mensal direta, sem complemento PLR) e para retrocompatibilidade do
   // Firestore (registros antigos ainda vivem com salario_base).
