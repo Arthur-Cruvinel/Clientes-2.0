@@ -178,6 +178,20 @@ function imprimirPeriodo(titulo, res, topN) {
   console.log(`Mês mais recente na base: ${anoU}-${String(mesU).padStart(2, '0')} | ${dados.registros.length} registros ativos`);
   console.log('═'.repeat(96));
 
+  // ── CHECK DE CLASSIFICAÇÃO (a identidade NÃO pega; ex: capital de entrada
+  // gravado como rentabilidade). Alerta quando |rent| > 50% do PL no mês. ──
+  const alertasRent = [];
+  for (const r of dados.registros) {
+    const plOff = Math.abs(N(r.pl_offshore)), rentOff = Math.abs(N(r.rentabilidade_offshore));
+    const plOn = Math.abs(N(r.pl_onshore)), rentOn = Math.abs(N(r.rentabilidade_onshore));
+    // Piso de R$ 1.000 no PL: contas quase-zero (pl ≈ centavos) dão 100% trivial.
+    if (plOff > 1000 && rentOff > 0.5 * plOff) alertasRent.push(`${r.nome_cliente} ${r.ano}-${String(r.mes).padStart(2, '0')} OFFSHORE: rent ${fmt(r.rentabilidade_offshore)} = ${(rentOff / plOff * 100).toFixed(0)}% do PL`);
+    if (plOn > 1000 && rentOn > 0.5 * plOn) alertasRent.push(`${r.nome_cliente} ${r.ano}-${String(r.mes).padStart(2, '0')} ONSHORE: rent ${fmt(r.rentabilidade_onshore)} = ${(rentOn / plOn * 100).toFixed(0)}% do PL`);
+  }
+  console.log(`\n⚠ CHECK CLASSIFICAÇÃO (rent > 50% do PL — capital de entrada virou rent?): ${alertasRent.length}`);
+  for (const a of alertasRent) console.log(`   ${a}`);
+  if (alertasRent.length === 0) console.log('   (nenhum — classificação aporte/rent sã)');
+
   if (cli) {
     // Drill mês a mês de um cliente (base completa)
     const res = residuosPeriodo(dados, pNum(2000, 1), pNum(2100, 12));

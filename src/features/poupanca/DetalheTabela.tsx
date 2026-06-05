@@ -100,10 +100,21 @@ export function calcOffshore(r: RegistroPoupanca, prev: RegistroPoupanca | null 
     // pequeno erro de arredondamento (conversão USD→%). Espelha o ramo de mês
     // normal, que já prioriza o valor gravado. Entradas genuínas têm rent
     // gravada = 0 → cai no recálculo (comportamento inalterado).
+    //
+    // SANIDADE anti-bug: NÃO preferir a rent gravada se ela for > 50% do PL.
+    // É a assinatura do bug de import antigo (capital de entrada gravado como
+    // rentabilidade — ex: RAFAEL Jul/25, R$36M de rent). Nesse caso usa a
+    // decomposição fina (rentUsd já calculado acima pelo rent%) e alerta.
     const rentSavedPM = r.rentabilidade_offshore ?? 0;
-    if (rentSavedPM !== 0) {
+    const plFinalBrlPM = r.pl_offshore ?? plUsdFinal * ptaxAtual;
+    if (rentSavedPM !== 0 && Math.abs(rentSavedPM) <= 0.5 * Math.abs(plFinalBrlPM)) {
       rentBrl = rentSavedPM;
       rentUsd = ptaxAtual > 0 ? rentBrl / ptaxAtual : rentUsd;
+    } else if (rentSavedPM !== 0 && Math.abs(rentSavedPM) > 0.5 * Math.abs(plFinalBrlPM)) {
+      console.warn(
+        `[calcOffshore] rent gravada (${rentSavedPM.toFixed(2)}) > 50% do PL `
+        + `(${plFinalBrlPM.toFixed(2)}) — bug de import de entrada? Usando decomposição fina.`,
+      );
     }
     rp = rentPctLamina || null;
   } else {

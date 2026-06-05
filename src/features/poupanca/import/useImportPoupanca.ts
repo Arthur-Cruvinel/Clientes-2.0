@@ -644,43 +644,55 @@ export function useImportPoupanca() {
             const prevPtax = (prevData?.ptax_fechamento as number | undefined) ?? ptax;
             const hasPrev = prevEndingUsd > 0.01;
 
-            // Accrued interest: starting da lâmina atual − ending USD do mês anterior.
-            // Tratado como cashflow (entra no NNM), para que ganho cambial incida só
-            // sobre o PL pré-accrual e o saldo do mês feche exatamente.
-            const accrued = hasPrev ? startingUsd - prevEndingUsd : 0;
-            const cashflowComAccrued = cashflowUsd + accrued;
-
-            // Rendimento USD via RESIDUAL — fecha o saldo:
-            //   AUM_ini + NNM + rent + ganho_cambial = AUM_fin.
-            const rentUsd = endingUsd - startingUsd - cashflowUsd;
+            // ── NNM e rentabilidade (regra primeiroMes na ESCRITA) ──────────
+            let aporteBrl: number;
+            let rentBrl: number;
+            if (hasPrev) {
+              // Mês normal: accrued (starting − ending anterior) entra no NNM;
+              // rent USD via RESIDUAL — fecha o saldo (ini + NNM + rent + câmbio = fin).
+              const accrued = startingUsd - prevEndingUsd;
+              const cashflowComAccrued = cashflowUsd + accrued;
+              const rentUsd = endingUsd - startingUsd - cashflowUsd;
+              aporteBrl = cashflowComAccrued * ptax;
+              rentBrl = rentUsd * ptax;
+            } else {
+              // ENTRADA (sem posição USD anterior): o capital de abertura é NNM
+              // CHEIO (tombamento), NÃO rentabilidade. Sem isto, com starting e
+              // cashflow = 0 o residual jogava o PL INTEIRO em rent (bug RAFAEL
+              // Jul/25: R$36M de rent fantasma). Decompõe da lâmina:
+              //   capital (USD) = starting + cashflow; se a lâmina não os trouxe,
+              //   deriva do rent% informado: ending / (1 + rent%). rent = ending − capital.
+              let aporteUsdEnt = startingUsd + cashflowUsd;
+              if (aporteUsdEnt <= 0.01) {
+                aporteUsdEnt = (rentPctLamina !== 0 && endingUsd > 0.01)
+                  ? endingUsd / (1 + rentPctLamina) : endingUsd;
+              }
+              const rentUsdEnt = endingUsd - aporteUsdEnt;
+              aporteBrl = aporteUsdEnt * ptax;
+              rentBrl = rentUsdEnt * ptax;
+            }
 
             dados.pl_offshore_usd = endingUsd;
             dados.pl_offshore = endingUsd * ptax;
             // AUM Inicial BRL = prevEndingUsd × ptaxAnterior (encadeia com o fechamento anterior).
             // Se não há mês anterior: 0 (primeiro mês da carteira).
             dados.pl_inicial_offshore = hasPrev ? prevEndingUsd * prevPtax : 0;
-            dados.aporte_mes_offshore = cashflowComAccrued * ptax;
-            dados.rentabilidade_offshore = rentUsd * ptax;
+            dados.aporte_mes_offshore = aporteBrl;
+            dados.rentabilidade_offshore = rentBrl;
             dados.rentabilidade_pct_offshore = rentPctLamina;
             dados.ptax_fechamento = ptax;
             dados.pl_inicial_offshore_usd = startingUsd;
 
-            // Primeiro mês da carteira (sem prev): tombamento = cashflow real em BRL.
-            // NÃO usar endingUsd × ptax — inclui a rentabilidade do próprio mês.
-            // Cashflow = 0 no primeiro mês: não grava (preserva edição manual existente).
-            if (!hasPrev && cashflowUsd > 0.01) {
-              const tombBrl = cashflowUsd * ptax;
-              dados.nnm_tombamento_offshore = tombBrl;
-              // Rede de segurança: se o tombamento prestes a gravar é > 5× o
-              // aporte BRL final do mês, é forte sinal de Claude tendo lido
-              // a coluna errada. Não bloqueia (admin pode estar reimportando
-              // de propósito), mas grita no console pra inspeção.
-              const aporteBrlFinal = Math.abs(cashflowComAccrued * ptax);
-              if (aporteBrlFinal > 0.01 && tombBrl > 5 * aporteBrlFinal) {
+            // Entrada: capital de abertura = NNM cheio, marcado como tombamento
+            // (excluído da poupança líquida — espelha tombamento onshore).
+            if (!hasPrev && aporteBrl > 0.01) {
+              dados.nnm_tombamento_offshore = aporteBrl;
+              // Sanidade: o aporte de entrada deveria DOMINAR o PL (capital migrado);
+              // se ficou menor que a rent, é sinal de leitura errada da lâmina.
+              if (Math.abs(rentBrl) > 0.01 && aporteBrl < Math.abs(rentBrl)) {
                 console.warn(
-                  `[Tombamento] SAVE com ratio suspeito: ${baseSlug}_${ano}_${mes} `
-                  + `tomb=${tombBrl.toFixed(2)} é ${(tombBrl / aporteBrlFinal).toFixed(1)}× `
-                  + `o aporte BRL final=${aporteBrlFinal.toFixed(2)}. Revisar pós-save.`,
+                  `[Entrada offshore] ${baseSlug}_${ano}_${mes}: aporte (${aporteBrl.toFixed(2)}) `
+                  + `< rent (${rentBrl.toFixed(2)}) — verificar lâmina.`,
                 );
               }
             }
