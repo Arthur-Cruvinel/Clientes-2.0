@@ -94,6 +94,17 @@ export function calcOffshore(r: RegistroPoupanca, prev: RegistroPoupanca | null 
     }
 
     rentBrl = rentUsd * ptaxAtual;
+    // Preferir a rentabilidade GRAVADA quando presente (≠ 0). Em re-entradas
+    // (round-trip de transferência entre contas), a rent gravada/corrigida
+    // fecha a lâmina exatamente, enquanto o recálculo por rent% acumula um
+    // pequeno erro de arredondamento (conversão USD→%). Espelha o ramo de mês
+    // normal, que já prioriza o valor gravado. Entradas genuínas têm rent
+    // gravada = 0 → cai no recálculo (comportamento inalterado).
+    const rentSavedPM = r.rentabilidade_offshore ?? 0;
+    if (rentSavedPM !== 0) {
+      rentBrl = rentSavedPM;
+      rentUsd = ptaxAtual > 0 ? rentBrl / ptaxAtual : rentUsd;
+    }
     rp = rentPctLamina || null;
   } else {
     // Mês normal: priorizar rentabilidade_offshore gravado (residual que fecha o saldo).

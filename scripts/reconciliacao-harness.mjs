@@ -62,6 +62,9 @@ function calcOffshore(r, prev) {
     else if (rentPctLamina > 0 && plUsdFinal > 0.01) rentUsd = plUsdFinal * rentPctLamina / (1 + rentPctLamina);
     else rentUsd = 0;
     rentBrl = rentUsd * ptaxAtual;
+    // Preferir rentabilidade gravada (≠0) no primeiroMes — igual ao deploy.
+    const rentSavedPM = N(r.rentabilidade_offshore);
+    if (rentSavedPM !== 0) rentBrl = rentSavedPM;
   } else {
     const saved = N(r.rentabilidade_offshore);
     rentBrl = saved !== 0 ? saved : plUsdInicial * rentPctLamina * ptaxAtual;
