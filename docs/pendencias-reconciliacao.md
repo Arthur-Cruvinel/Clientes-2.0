@@ -10,73 +10,88 @@ Identidade por visão (mês a mês, encadeado como a tela):
 
 ---
 
-## Placar (atualizar a cada onda)
+## Placar (pós-reimport de 2025 + Maio fechado)
 
 | Período | Onshore | Offshore | Consolidado |
 |---|---|---|---|
-| **2026 YTD** | **+1.590,66** ✅ | **−0,00** ✅ | **+1.590,66** ✅ |
-| Base completa (2025→) | −133.039,01 | −579.335,35 | −712.374,36 |
+| Mês corrente (2026-05) | −36.202,30 | 0,00 | −36.202,30 |
+| **2026 YTD** | **+1.590,66** | **0,00** ✅ | **+1.590,66** |
+| Base completa (2025→) | −133.039,00 | **0,00** ✅ | −133.039,00 |
 
-> **2026 está fechado.** A cauda é toda 2025. Check de classificação (rent > 50% do PL): **0**.
-
----
-
-## 1. Entradas onshore 2025 — SEM backfill determinístico
-
-Investigados RAFAEL / TIAGO / PSS / GFJ. **Nenhum** se encaixa no padrão "capital de
-abertura ausente" (ARTUR/LEANDRO) — então **não há backfill determinístico**:
-
-| Cliente | Situação | Decisão |
-|---|---|---|
-| RAFAEL SILVA | offshore-only; entrada Jul/25 **já corrigida** (decomposição fina) | ✅ resolvido |
-| TIAGO MACHADO | entrada Jun/25 **fecha** (resíduo −0,00). O −144k é **chain gap em 2025-07** (resgate Jun→Jul não registrado) | ⏳ aguarda lâmina onshore **Jul/25** |
-| PEDRO H. SILVA (PSS) | entrada Jul/25 resíduo **−123.641** (negativo = aporte sobre-registrado / resgate, NÃO capital ausente) | ⏳ aguarda lâmina onshore **Jul/25** |
-| GABRIEL F. DE JESUS (GFJ) | offshore-only (ver item 2) | ⏳ ver item 2 |
+> **Offshore: FECHADO em toda a história (0,00).** As 7 entradas offshore de 2025 e o FX
+> foram resolvidos pelo reimport (código `723be8b`). Check de classificação (rent > 50% do PL): **0**.
 
 ---
 
-## 2. FX offshore 2025
+## 1. Entradas offshore 2025 — RESOLVIDAS ✅
 
-- **FX estrutural que FECHA (legítimo, já na coluna G. Cambial): Σ ≈ −2.324.755** — é o
-  efeito cambial sobre o PL de abertura (`pl_ini_usd × ΔPTAX`). **Nada a fazer — aceito.**
-- **7 células que NÃO fecham (Σ −579.433), TODAS entradas offshore (1º mês)** com
-  mis-decomposição do import antigo (capital de abertura mal separado de rent — variante
-  branda do bug RAFAEL, abaixo do limiar de 50%):
+As 7 entradas que não fechavam (−579.433) foram **reimportadas com o código novo** e
+agora fecham. Nenhuma aparece mais como resíduo.
 
-| Cliente | Mês | Resíduo | Decisão |
+| Cliente | Mês | Antes | Depois |
 |---|---|---|---|
-| ADEMILSON BRAGA | 2025-04 | −371.985,45 | **Reimport** (código novo decompõe certo) |
-| GABRIEL F. DE JESUS | 2025-05 | −120.652,34 | **Reimport** |
-| LUIZ DE ARAUJO | 2025-06 | −82.287,50 | **Reimport** |
-| WESLEY RIBEIRO | 2025-04 | −3.450,52 | **Reimport** |
-| MAYCON | 2025-06 | −1.236,07 | **Reimport** |
-| VICTOR ALEXANDER | 2025-05 | +795,10 | **Reimport** |
-| ARTUR VICTOR | 2025-11 | −616,70 | **Reimport** |
+| ADEMILSON BRAGA | 2025-04 | −371.985,45 | ✅ fecha |
+| GABRIEL F. DE JESUS | 2025-05 | −120.652,34 | ✅ fecha |
+| LUIZ DE ARAUJO | 2025-06 | −82.287,50 | ✅ fecha |
+| WESLEY RIBEIRO | 2025-04 | −3.450,52 | ✅ fecha |
+| MAYCON | 2025-06 | −1.236,07 | ✅ fecha |
+| VICTOR ALEXANDER | 2025-05 | +795,10 | ✅ fecha |
+| ARTUR VICTOR | 2025-11 | −616,70 | ✅ fecha |
 
-> **Decisão:** reimportar esses meses de **entrada offshore** com o código atual
-> (deploy `723be8b` decompõe a entrada como NNM cheio + tombamento). Alternativa
-> determinística (sem lâmina): aplicar `aporteUsd = ending/(1+rent%)` ao dado gravado —
-> disponível se o reimport não for viável. **Não fazer via LLM.**
+FX offshore estrutural: agora capturado integralmente pelo GC → resíduo offshore **0,00**.
 
 ---
 
-## 3. Fronteira Jan/25
+## 2. Onshore 2025 — pendente
 
-**Σ = R$ 0,00** (nenhum cliente com |resíduo| > R$ 1.000). Os ~−108k citados em análises
-antigas **já foram resolvidos** pelos reimports/encadeamento. **Nada pendente.**
+| Cliente | Mês | Valor | O que falta |
+|---|---|---|---|
+| PEDRO H. SILVA (PSS) | 2025-07 | −121.789 | lâmina onshore Jul/25 (aporte sobre-registrado / resgate) |
+| PEDRO H. ALMEIDA (PHB) | 2025-03 | −9.992 | lâmina onshore Mar/25 (entrada ~−10k, capital não registrado) |
+
+> **TIAGO Jul/25 (−144k): RESOLVIDO** pelo reimport — saiu da lista.
 
 ---
 
-## Resumo das pendências (o que falta)
+## 3. Onshore 2026 — NET fechado (+1.590), mas com resíduos por cliente que se cancelam
 
-| # | Item | Valor | O que falta | Decisão |
-|---|---|---|---|---|
-| 1 | PSS onshore Jul/25 | −123.641 | lâmina onshore Jul/25 | aguarda documento |
-| 2 | TIAGO onshore Jul/25 (chain gap) | −144.485 | lâmina onshore Jul/25 | aguarda documento |
-| 3 | 7 entradas offshore 2025 | −579.433 | reimport (código novo) | reimportar em lote |
-| — | FX offshore estrutural | −2,32 mi | — | **estrutural aceito** (em G. Cambial) |
-| — | Fronteira Jan/25 | 0 | — | **fechado** |
+O reimport (Maio fechado) **redistribuiu** os resíduos: o total de 2026 segue **+1.590,66**,
+mas vários clientes têm resíduo individual material que se compensa. Carecem de revisão
+por lâmina do mês indicado (não zeram individualmente):
 
-**2026: fechado.** A base completa fecha 100% após: (1) reimport das 7 entradas offshore;
-(2) lâminas onshore Jul/25 de PSS e TIAGO. O FX estrutural (−2,32 mi) permanece na coluna
-de Ganho Cambial por construção — não é resíduo a corrigir.
+| Cliente | Mês | Resíduo |
+|---|---|---|
+| ALAN KARDEC | 2026-05 | −41.580 (resgate de Maio não capturado; reimport reduziu de −50.882) |
+| ARTUR VICTOR | 2026-04 | +35.903 |
+| WESLEY RIBEIRO | 2026-02 | +31.223 |
+| MOISES LIMA | 2026-04 | −29.957 |
+| FLORENCE | 2026-05 | −12.208 |
+| WENDERSON | 2026-01 | +10.222 |
+| MARCO ANTONIO | 2026-04 | +9.565 |
+| MARIA TEREZA | 2026-05 | +9.116 (entrada) |
+| JOAO FELIPE | 2026-01 | −8.084 |
+| GABRIEL NATHAN | 2026-01 | −7.939 |
+| ARTHUR MENDONÇA | 2026-04 | −4.107 |
+| + ~5 entre R$1k e R$2,3k | 2026-01/04/05 | — |
+
+> Esses se cancelam no total (+1.590), então a **tela consolidada de 2026 está fechada**,
+> mas o detalhe por cliente tem inconsistências de lâmina (Maio/Abril) a reconciliar
+> cliente a cliente quando houver tempo — não distorcem o agregado.
+
+---
+
+## Resumo — o que falta para a BASE fechar 100% por cliente
+
+| # | Item | Valor | O que falta |
+|---|---|---|---|
+| 1 | PSS onshore Jul/25 | −121.789 | lâmina Jul/25 |
+| 2 | PHB onshore Mar/25 | −9.992 | lâmina Mar/25 |
+| 3 | Resíduos 2026 por cliente (offset) | net +1.590 | revisão por lâmina (Maio/Abril) cliente a cliente |
+| ✅ | 7 entradas offshore 2025 | — | **resolvido (reimport)** |
+| ✅ | TIAGO Jul/25 | — | **resolvido (reimport)** |
+| ✅ | FX offshore estrutural | — | **fechado (GC)** |
+| ✅ | Fronteira Jan/25 | 0 | **fechado** |
+
+**Estado:** offshore 100% fechado; onshore consolidado de 2026 fechado (+1.590); resta a
+cauda onshore 2025 (PSS + PHB, 2 lâminas) e a reconciliação fina por cliente de 2026
+(resíduos que se compensam no agregado).
