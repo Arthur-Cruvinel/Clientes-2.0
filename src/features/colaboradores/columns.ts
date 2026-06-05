@@ -12,7 +12,7 @@ export interface ColunaCol {
 }
 
 export const COLUNAS: ColunaCol[] = [
-  { chave: 'nome',         titulo: 'Nome',         alinhamento: 'left',   classe: '' },
+  { chave: 'nome',         titulo: 'Nome',         alinhamento: 'left',   classe: 'w-56' },
   { chave: 'cargo',        titulo: 'Cargo',        alinhamento: 'left',   classe: 'w-48' },
   { chave: 'tipo',         titulo: 'Vínculo',      alinhamento: 'left',   classe: 'w-24' },
   { chave: 'localidade',   titulo: 'Local',        alinhamento: 'left',   classe: 'w-20' },
