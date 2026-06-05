@@ -5,93 +5,74 @@ onda de correção. Este documento nomeia o que **não zerou** e a decisão de c
 
 Identidade por visão (mês a mês, encadeado como a tela):
 - **onshore** = `pl_fim − pl_ini − NNM_real − Rent + Imp`
-- **offshore** = `pl_fim − pl_ini − NNM_real − Rent − GC` (GC = resíduo cambial com guard)
+- **offshore** = `pl_fim − pl_ini − NNM_real − Rent − GC`
 - **consolidado** = onshore + offshore
 
 ---
 
-## Placar (pós-reimport de 2025 + Maio fechado)
+## Placar (pós-lote final onshore)
 
 | Período | Onshore | Offshore | Consolidado |
 |---|---|---|---|
-| Mês corrente (2026-05) | −36.202,30 | 0,00 | −36.202,30 |
-| **2026 YTD** | **+1.590,66** | **0,00** ✅ | **+1.590,66** |
-| Base completa (2025→) | −133.039,00 | **0,00** ✅ | −133.039,00 |
+| **2026 YTD** | **−60.517,64** | **0,00** ✅ | −60.517,64 |
+| Base completa (2025→) | −195.147,30 | **0,00** ✅ | −195.147,30 |
 
-> **Offshore: FECHADO em toda a história (0,00).** As 7 entradas offshore de 2025 e o FX
-> foram resolvidos pelo reimport (código `723be8b`). Check de classificação (rent > 50% do PL): **0**.
+> O 2026 antes mostrava **+1.590 (ilusório)** — positivos compensando negativos. O lote
+> fechou os 8 itens determináveis (5 tombamento + 3 gate), removendo as compensações e
+> **expondo o resíduo real −60.517**, agora 100% atribuível a itens que precisam de lâmina.
+> Offshore: fechado em toda a história. Check de classificação (rent > 50% do PL): **0**.
 
 ---
 
-## 1. Entradas offshore 2025 — RESOLVIDAS ✅
+## Resolvido neste lote (8 escritas, identidade pós-write ✓)
 
-As 7 entradas que não fechavam (−579.433) foram **reimportadas com o código novo** e
-agora fecham. Nenhuma aparece mais como resíduo.
-
-| Cliente | Mês | Antes | Depois |
+**ETAPA 1 — tombamento fora do aporte (NNM cheio inclui tombamento):** 5 re-entradas Jan/26
+| Cliente | Mês | aporte += | identidade |
 |---|---|---|---|
-| ADEMILSON BRAGA | 2025-04 | −371.985,45 | ✅ fecha |
-| GABRIEL F. DE JESUS | 2025-05 | −120.652,34 | ✅ fecha |
-| LUIZ DE ARAUJO | 2025-06 | −82.287,50 | ✅ fecha |
-| WESLEY RIBEIRO | 2025-04 | −3.450,52 | ✅ fecha |
-| MAYCON | 2025-06 | −1.236,07 | ✅ fecha |
-| VICTOR ALEXANDER | 2025-05 | +795,10 | ✅ fecha |
-| ARTUR VICTOR | 2025-11 | −616,70 | ✅ fecha |
+| WENDERSON | 2026-01 | +10.222,01 | ✓ |
+| LUIZ DE ARAUJO | 2026-01 | +2.309,93 | ✓ |
+| PEDRO H. SILVA | 2026-01 | +1.851,80 | ✓ |
+| MATHEUS ISAIAS | 2026-01 | +596,56 | ✓ |
+| WILLIAM BENTO | 2026-01 | +182,81 | ✓ |
 
-FX offshore estrutural: agora capturado integralmente pelo GC → resíduo offshore **0,00**.
-
----
-
-## 2. Onshore 2025 — pendente
-
-| Cliente | Mês | Valor | O que falta |
+**ETAPA 2 — gate (rent confirmado pelo rent% independente, <5 bps) → aporte = identidade:** 3
+| Cliente | Mês | Δ rent% | aporte → |
 |---|---|---|---|
-| PEDRO H. SILVA (PSS) | 2025-07 | −121.789 | lâmina onshore Jul/25 (aporte sobre-registrado / resgate) |
-| PEDRO H. ALMEIDA (PHB) | 2025-03 | −9.992 | lâmina onshore Mar/25 (entrada ~−10k, capital não registrado) |
-
-> **TIAGO Jul/25 (−144k): RESOLVIDO** pelo reimport — saiu da lista.
-
----
-
-## 3. Onshore 2026 — NET fechado (+1.590), mas com resíduos por cliente que se cancelam
-
-O reimport (Maio fechado) **redistribuiu** os resíduos: o total de 2026 segue **+1.590,66**,
-mas vários clientes têm resíduo individual material que se compensa. Carecem de revisão
-por lâmina do mês indicado (não zeram individualmente):
-
-| Cliente | Mês | Resíduo |
-|---|---|---|
-| ALAN KARDEC | 2026-05 | −41.580 (resgate de Maio não capturado; reimport reduziu de −50.882) |
-| ARTUR VICTOR | 2026-04 | +35.903 |
-| WESLEY RIBEIRO | 2026-02 | +31.223 |
-| MOISES LIMA | 2026-04 | −29.957 |
-| FLORENCE | 2026-05 | −12.208 |
-| WENDERSON | 2026-01 | +10.222 |
-| MARCO ANTONIO | 2026-04 | +9.565 |
-| MARIA TEREZA | 2026-05 | +9.116 (entrada) |
-| JOAO FELIPE | 2026-01 | −8.084 |
-| GABRIEL NATHAN | 2026-01 | −7.939 |
-| ARTHUR MENDONÇA | 2026-04 | −4.107 |
-| + ~5 entre R$1k e R$2,3k | 2026-01/04/05 | — |
-
-> Esses se cancelam no total (+1.590), então a **tela consolidada de 2026 está fechada**,
-> mas o detalhe por cliente tem inconsistências de lâmina (Maio/Abril) a reconciliar
-> cliente a cliente quando houver tempo — não distorcem o agregado.
+| ARTUR VICTOR | 2026-04 | −2,8 bps | 39.389,66 |
+| WESLEY | 2026-02 | −5,0 bps | 280.314,59 |
+| JOAO FELIPE | 2026-01 | −4,7 bps | 191.914,97 |
 
 ---
 
-## Resumo — o que falta para a BASE fechar 100% por cliente
+## Pendências — precisam de lâmina
 
-| # | Item | Valor | O que falta |
+### Gate REPROVADO (rent% diverge > 5 bps — F suspeito, NÃO backfillar às cegas)
+| Cliente | Mês | Resíduo | Δ rent% | Lâmina |
+|---|---|---|---|---|
+| ALAN KARDEC | 2026-05 | −41.580 | −8,3 bps | onshore Mai/26 |
+| MOISES LIMA | 2026-04 | −29.957 | −5,8 bps | onshore Abr/26 |
+| FLORENCE | 2026-05 | −12.208 | −9,7 bps | onshore Mai/26 |
+| MARCO ANTONIO | 2026-04 | +9.565 | −23,2 bps | onshore Abr/26 |
+| GABRIEL NATHAN | 2026-01 | −7.939 | −15,7 bps | onshore Jan/26 |
+
+### Outros 2026 (meses fora dos 8; rodar gate estendido ou lâmina)
+WESLEY Abr/26 (~+9,8k) · ARTUR Mai/26 (+2,2k) · ARTHUR MENDONÇA Abr/26 (−4,1k) ·
+ADEMILSON Mai/26 (+2,1k) · RONALDO Mai/26 (+1,7k) · LEONARDO Mai/26 (+1,2k) ·
+MARIA TEREZA (entrada Mar/26, +9,1k).
+
+### Onshore 2025
+| Cliente | Mês | Valor | Lâmina |
 |---|---|---|---|
-| 1 | PSS onshore Jul/25 | −121.789 | lâmina Jul/25 |
-| 2 | PHB onshore Mar/25 | −9.992 | lâmina Mar/25 |
-| 3 | Resíduos 2026 por cliente (offset) | net +1.590 | revisão por lâmina (Maio/Abril) cliente a cliente |
-| ✅ | 7 entradas offshore 2025 | — | **resolvido (reimport)** |
-| ✅ | TIAGO Jul/25 | — | **resolvido (reimport)** |
-| ✅ | FX offshore estrutural | — | **fechado (GC)** |
-| ✅ | Fronteira Jan/25 | 0 | **fechado** |
+| PEDRO H. SILVA (PSS) | 2025-07 | −121.789 | onshore Jul/25 |
+| PEDRO H. ALMEIDA (PHB) | 2025-03 | −9.992 | onshore Mar/25 |
 
-**Estado:** offshore 100% fechado; onshore consolidado de 2026 fechado (+1.590); resta a
-cauda onshore 2025 (PSS + PHB, 2 lâminas) e a reconciliação fina por cliente de 2026
-(resíduos que se compensam no agregado).
+---
+
+## Resumo
+- ✅ **Offshore: 100% fechado.**
+- ✅ **8 itens onshore 2026 fechados** (5 tombamento + 3 gate).
+- ⏳ **Onshore restante (−60.517 em 2026 + cauda 2025):** todos com **rent suspeito (gate
+  reprovado)** ou entrada 2025 → **precisam de lâmina** para confirmar aporte/rent corretos.
+  Nenhum é backfillável às cegas sem risco de mascarar erro de rent.
+- **Próximo passo:** rodar o **gate estendido** a TODOS os meses 2026 com |R_on|>R$1k
+  (fecha os rent-confirmados restantes), e juntar as lâminas dos reprovados + 2025.
