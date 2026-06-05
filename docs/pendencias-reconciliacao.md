@@ -10,69 +10,66 @@ Identidade por visão (mês a mês, encadeado como a tela):
 
 ---
 
-## Placar (pós-lote final onshore)
+## Placar (pós gate estendido)
 
 | Período | Onshore | Offshore | Consolidado |
 |---|---|---|---|
-| **2026 YTD** | **−60.517,64** | **0,00** ✅ | −60.517,64 |
-| Base completa (2025→) | −195.147,30 | **0,00** ✅ | −195.147,30 |
+| **2026 YTD** | **−67.912,92** | **0,00** ✅ | −67.912,92 |
+| Base completa (2025→) | −202.542,58 | **0,00** ✅ | −202.542,58 |
 
-> O 2026 antes mostrava **+1.590 (ilusório)** — positivos compensando negativos. O lote
-> fechou os 8 itens determináveis (5 tombamento + 3 gate), removendo as compensações e
-> **expondo o resíduo real −60.517**, agora 100% atribuível a itens que precisam de lâmina.
-> Offshore: fechado em toda a história. Check de classificação (rent > 50% do PL): **0**.
-
----
-
-## Resolvido neste lote (8 escritas, identidade pós-write ✓)
-
-**ETAPA 1 — tombamento fora do aporte (NNM cheio inclui tombamento):** 5 re-entradas Jan/26
-| Cliente | Mês | aporte += | identidade |
-|---|---|---|---|
-| WENDERSON | 2026-01 | +10.222,01 | ✓ |
-| LUIZ DE ARAUJO | 2026-01 | +2.309,93 | ✓ |
-| PEDRO H. SILVA | 2026-01 | +1.851,80 | ✓ |
-| MATHEUS ISAIAS | 2026-01 | +596,56 | ✓ |
-| WILLIAM BENTO | 2026-01 | +182,81 | ✓ |
-
-**ETAPA 2 — gate (rent confirmado pelo rent% independente, <5 bps) → aporte = identidade:** 3
-| Cliente | Mês | Δ rent% | aporte → |
-|---|---|---|---|
-| ARTUR VICTOR | 2026-04 | −2,8 bps | 39.389,66 |
-| WESLEY | 2026-02 | −5,0 bps | 280.314,59 |
-| JOAO FELIPE | 2026-01 | −4,7 bps | 191.914,97 |
+> **Offshore: fechado em toda a história.** Check de classificação (rent > 50% do PL): **0**.
+> O resíduo onshore restante é **100% atribuível** aos itens abaixo — todos com **rent
+> suspeito (gate reprovado)** ou **entrada 2025**, ou seja, o **mínimo irredutível** que só
+> fecha com a lâmina correta. Nada mais é backfillável deterministicamente.
 
 ---
 
-## Pendências — precisam de lâmina
+## LISTA MÍNIMA DEFINITIVA DE LÂMINAS (o que falta para zerar o livro)
 
-### Gate REPROVADO (rent% diverge > 5 bps — F suspeito, NÃO backfillar às cegas)
-| Cliente | Mês | Resíduo | Δ rent% | Lâmina |
-|---|---|---|---|---|
-| ALAN KARDEC | 2026-05 | −41.580 | −8,3 bps | onshore Mai/26 |
-| MOISES LIMA | 2026-04 | −29.957 | −5,8 bps | onshore Abr/26 |
-| FLORENCE | 2026-05 | −12.208 | −9,7 bps | onshore Mai/26 |
-| MARCO ANTONIO | 2026-04 | +9.565 | −23,2 bps | onshore Abr/26 |
-| GABRIEL NATHAN | 2026-01 | −7.939 | −15,7 bps | onshore Jan/26 |
+### Maio/2026 onshore (6 clientes — rent% diverge do gravado)
+| Cliente | Resíduo | Δ rent% |
+|---|---|---|
+| ALAN KARDEC | −41.580 | −8,3 bps |
+| FLORENCE | −12.208 | −9,7 bps |
+| MARIA TEREZA | +9.115 | +48,4 bps |
+| ARTUR VICTOR | +2.248 | −7,9 bps |
+| RONALDO | +1.724 | −10,2 bps |
+| LEONARDO CESAR | +1.179 | −7,2 bps |
 
-### Outros 2026 (meses fora dos 8; rodar gate estendido ou lâmina)
-WESLEY Abr/26 (~+9,8k) · ARTUR Mai/26 (+2,2k) · ARTHUR MENDONÇA Abr/26 (−4,1k) ·
-ADEMILSON Mai/26 (+2,1k) · RONALDO Mai/26 (+1,7k) · LEONARDO Mai/26 (+1,2k) ·
-MARIA TEREZA (entrada Mar/26, +9,1k).
+### Abril/2026 onshore (2 clientes)
+| Cliente | Resíduo | Δ rent% |
+|---|---|---|
+| MOISES LIMA | −30.940 | −5,8 bps |
+| MARCO ANTONIO | +9.217 | −23,2 bps |
 
-### Onshore 2025
-| Cliente | Mês | Valor | Lâmina |
-|---|---|---|---|
-| PEDRO H. SILVA (PSS) | 2025-07 | −121.789 | onshore Jul/25 |
-| PEDRO H. ALMEIDA (PHB) | 2025-03 | −9.992 | onshore Mar/25 |
+### Janeiro/2026 onshore (1 cliente)
+| Cliente | Resíduo | Δ rent% |
+|---|---|---|
+| GABRIEL NATHAN | −7.939 | −15,7 bps |
+
+### 2025 onshore (2 clientes — entrada)
+| Cliente | Mês | Resíduo |
+|---|---|---|
+| PEDRO H. SILVA (PSS) | 2025-07 | −121.789 |
+| PEDRO H. ALMEIDA (PHB) | 2025-03 | −9.992 |
+
+**Total: 11 client-meses.** Consolidando por PDF a juntar:
+`Maio/26` (ALAN, FLORENCE, MARIA TEREZA, ARTUR, RONALDO, LEONARDO) ·
+`Abril/26` (MOISES, MARCO) · `Janeiro/26` (GABRIEL NATHAN) ·
+`Julho/25` (PSS) · `Março/25` (PHB).
 
 ---
 
-## Resumo
-- ✅ **Offshore: 100% fechado.**
-- ✅ **8 itens onshore 2026 fechados** (5 tombamento + 3 gate).
-- ⏳ **Onshore restante (−60.517 em 2026 + cauda 2025):** todos com **rent suspeito (gate
-  reprovado)** ou entrada 2025 → **precisam de lâmina** para confirmar aporte/rent corretos.
-  Nenhum é backfillável às cegas sem risco de mascarar erro de rent.
-- **Próximo passo:** rodar o **gate estendido** a TODOS os meses 2026 com |R_on|>R$1k
-  (fecha os rent-confirmados restantes), e juntar as lâminas dos reprovados + 2025.
+## Histórico das ondas (resolvido)
+- **GC offshore** = resíduo cambial + guard (deploy `4d14769`); rent gravada primeiroMes
+  (`5af7875`); **bug de entrada offshore na raiz + sanity + check** (`723be8b`).
+- **Harness permanente** (`27439ac`) com check de classificação.
+- **Correções de dado:** lote ponte Maio (7), LOTE A/B (chain + backfill), RAFAEL Jul/25
+  (entrada offshore), 7 entradas offshore 2025 (reimport), lote final onshore
+  (5 tombamento + 3 gate) e gate estendido (+4). Todas com identidade pós-write.
+- **Offshore: 100% fechado.** Onshore: só o mínimo irredutível acima (11 lâminas).
+
+> **Mecânica de fechamento dos pendentes:** com a lâmina correta do mês, o gate confirma
+> rent (F) e/ou corrige aporte (E); identidade fecha. Os reprovados têm **rent suspeito**
+> — provavelmente o parser LLM leu o Rendimento Nominal (F) com erro > 5 bps. A lâmina
+> resolve qual de E/F está errado.
