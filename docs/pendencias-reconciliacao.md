@@ -24,60 +24,48 @@ Identidade por visão (mês a mês, encadeado como a tela):
 
 | Período | Onshore | Offshore | Consolidado |
 |---|---|---|---|
-| Mês corrente (2026-06) | **0,00** ✅ | **0,00** ✅ | **0,00** ✅ |
-| **2026 YTD** | **−78.400,52** | **0,00** ✅ | −78.400,52 |
-| Base completa (2025→) | −220.969,47 | **0,00** ✅ | −220.969,47 |
+| Mês corrente (2026-06) | **0,00** ✅ | 3.270.054,50 ⚠️ | 3.270.054,50 |
+| **2026 YTD** | **+5.345,36** | **−0,00** ✅ | +5.345,36 |
+| Base completa (2025→) | −135.170,38 | **0,00** ✅ | −135.170,38 |
 
-> **Offshore 100% fechado. Jun/26 100% fechado.** O 2026 YTD foi de −69.285 → **−78.400**
-> após recuperar MARIA: o +9.115 que ela tinha era **fantasma de colisão** que *mascarava*
-> o resíduo (fazia o livro parecer menos negativo). Removido, aparece o número honesto =
-> **3 materiais reais (ALAN/MOISES/FLORENCE) + fronteira aceita**. MARIA agora fecha 0,00.
+> **2026 onshore ZERADO de material.** Reimport de Mai/Abr/26 fechou ALAN, MOISES e
+> FLORENCE — o 2026 YTD foi de −78.400 → **+5.345, que é 100% fronteira imaterial**
+> (ARTUR/RONALDO/LEONARDO < 0,02% do PL + cauda). Check classificação: 0.
+>
+> ⚠️ **Mês corrente offshore (Jun/26) = 3.270.054 (MOISES):** import offshore de Junho
+> ainda **pendente** (Mai tem 3,27M, Jun vazio). **Não é erro** — resolve no fechamento
+> normal de Junho. O YTD offshore fecha (−0,00) porque o GC residual absorve; quando a
+> lâmina de Junho entrar, a cadeia continua.
 
 ---
 
 ## LISTA MÍNIMA REAL
 
-### 🔴 Materiais 2026 — problema em APORTE/MOVIMENTO (não rent)
-O viés de rent% (campo `pct` vs BRL) explica só 16-24% do resíduo; o grosso (~80%)
-está no **movimento líquido** (aporte/resgate) mal dimensionado. **Conferir a coluna
-de movimentação da lâmina** contra o aporte-alvo — não o rendimento.
-
-| Cliente | Mês | Resíduo | % PL | aporte ATUAL | **aporte-ALVO** | falta |
-|---|---|---|---|---|---|---|
-| **ALAN KARDEC** | Mai/26 | −41.580 | 0,523% | −289.143,73 | **−330.724,60** | resgate R$41.580 a mais |
-| **MOISES LIMA** | Abr/26 | −30.940 | 0,266% | −187.288,36 | **−218.228,97** | resgate R$30.940 a mais |
-| **FLORENCE** | Mai/26 | −12.208 | 0,408% | +733,51 | **−11.474,54** | era resgate, não aporte |
-
-> aporte-alvo = `pl − pl_inicial − rent + imp`. Ao abrir a lâmina, compare a coluna de
-> movimento líquido (aporte/resgate) com este número — confirma o saque faltando sem caçar.
->
-> **ALAN** não é import_faltante clássico (é onshore-puro; o flag vem do dummy R$1,00 de
-> Mar/26). Mai/26 é o 1º mês normal pós-entrada (Abr/26 = tombamento R$8,1M).
-
-### 🔵 MARIA TEREZA — duplicata (não é entrada, não é 2ª conta real)
-Varredura da timeline completa **re-diagnosticou**: `mtv_xp` e o slug canônico são
-**a MESMA conta importada duas vezes** (duplicata), não duas contas reais:
-
-| Mês | canônico `maria_..._barbosa` | `mtv_xp` | Veredito |
+### ✅ Materiais 2026 — TODOS FECHADOS (reimport de Mai/Abr/26)
+| Cliente | Mês | Antes | Agora |
 |---|---|---|---|
-| 2026-03 | pl 14.857 | pl 14.857 (idêntico) | duplicata |
-| 2026-04 | pl 14.497 | pl 14.497 (idêntico) | duplicata |
-| 2026-05 | pl 5.382 (aporte −9.016) | pl 14.538 (aporte 0) | **divergem** |
-| 2026-06 | pl 5.390 | **(não existe)** | só canônico continua |
+| ALAN KARDEC | Mai/26 | −41.580 | **0,00** ✅ |
+| MOISES LIMA | Abr/26 | −30.940 | **0,00** ✅ (Março regerado alinhou com a ponte de Abril) |
+| FLORENCE | Mai/26 | −12.208 | **0,00** ✅ |
+| MARIA TEREZA | — | +9.115 (fantasma) | **0,00** ✅ (recuperada — ver histórico) |
 
-Mar/Abr **idênticos** = mesma conta. Em Mai divergem: o canônico capturou o resgate
-de −9.016 (→5.382), o `mtv_xp` ficou **stale** (14.538, perdeu o resgate) e **parou**.
-Jun/26 só tem o canônico (5.390), **provando que a série canônica é a viva**.
-→ **Correção determinística: excluir a série `mtv_xp` (3 docs: 2026-03/04/05).**
-Mata o fantasma +9.115. (Reservado à confirmação do Arthur, mas a evidência de Junho
-torna inequívoco.)
+**2026 onshore não tem mais nenhum resíduo material.** Só fronteira imaterial.
 
-### 🟡 2025 — entradas (capital de abertura)
-| Cliente | Mês | Resíduo |
-|---|---|---|
-| PEDRO H. SILVA (PSS) | Jul/25 | −123.641 |
-| PEDRO H. ALMEIDA (PHB) | Mar/25 | −9.992 |
-| GABRIEL NATHAN | Mar/25 | −7.940 |
+### 🟡 2025 — entradas (3 resistem ao reimport; 1 fechou)
+Reimport das 4 entradas de 2025: **FLORENCE Out/25 FECHOU** (aporte 2.060.678 +
+tombamento 2.062.728 lançados; R_on=0). As outras 3 **não fecharam** — naturezas distintas:
+
+| Cliente | Mês | Resíduo | Natureza | Detalhe |
+|---|---|---|---|---|
+| **PSS** (Pedro H. Silva) | Jul/25 | −123.641 | **erro de campo (entrada)** | aporte 2.717.464 + rent 205.116 > pl 2.798.938. aporte-alvo = **2.593.822** (atual 123.641 alto), OU rent 205.116 espúrio no mês de entrada |
+| **PHB** (Pedro H. Almeida) | Mar/25 | −9.992 | **descontinuidade Fev→Mar** | Fev (tomb 10.000) fecha; Mar não chega: `pl_onshore(Fev)=20.048` vs `pl_inicial(Mar)=10.048` → gap **10.000** (tombamento de entrada de Fev some na fronteira) |
+| **GABRIEL NATHAN** | Mar/25 | −7.940 | **descontinuidade Fev→Mar** | `pl_onshore(Fev)=40.058` vs `pl_inicial(Mar)=32.118` → gap **7.940** |
+
+> **PSS** = corrigir o mês de entrada (alinhar aporte/rent à lâmina). **PHB/GABRIEL** =
+> reimportar Março não basta — o gap é na **fronteira Fev/Mar**; precisa alinhar o
+> `pl_onshore` de Fevereiro com o `pl_inicial` de Março (provável dupla contagem do
+> tombamento de entrada de Fev). Todos imateriais em valor absoluto do livro, mas
+> relativos altos (PHB 9,6% / GABRIEL 5,8% do PL — contas pequenas).
 
 ### ⚪ Fronteira ACEITA (não é pendência — < 0,05% do PL)
 | Cliente | Resíduo | % PL |
@@ -90,11 +78,14 @@ torna inequívoco.)
 ---
 
 ## Resumo executivo
-- **Falta zerar 3 lâminas materiais** (ALAN Mai, MOISES Abr, FLORENCE Mai) — foco na
-  **coluna de movimento**, alvo já calculado.
-- **1 decisão de cadastro** (MARIA: agregar XP ou excluir duplicata).
-- **3 entradas de 2025** (PSS, PHB, GABRIEL).
-- Resto é fronteira aceita.
+- **2026 onshore = fronteira pura (+5.345, imaterial).** ALAN/MOISES/FLORENCE/MARIA fechados.
+- **Resta na base completa (−135.170):** PSS Jul/25 (−123.641, erro de campo na entrada),
+  PHB Mar/25 (−9.992, descontinuidade Fev→Mar), GABRIEL Mar/25 (−7.940, descontinuidade
+  Fev→Mar). Todos **2025 entrada**.
+- **ALLAN `aae_btg_2026_5`** (−446, colisão) — aguarda lâmina BTG.
+- **EDUARDA** (14 frags `esm_btg`, R$5 poeira) — migrar ou excluir.
+- **MOISES Jun offshore** — import de Junho pendente (não-erro; fecha no mês).
+- Offshore: 100% fechado no histórico.
 
 ---
 
