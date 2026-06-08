@@ -36,6 +36,25 @@ mas cresce a cada migração.
 (ex. bucket/Drive) quando passar de alguns MB.
 **Gatilho:** quando a pasta ultrapassar alguns MB.
 
+### 4. Import por sigla cria docId sigla-keyed em vez de agregar no slug canônico
+**Contexto:** o import por sigla grava o doc de poupança com docId baseado na
+sigla (`mtv_xp_2026_5`, `aae_btg_2026_5`, `rrf_glpg_2026_4`) em vez de agregar/
+gravar no docId do **slug canônico** do cliente (`maria_tereza_vasconcelos_barbosa_2026_5`).
+Resultado: dois docs no mesmo (cliente, ano, mês). Como o pipeline de leitura
+(`usePoupanca`/harness) encadeia por `nome_cliente` ordenado por (ano,mês), os
+dois docs do mesmo mês ficam consecutivos e o 2º recebe `pl_inicial = pl[1º]` →
+**resíduo-fantasma** de encadeamento (MARIA gerou +9.115 espúrio). Varredura
+2026-06 achou só 3 clientes afetados (MARIA, ALLAN, RAFAEL) — **não é sistêmico**,
+mas a raiz é o write-path.
+**Ação:** corrigir no **import (write-path)** — sempre resolver a sigla para o
+`id_estavel`/slug canônico e gravar/agregar no docId canônico, NÃO criar doc
+sigla-keyed. **NUNCA** consertar no read-path (encadeamento) — tocaria a leitura
+de todos os clientes por um problema de 3 (risco de regressão desproporcional).
+A correção dos 3 casos existentes é de **dados** (caso a caso), registrada em
+`docs/pendencias-reconciliacao.md`.
+**Gatilho:** ao tocar o fluxo de import de poupança por sigla / quando aparecer
+um 4º caso de multi-conta.
+
 ---
 
 ## Resolvidos
