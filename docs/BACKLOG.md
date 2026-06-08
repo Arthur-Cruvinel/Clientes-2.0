@@ -46,14 +46,30 @@ dois docs do mesmo mês ficam consecutivos e o 2º recebe `pl_inicial = pl[1º]`
 **resíduo-fantasma** de encadeamento (MARIA gerou +9.115 espúrio). Varredura
 2026-06 achou só 3 clientes afetados (MARIA, ALLAN, RAFAEL) — **não é sistêmico**,
 mas a raiz é o write-path.
-**Ação:** corrigir no **import (write-path)** — sempre resolver a sigla para o
-`id_estavel`/slug canônico e gravar/agregar no docId canônico, NÃO criar doc
-sigla-keyed. **NUNCA** consertar no read-path (encadeamento) — tocaria a leitura
-de todos os clientes por um problema de 3 (risco de regressão desproporcional).
-A correção dos 3 casos existentes é de **dados** (caso a caso), registrada em
-`docs/pendencias-reconciliacao.md`.
-**Gatilho:** ao tocar o fluxo de import de poupança por sigla / quando aparecer
-um 4º caso de multi-conta.
+**Mecânica do defeito:** a identidade de `poupanca/` É o docId (`slug_ano_mes`); a
+coleção não tem `id_estavel`. Import em quarentena grava `slug(sigla_bruta)_ano_mes`;
+a normalização (`corrigirNomeClientePoupanca`) seta `nome_cliente` mas preserva o
+docId ("Nunca alterar docId" — `useImportPoupanca.ts:600`). O fragmento sigla-keyed
+fica órfão: aparece nas views (group by `nome_cliente`) mas é inalcançável por toda
+op por-nome (que mira `slug(nome)`). Varredura: 30 fragmentos em 3 clientes (ALLAN
+`aae_btg`, EDUARDA `esm_btg`, MARIA `mtv_xp`).
+
+**Ação (fix de raiz — RE-KEY no write-path):** ao sair da quarentena/normalizar, em
+vez de só trocar conteúdo, **re-keyar** o docId:
+1. `corrigirNomeClientePoupanca` e `cadastrarSiglaNova` (`firebase.ts`): para cada doc
+   sigla-keyed, computar `canon = slug(nome)_ano_mes`; se `canon` NÃO existe →
+   `setDoc(canon, conteúdo)` + `deleteDoc(sigla-keyed)`; se existe → **merge** (decidir
+   regra: somar contas reais vs manter o vivo) e excluir o fragmento.
+2. Sempre por **docId direto** (a construção por-nome não alcança o fragmento).
+**Sem esse fix, todo import por sigla recria fragmento** — é a causa-raiz, não sintoma.
+**NUNCA** consertar no read-path (encadeamento) — tocaria a leitura de todos os
+clientes por um problema de poucos (regressão desproporcional).
+
+A correção dos fragmentos **existentes** é de **dados**, por docId direto, registrada
+em `docs/pendencias-reconciliacao.md` (MODO 1 migrar sole-source / MODO 2 resolver
+colisão). RAFAEL já corrigido.
+**Gatilho:** ao tocar o fluxo de import/normalização de poupança por sigla / quando
+aparecer um novo fragmento sigla-keyed.
 
 ---
 

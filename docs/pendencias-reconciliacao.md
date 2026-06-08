@@ -97,40 +97,51 @@ torna inequívoco.)
 
 ---
 
-## Mapa multi-conta (varredura completa — NÃO sistêmico)
-Varredura da base inteira por >1 doc poupança no mesmo (cliente, ano, mês):
-**4 case-months, 3 clientes.** Raiz: import por sigla cria docId sigla-keyed em vez
-de agregar no slug canônico (BACKLOG #4 — corrigir no write-path, não no read-path).
+## Identidade fragmentada — classe de defeito (varredura completa)
 
-| Cliente | Veredito | docs | Fantasma | Correção |
-|---|---|---|---|---|
-| **RAFAEL** | DUPLICATA (dummies R$1) | `rrf_glpg_2026_4/5` | −1 (imaterial) | excluir `rrf_glpg` (canônico R$1 permanece) — **determinístico** |
-| **MARIA** | DUPLICATA (canônico vivo, `mtv_xp` stale) | `mtv_xp_2026_3/4/5` | **+9.115** | excluir série `mtv_xp` — **determinístico** (Jun prova) |
-| **ALLAN** | **AMBÍGUO** (ver abaixo) | `aae_btg` (Abr/25→Mai/26) + `allan_andrade_elias_2026_5` | −446 (imaterial) | **decisão do Arthur** |
+**A identidade da poupança É o docId** (`slug_ano_mes`). A coleção **não tem
+`id_estavel`** — varri 1.057 docs: **0** têm. Toda operação de escrita/exclusão
+(`GerenciarDados`, `DetalheLinhaEdit`, `DetalheMetaLote`, `revisao`, `PoupancaMetaLote`)
+monta `slug(nome_cliente)_ano_mes`. As views (`usePoupanca`) agrupam por `nome_cliente`.
 
-**Fantasma total de encadeamento: +R$8.668** — quase todo MARIA. **Não distorce o
-−69k/−202k** (esse é erro de dado real); o +9.115 da MARIA era até *positivo* (fazia o
-livro parecer melhor). Removendo-o, o onshore 2026 vai a −78.400 = os 3 materiais.
+**Raiz:** import por sigla em quarentena grava docId `slug(sigla_bruta)_ano_mes`
+(ex. `aae_btg_2026_5`). A normalização (`corrigirNomeClientePoupanca`) seta
+`nome_cliente` mas **"Nunca alterar docId"** → o docId fica sigla-keyed para sempre.
+Consequência: o doc **aparece** nas views (group by nome) mas é **inalcançável por
+toda op por-nome** (que mira `slug(nome)`). `deleteDoc` em docId inexistente é no-op
+silencioso → UI diz "excluído" e o fragmento sobrevive; em colisão, exclui o canônico
+(o bom) e deixa o fragmento. **Correção só funciona por docId DIRETO.**
 
-### ALLAN ANDRADE ELIAS — por que é ambíguo
-`aae_btg` tem histórico **contínuo e congelado** (201.770,71 **inalterado** de Mai a
-Nov/25 — cara de série stale/carregada), depois 200.724 (Abr/26) → 201.171 (Mai/26,
-aporte +36). Já `allan_andrade_elias_2026_5` **só aparece em Mai/26**, fresco, com
-movimento real (pl 152.601, **aporte −50.000**, rent 2.033). Não são idênticos.
+### Mapa — 30 fragmentos, 3 clientes
 
-- Se forem **2 contas reais** → agregar (total Mai = 353.772) — mas o `pl_inicial`
-  somaria 401.449 (2×200.724), o que **duplica** se o canônico não existia em Abril
-  (e não existe: não há `allan_andrade_elias_2026_4`).
-- Se for **duplicata** (mesma conta, 2 leituras de Mai) → o `aae_btg` (201.171) está
-  **stale** (não capturou o −50k) e o canônico (152.601) é a leitura viva → **excluir
-  `aae_btg_2026_5`**, NÃO agregar (agregar inflaria o AUM para 353k).
+| Cliente | Frags | slug-keyed | Meses | Colisão | pl_max | Tipo |
+|---|---|---|---|---|---|---|
+| **ALLAN ANDRADE ELIAS** | 13 | `aae_btg` | 2025-03 → 2026-05 | só 2026-05 | 201.770 | 12 sole-source (história real) + 1 colisão |
+| **EDUARDA DA SILVA MINUTTI** | 14 | `esm_btg` | 2025-02 → 2026-04 | nenhuma | **R$ 5,36** | sole-source, **imaterial** (poeira) |
+| **MARIA TEREZA** | 3 | `mtv_xp` | 2026-03/04/05 | todas 3 | 14.857 | colisão (fantasma +9.115) |
 
-Sem Junho para desempatar (ALLAN para em Mai/26) nem lâmina, **não dá para decidir
-deterministicamente.** Hipótese forte: o `aae_btg` congelado por 7 meses é stale →
-o canônico 152.601 é o vivo. **Aguardar Arthur** antes de qualquer escrita.
+> `aae_btg` é a série **contínua e ÚNICA** do ALLAN por 14 meses → **é a história real
+> dele**, NÃO stale (corrige a leitura do turno anterior). O canônico
+> `allan_andrade_elias_2026_5` é o recém-chegado. Em 2026-05 a dúvida é qual Maio é o
+> certo; os outros 12 `aae_btg` **devem ser preservados**.
 
-> **NÃO mexer no read-path.** A correção dos 3 é de dados (caso a caso). A prevenção
-> (write-path do import) está no BACKLOG #4.
+**Materialidade:** nenhuma distorção material escondida além do **+9.115 da MARIA**
+(já conhecido). ALLAN −446 e EDUARDA R$5 imateriais. Os 12 meses sole-source do ALLAN
+são história real exibida corretamente. **O −69k/−202k NÃO vem de fragmento.**
+
+### Plano de correção (por docId direto)
+- **MODO 1 — MIGRAR (sole-source, determinístico):** copiar conteúdo do fragmento para
+  `slug(nome)_ano_mes`, excluir o sigla-keyed. Sem perda, sem merge. Pré-condição:
+  destino canônico NÃO existe (senão é colisão → modo 2). Aplica a **EDUARDA (14)** e
+  **ALLAN 12 meses sole-source** (exceto 2026-05).
+- **MODO 2 — RESOLVER COLISÃO (aguarda fonte externa):** **MARIA** (excluir série
+  `mtv_xp` após a lâmina XP confirmar qual Maio fecha — 5.382 vs 14.538); **ALLAN
+  2026-05** (lâmina/extrato — qual Maio é o vivo; preservar os outros 12).
+- **RAFAEL** (`rrf_glpg_2026_4/5`, dummies R$1): ✅ já excluído por docId direto
+  (ausente na re-varredura — confirma que persistiu).
+
+> **NÃO mexer no read-path.** Correção é de dados, por docId direto. Prevenção da
+> recriação = re-key no write-path (BACKLOG #4).
 
 ---
 
