@@ -117,8 +117,8 @@ silencioso → UI diz "excluído" e o fragmento sobrevive; em colisão, exclui o
 
 | Cliente | Frags | slug-keyed | Meses | Colisão | pl_max | Status |
 |---|---|---|---|---|---|---|
-| **ALLAN ANDRADE ELIAS** | 13 | `aae_btg` | 2025-03 → 2026-05 | só 2026-05 | 201.770 | ⏳ 12 sole-source p/ migrar + 1 colisão (lâmina) |
-| **EDUARDA DA SILVA MINUTTI** | 14 | `esm_btg` | 2025-02 → 2026-04 | nenhuma | **R$ 5,36** | ⏳ sole-source, **imaterial** (poeira) |
+| **ALLAN ANDRADE ELIAS** | ~~13~~ 1 | `aae_btg` | só `2026_5` resta | 2026-05 | 201.770 | ✅ 12 migrados p/ canônico; ⏳ `aae_btg_2026_5` (colisão) aguarda lâmina BTG |
+| **EDUARDA DA SILVA MINUTTI** | 14 | `esm_btg` | 2025-02 → 2026-04 | nenhuma | **R$ 5,36** | ⏳ sole-source, **imaterial** (poeira) — migrar ou excluir |
 | **MARIA TEREZA** | ~~3~~ 0 | ~~`mtv_xp`~~ | — | — | — | ✅ **RESOLVIDA** (ver abaixo) |
 | **RAFAEL RICIERI FACI** | ~~2~~ 0 | ~~`rrf_glpg`~~ | — | — | — | ✅ excluído (dummies R$1) |
 
@@ -141,16 +141,19 @@ apaga o doc certo.**
 (já conhecido). ALLAN −446 e EDUARDA R$5 imateriais. Os 12 meses sole-source do ALLAN
 são história real exibida corretamente. **O −69k/−202k NÃO vem de fragmento.**
 
-### Plano de correção (por docId direto)
-- **MODO 1 — MIGRAR (sole-source, determinístico):** copiar conteúdo do fragmento para
-  `slug(nome)_ano_mes`, excluir o sigla-keyed. Sem perda, sem merge. Pré-condição:
-  destino canônico NÃO existe (senão é colisão → modo 2). Aplica a **EDUARDA (14)** e
-  **ALLAN 12 meses sole-source** (exceto 2026-05).
-- **MODO 2 — RESOLVER COLISÃO (aguarda fonte externa):** **MARIA** (excluir série
-  `mtv_xp` após a lâmina XP confirmar qual Maio fecha — 5.382 vs 14.538); **ALLAN
-  2026-05** (lâmina/extrato — qual Maio é o vivo; preservar os outros 12).
-- **RAFAEL** (`rrf_glpg_2026_4/5`, dummies R$1): ✅ já excluído por docId direto
-  (ausente na re-varredura — confirma que persistiu).
+### Plano de correção (por docId direto) — progresso
+- **MODO 1 — MIGRAR (sole-source, determinístico):** copiar fragmento → `slug(nome)_ano_mes`,
+  excluir o sigla-keyed. Sem perda, sem merge.
+  - ✅ **ALLAN 12 meses** (2025-03..2026-04) migrados; cada um R_on=0,00 pós-escrita;
+    cadeia 2025-03→2026-05 fecha. Agora gerenciável pela UI.
+  - ⏳ **EDUARDA 14** (`esm_btg`, R$5 poeira) — pendente (migrar ou excluir).
+- **MODO 2 — RESOLVER COLISÃO (aguarda fonte externa):**
+  - ✅ **MARIA** — recuperada por reimport + `mtv_xp` excluído (ver acima).
+  - ⏳ **ALLAN `aae_btg_2026_5`** (preservado): aae_btg 201.171 vs canônico 152.601
+    (resgate −50k). Aguarda lâmina/extrato BTG — qual Maio é o vivo. Resíduo −446 (imaterial).
+- **RAFAEL** (`rrf_glpg`, dummies R$1): ✅ excluído.
+- **MARIA tomb Março:** ✅ `nnm_tombamento_onshore=14.277,45` (poup.líq Mar 14.796→518,93;
+  identidade inalterada).
 
 > **NÃO mexer no read-path.** Correção é de dados, por docId direto. Prevenção da
 > recriação = re-key no write-path (BACKLOG #4).
