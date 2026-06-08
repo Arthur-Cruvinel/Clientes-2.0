@@ -47,6 +47,43 @@ export function getSiglaCliente(nomeCliente: string): string {
     .join('');
 }
 
+/** Chave canônica de nome p/ casar siglas (acentos/caixa/espaços normalizados).
+ *  Usada tanto no lookup quanto na construção do mapa Firestore. */
+export function chaveNomeSigla(nome: string): string {
+  return (nome ?? '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Sigla REAL do cliente — pela FONTE cadastrada, NUNCA gerada por iniciais.
+ *   1) SIGLA_PARA_NOME hardcoded (exato + insensível a acento/caixa)
+ *   2) mapeamento_siglas do Firestore (entradas runtime), via mapa nome→sigla
+ *   3) null → SEM badge (cliente sem sigla cadastrada)
+ *
+ * Diferente de `getSiglaCliente`, que inventa iniciais quando não acha. Aqui
+ * mostrar NADA é correto; iniciais erram (ex.: TIQUINHO→TS, mas a sigla real é
+ * TQS) e inventam sigla p/ quem não tem. Regra: sigla sempre do mapeamento.
+ */
+export function siglaReal(
+  nomeCliente: string,
+  mapaFirestore?: Map<string, string>,
+): string | null {
+  if (!nomeCliente) return null;
+  // 1. hardcoded — match exato
+  if (NOME_PARA_SIGLA[nomeCliente]) return NOME_PARA_SIGLA[nomeCliente];
+  // 1b. hardcoded — insensível a acento/caixa/espaço
+  const alvo = chaveNomeSigla(nomeCliente);
+  for (const [nome, sigla] of Object.entries(NOME_PARA_SIGLA)) {
+    if (chaveNomeSigla(nome) === alvo) return sigla;
+  }
+  // 2. Firestore (siglas adicionadas em runtime — ex.: MTV, AAE, TQS)
+  const fs = mapaFirestore?.get(alvo);
+  if (fs) return fs;
+  // 3. SEM badge — nunca iniciais
+  return null;
+}
+
 
 /**
  * Formata um número como moeda brasileira (R$).

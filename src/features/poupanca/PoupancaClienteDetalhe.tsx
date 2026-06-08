@@ -8,8 +8,7 @@ import { buscarFedFundsRate } from '../../services/fedFundsRate';
 import { ultimoDiaDoMes } from '../../services/diasUteis';
 import { calcularAcumulado, alinharCDI } from '../../utils/acumulado';
 import { pickR, calcOffshore } from './DetalheTabela';
-import { siglaPorNome } from './import/MAPEAMENTO_SIGLAS';
-import { formatCurrency } from '../../utils/formatters';
+import { siglaReal, formatCurrency } from '../../utils/formatters';
 import { DetalheGrafico } from './DetalheGrafico';
 import { DetalheTabela } from './DetalheTabela';
 import { DetalheMetaLote } from './DetalheMetaLote';
@@ -21,6 +20,8 @@ import { nnmRealOnshore, nnmRealOffshore } from '../../utils/financials';
 
 interface Props {
   registros: RegistroPoupanca[];
+  /** nome→sigla do mapeamento_siglas (Firestore) — sigla real do badge. */
+  mapaSiglas?: Map<string, string>;
   onFechar: () => void;
   // Navegação entre clientes na ordem da tabela
   temAnterior?: boolean;
@@ -45,6 +46,7 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 
 export function PoupancaClienteDetalhe({
   registros: registrosIniciais,
+  mapaSiglas,
   onFechar,
   temAnterior = false,
   temProximo = false,
@@ -67,7 +69,7 @@ export function PoupancaClienteDetalhe({
   const [mostrarMetaLote, setMostrarMetaLote] = useState(false);
   const aberto = registrosLocal.length > 0;
   const nome = aberto ? registrosLocal[0].nome_cliente : '';
-  const sigla = aberto ? siglaPorNome(nome) : null;
+  const sigla = aberto ? siglaReal(nome, mapaSiglas) : null;
   // Verifica se o cliente tem dados offshore/onshore em algum mês
   const temOffshore = registrosLocal.some(r =>
     (r.pl_offshore ?? 0) > 0.01 || (r.pl_offshore_usd ?? 0) > 0.01,

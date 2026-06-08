@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { usePoupanca } from './usePoupanca';
 import { useRevisao } from './useRevisao';
 import { useApp } from '../../state/AppContext';
+import { buscarMapeamentoSiglas } from '../../services/firebase';
+import { chaveNomeSigla } from '../../utils/formatters';
 import type { RegistroPoupanca } from '../../types';
 import { PoupancaKpis } from './PoupancaKpis';
 import { PoupancaMeta } from './PoupancaMeta';
@@ -58,6 +60,23 @@ export function PoupancaVisao() {
   const [anoFim, setAnoFim] = useState(anoCorrente);
   // [NOVO] Navegar para Central de Importação
   const navigate = useNavigate();
+
+  // Mapa nome→sigla do mapeamento_siglas (Firestore) — fonte REAL da sigla dos
+  // clientes adicionados em runtime (não estão no SIGLA_PARA_NOME hardcoded).
+  // Carregado uma vez; usado pelos badges de sigla (tabela + detalhe). Display-only.
+  const [mapaSiglas, setMapaSiglas] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    let ativo = true;
+    buscarMapeamentoSiglas().then(rec => {
+      if (!ativo) return;
+      const m = new Map<string, string>();
+      for (const e of Object.values(rec)) {
+        if (e?.nome_cliente && e?.sigla) m.set(chaveNomeSigla(e.nome_cliente), e.sigla);
+      }
+      setMapaSiglas(m);
+    }).catch(() => { /* badge cai p/ sem-sigla; não bloqueia a tela */ });
+    return () => { ativo = false; };
+  }, []);
   const [registrosDetalhe, setRegistrosDetalhe] = useState<RegistroPoupanca[]>([]);
   // [NOVO] Painel meta em lote
   const [painelMetaAberto, setPainelMetaAberto] = useState(false);
@@ -240,6 +259,7 @@ export function PoupancaVisao() {
           {visualizacao === 'cliente' && (
             <PoupancaTabela registrosPorCliente={registrosPorCliente}
               registroAnteriorPorCliente={registroAnteriorPorCliente}
+              mapaSiglas={mapaSiglas}
               metaNNM={metaNNM}
               numeroMeses={(anoFim * 12 + mesFim) - (anoInicio * 12 + mesInicio) + 1}
               clientesSemBanker={clientesSemBanker}
@@ -260,6 +280,7 @@ export function PoupancaVisao() {
 
       <PoupancaClienteDetalhe
         registros={registrosDetalhe}
+        mapaSiglas={mapaSiglas}
         onFechar={() => { setRegistrosDetalhe([]); recarregar(); }}
         temAnterior={temAnterior}
         temProximo={temProximo}

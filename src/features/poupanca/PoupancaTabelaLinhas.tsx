@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { AlertTriangle, Info, Flag } from 'lucide-react';
-import { formatCurrency, getSiglaCliente } from '../../utils/formatters';
+import { formatCurrency, siglaReal } from '../../utils/formatters';
 import type { RegistroPoupanca } from '../../types';
 import type { LinhaTabela, Visao } from './PoupancaTabela';
 import { TabelaStatusBar } from './TabelaStatusBar';
@@ -13,6 +13,8 @@ import { FiltroCheckbox } from './FiltroCheckbox';
 interface Props {
   linhas: LinhaTabela[];
   visao: Visao;
+  /** nome→sigla do mapeamento_siglas (Firestore) — sigla real do badge. */
+  mapaSiglas?: Map<string, string>;
   clientesSemBanker?: Set<string>;
   onClienteClick: (registros: RegistroPoupanca[]) => void;
   // Revisão (cliente-level)
@@ -56,11 +58,11 @@ function corBurn(meses: number): string {
   return '#6b7280';                    // cinza — distante
 }
 
-function acessorVisao(visao: Visao) {
+function acessorVisao(visao: Visao, mapaSiglas?: Map<string, string>) {
   return (l: LinhaTabela, col: string): number | string | null => {
     const d = pick(l, visao);
     switch (col) {
-      case 'sigla': return getSiglaCliente(l.nome);
+      case 'sigla': return siglaReal(l.nome, mapaSiglas) ?? '—';
       case 'nome': return l.nome;
       case 'pi': return d.pi;
       case 'nnm': return d.nnm;
@@ -78,7 +80,7 @@ function acessorVisao(visao: Visao) {
 }
 
 export function PoupancaTabelaLinhas({
-  linhas, visao, clientesSemBanker, onClienteClick,
+  linhas, visao, mapaSiglas, clientesSemBanker, onClienteClick,
   estaMarcado, onToggleRevisao, onOrdenadosChange,
 }: Props) {
   const mostrarGC = visao !== 'onshore';
@@ -90,18 +92,19 @@ export function PoupancaTabelaLinhas({
   const [filtroStatus, setFiltroStatus] = useState<Set<string> | null>(null);
 
   const nomes = useMemo(() => linhas.map(l => l.nome).sort(), [linhas]);
-  const siglas = useMemo(() => [...new Set(linhas.map(l => getSiglaCliente(l.nome)))].sort(), [linhas]);
+  // Sigla real (mapeamento) ou '—' p/ clientes sem sigla — nunca iniciais.
+  const siglas = useMemo(() => [...new Set(linhas.map(l => siglaReal(l.nome, mapaSiglas) ?? '—'))].sort(), [linhas, mapaSiglas]);
   const statusVals = useMemo(() => [...new Set(linhas.map(l => statusLabel(l)))].sort(), [linhas]);
 
   const filtradas = useMemo(() => {
     let lista = linhas;
-    if (filtroSiglas) lista = lista.filter(l => filtroSiglas.has(getSiglaCliente(l.nome)));
+    if (filtroSiglas) lista = lista.filter(l => filtroSiglas.has(siglaReal(l.nome, mapaSiglas) ?? '—'));
     if (filtroClientes) lista = lista.filter(l => filtroClientes.has(l.nome));
     if (filtroStatus) lista = lista.filter(l => filtroStatus.has(statusLabel(l)));
     return lista;
-  }, [linhas, filtroClientes, filtroSiglas, filtroStatus]);
+  }, [linhas, filtroClientes, filtroSiglas, filtroStatus, mapaSiglas]);
 
-  const acessor = useCallback(acessorVisao(visao), [visao]);
+  const acessor = useCallback(acessorVisao(visao, mapaSiglas), [visao, mapaSiglas]);
   const { ordenados, coluna, direcao, alternar } = useOrdenacao(filtradas, acessor);
 
   // Notifica o pai sempre que a lista ordenada/filtrada mudar — usado pela
@@ -172,10 +175,15 @@ export function PoupancaTabelaLinhas({
                 className="cursor-pointer hover:bg-blue-50/40 transition-colors"
                 style={marcadoRevisao ? { backgroundColor: '#fef3c7' } : undefined}>
                 <td className="px-3 py-2 text-center">
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[9px] font-bold"
-                    style={{ backgroundColor: '#160F41', color: '#fff' }}>
-                    {getSiglaCliente(l.nome)}
-                  </span>
+                  {(() => {
+                    const sg = siglaReal(l.nome, mapaSiglas);
+                    return sg ? (
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[9px] font-bold"
+                        style={{ backgroundColor: '#160F41', color: '#fff' }}>
+                        {sg}
+                      </span>
+                    ) : <span className="text-xs" style={{ color: '#cbd5e1' }}>—</span>;
+                  })()}
                 </td>
                 <td className="px-3 py-2 text-xs font-medium text-left truncate" style={{ color: '#160F41' }}>
                   <span className="inline-flex items-center gap-1">

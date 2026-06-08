@@ -19,6 +19,8 @@ interface Props {
    *  usado pelo cálculo de Ganho Cambial do primeiro mês (sem prev no
    *  intervalo, o cálculo zerava). Vem do hook usePoupanca. */
   registroAnteriorPorCliente?: Map<string, RegistroPoupanca | null>;
+  /** nome→sigla do mapeamento_siglas (Firestore) — badge de sigla real. */
+  mapaSiglas?: Map<string, string>;
   metaNNM: number | null;
   numeroMeses: number;
   clientesSemBanker?: Set<string>;
@@ -77,7 +79,7 @@ export interface LinhaTabela {
 }
 
 export function PoupancaTabela({
-  registrosPorCliente, registroAnteriorPorCliente, metaNNM, numeroMeses, clientesSemBanker, onClienteClick, periodoLabel = '',
+  registrosPorCliente, registroAnteriorPorCliente, mapaSiglas, metaNNM, numeroMeses, clientesSemBanker, onClienteClick, periodoLabel = '',
   estaMarcado, onToggleRevisao, onOrdenadosChange,
 }: Props) {
   const [visao, setVisao] = useState<Visao>('consolidado');
@@ -287,6 +289,7 @@ export function PoupancaTabela({
       <PoupancaTabelaLinhas
         linhas={linhas}
         visao={visao}
+        mapaSiglas={mapaSiglas}
         clientesSemBanker={clientesSemBanker}
         onClienteClick={onClienteClick}
         estaMarcado={estaMarcado}
