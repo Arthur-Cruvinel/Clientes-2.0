@@ -102,6 +102,38 @@ export const ANO_FOLHA_VIGENTE = 2026;
 // Para custo/hora usar HORAS_PRODUTIVAS_POR_LOCALIDADE.
 export const HORAS_CLT_MES = 168;
 
+// ── CATEGORIAS DE CUSTO INDIRETO (DRE) ─────────────────────────────────────
+// FONTE ÚNICA de vocabulário E identidade dos custos indiretos. As 5 categorias
+// são canônicas e fixas (todas tipo_custo='geral'); a tela de Custos Indiretos
+// só edita o valor_mensal de cada uma no período aberto — nunca cria/exclui.
+//
+// Cada categoria carrega seu par (docId, id_estavel) CANÔNICO — os mesmos já
+// gravados em produção nos 5 períodos (Dez/25–Abr/26). id_estavel é propriedade
+// da CATEGORIA, não do período: "Marketing" tem o mesmo id_estavel em todo mês.
+//
+// Por que fixar AMBOS (docId + id_estavel), e não só o id_estavel: os 5 docs de
+// produção têm docId ≠ id_estavel. Se o seed usasse docId = id_estavel, períodos
+// novos divergiriam dos atuais e a propagação criaria docs paralelos (bifurcação
+// de identidade). Com o docId canônico fixo aqui, TODO período — presente ou
+// futuro semeado — usa o mesmo par por categoria, sem bifurcar.
+//
+// Seed: setDoc em custosIndiretos/{docId} com id_estavel da constante e
+//       valor_mensal:0 (idempotente — re-semear sobrescreve o mesmo doc).
+// Propagação: casa por id_estavel canônico; grava no docId canônico do destino.
+// Edição: updateDoc pelo docId real do doc carregado, só valor_mensal.
+export const CATEGORIAS_CUSTO_INDIRETO = [
+  { descricao_custo: 'Administrativo/Predial', tipo_custo: 'geral',
+    id_estavel: '06ce4059-c281-4c05-8e20-1fbf40c5c5e2', docId: 'd00823cf-b021-45f3-9959-525711cd1644' },
+  { descricao_custo: 'Contabilidade', tipo_custo: 'geral',
+    id_estavel: 'a4653825-ebf5-4a03-ab9e-d622f76b109f', docId: 'fa1d1acc-c588-46c2-8de3-a21c8165039f' },
+  { descricao_custo: 'Marketing', tipo_custo: 'geral',
+    id_estavel: '3fa4c944-1761-489c-b7a5-1bb470474a86', docId: '100016b9-9741-4676-8328-536aadb459d2' },
+  { descricao_custo: 'Tecnologia', tipo_custo: 'geral',
+    id_estavel: '419d664c-fb49-44e0-83f4-6935916c104d', docId: '283a1d93-c334-4ba7-b204-f457e7723cf6' },
+  { descricao_custo: 'Viagens', tipo_custo: 'geral',
+    id_estavel: '50d49df4-323e-4e11-8abb-f924c6d3db64', docId: '8d2f70e9-881f-4553-a9b1-cec88ef3ebfe' },
+] as const;
+
 // ── PACOTES DE SERVIÇO ─────────────────────────────────────────────────────
 // Horas de referência normativa por função para cada pacote.
 // Usadas exclusivamente para o indicador de escopo (fator_):

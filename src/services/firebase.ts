@@ -6,7 +6,7 @@ import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc,
 import { getAuth } from 'firebase/auth';
 import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao } from '../types';
 import type { Vinculo } from '../types/vinculo';
-import { BATCH_LIMIT, FUNCOES_ALOCACAO } from '../utils/constants';
+import { BATCH_LIMIT, FUNCOES_ALOCACAO, CATEGORIAS_CUSTO_INDIRETO } from '../utils/constants';
 import { PARAMETROS_DEFAULT } from '../utils/constants';
 import { buscarTetoPorPeriodo } from '../utils/financials.custos';
 import { slug } from '../utils/slug';
@@ -788,6 +788,48 @@ export async function buscarCustosIndiretos(anoMes: string): Promise<CustoIndire
     console.error(`[Firebase] Erro ao buscar custos indiretos do período ${anoMes}:`, error);
     throw error;
   }
+}
+
+/** Atualiza SÓ o valor_mensal de um custo indireto existente no período ativo.
+ *  Preserva docId, id_estavel, descricao_custo e tipo_custo (updateDoc de um
+ *  único campo). Se o doc não existir no caminho esperado, PARA e reporta —
+ *  nunca cria fantasma (espelha a disciplina de zerarCampoTombamento). */
+export async function atualizarValorCustoIndireto(
+  anoMes: string, docId: string, valorMensal: number,
+): Promise<void> {
+  const ref = doc(db, 'fechamentos', anoMes, 'custosIndiretos', docId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    throw new Error(`Custo indireto não encontrado: fechamentos/${anoMes}/custosIndiretos/${docId}`);
+  }
+  await updateDoc(ref, { valor_mensal: valorMensal });
+}
+
+/** Semeia as 5 categorias canônicas num período que não as tenha (período novo
+ *  ou incompleto). Usa docId E id_estavel CANÔNICOS da constante (CLAUDE.md:
+ *  id_estavel é propriedade da categoria) com valor_mensal:0. Idempotente —
+ *  setDoc no docId canônico sobrescreve o mesmo doc, nunca duplica. Só escreve
+ *  no período informado. Retorna quantos docs foram semeados. */
+export async function semearCustosIndiretos(anoMes: string): Promise<number> {
+  const existentesSnap = await getDocs(collection(db, 'fechamentos', anoMes, 'custosIndiretos'));
+  const idEstaveisExistentes = new Set(
+    existentesSnap.docs.map(d => (d.data() as CustoIndireto).id_estavel).filter(Boolean),
+  );
+  let semeados = 0;
+  for (const cat of CATEGORIAS_CUSTO_INDIRETO) {
+    if (idEstaveisExistentes.has(cat.id_estavel)) continue; // já existe → não toca
+    await setDoc(
+      doc(db, 'fechamentos', anoMes, 'custosIndiretos', cat.docId),
+      {
+        descricao_custo: cat.descricao_custo,
+        tipo_custo: cat.tipo_custo,
+        id_estavel: cat.id_estavel,
+        valor_mensal: 0,
+      },
+    );
+    semeados++;
+  }
+  return semeados;
 }
 
 /**

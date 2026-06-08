@@ -8,6 +8,7 @@ import { TabCustos } from './TabCustos';
 import { TabRebate } from './TabRebate';
 import { TabPacotes } from './TabPacotes';
 import { ColaboradoresVisao } from '../colaboradores/ColaboradoresVisao';
+import { CustosIndiretos } from '../custos-indiretos/CustosIndiretos';
 import { Metodologia } from '../metodologia/Metodologia';
 import { useAuth } from '../../state/AuthContext';
 import { useApp } from '../../state/AppContext';
@@ -27,6 +28,7 @@ const ABAS = [
   { id: 'rebate', label: 'Rebate' },
   { id: 'pacotes', label: 'Pacotes de Serviço' },
   { id: 'colaboradores', label: 'Colaboradores' },
+  { id: 'indiretos', label: 'Custos Indiretos' },
   { id: 'metodologia', label: 'Metodologia' },
 ] as const;
 
@@ -445,6 +447,7 @@ export function Configuracoes() {
         {aba === 'rebate' && <TabRebate parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'pacotes' && <TabPacotes parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'colaboradores' && <ColaboradoresVisao />}
+        {aba === 'indiretos' && <CustosIndiretos />}
         {aba === 'metodologia' && <Metodologia />}
       </div>
 
