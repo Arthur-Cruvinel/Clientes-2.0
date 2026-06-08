@@ -14,6 +14,11 @@
 //   offshore    : pl_fim − pl_ini − NNM_real − Rent − GC
 //   consolidado : onshore + offshore
 //
+// MATERIALIDADE: a identidade usa o BRL. Resíduo só é pendência se passar de
+//   R$1k ABSOLUTO **E** 0,05% do PL do cliente (REL_LIMITE). Um resíduo de R$2k
+//   contra PL de R$37M é fronteira (ruído), não erro — o piso absoluto sozinho
+//   gera falso-positivo em clientes grandes.
+//
 // Uso:  node scripts/reconciliacao-harness.mjs            (resumo + top 20)
 //       node scripts/reconciliacao-harness.mjs --top=40   (mais linhas)
 //       node scripts/reconciliacao-harness.mjs --cliente="WESLEY"  (drill mês a mês)
@@ -131,17 +136,24 @@ function residuosPeriodo({ registros, porNome }, ini, fim) {
     const resOn = N(ult.pl_onshore) - N(pri.pl_inicial_onshore) - nnmOn - rOn + imp;
     const resOff = N(ult.pl_offshore) - N(pri.pl_inicial_offshore) - nnmOff - rOff - gcOff;
     const resCons = resOn + resOff;
+    // materialidade RELATIVA: |resíduo| ÷ PL do cliente. A identidade usa o BRL;
+    // um resíduo de R$1k contra um PL de R$37M é fronteira, não pendência. O piso
+    // absoluto sozinho (R$1k) gera falso-positivo em clientes grandes. REL_LIMITE
+    // = 0,05% do PL: abaixo disso o resíduo é imaterial (ruído de arredondamento).
+    const plMag = Math.abs(N(ult.pl_onshore)) + Math.abs(N(ult.pl_offshore));
+    const relPct = plMag > 0 ? Math.abs(resCons) / plMag : 0;
+    const REL_LIMITE = 0.0005;
     // classificação (sobre o consolidado)
     const entradaPi = N(pri.pl_inicial_onshore) <= 0.01 && N(pri.pl_inicial_offshore) <= 0.01;
     let classe;
     if (importFaltante) classe = 'import_faltante';
-    else if (Math.abs(resCons) <= 1000) classe = 'fronteira';
+    else if (Math.abs(resCons) <= 1000 || relPct < REL_LIMITE) classe = 'fronteira';
     else if (gcAnom && Math.abs(resOn) <= 1000) classe = 'anomalo_offshore';
     else if (entradaPi && !regAnt) classe = 'entrada';
     else if (entradaPi && regAnt) classe = 're_entrada';
     else classe = 'material';
     const concMes = [...resMensalOn].sort((a, b) => Math.abs(b.R) - Math.abs(a.R))[0];
-    linhas.push({ nome, resOn, resOff, resCons, classe, gcAnom, importFaltante,
+    linhas.push({ nome, resOn, resOff, resCons, classe, gcAnom, importFaltante, relPct, plMag,
       priMk: `${pri.ano}-${String(pri.mes).padStart(2, '0')}`, concMk: concMes?.mk, concR: concMes?.R, resMensalOn });
   }
   const tot = (k) => linhas.reduce((s, l) => s + l[k], 0);
@@ -158,10 +170,20 @@ function imprimirPeriodo(titulo, res, topN) {
   console.log('  Por classificação (consolidado):');
   for (const [c, v] of Object.entries(porClasse).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])))
     console.log(`    ${c.padEnd(18)} = ${fmt(v).padStart(16)}  (${res.linhas.filter(l => l.classe === c).length} clientes)`);
-  const mat = res.linhas.filter(l => Math.abs(l.resCons) > 1000).sort((a, b) => Math.abs(b.resCons) - Math.abs(a.resCons));
-  console.log(`  TOP ${Math.min(topN, mat.length)} resíduos materiais (|consolidado| > R$ 1.000):`);
+  // Materiais REAIS = |resCons| > R$1k E classe != fronteira (passou no filtro relativo).
+  const mat = res.linhas.filter(l => Math.abs(l.resCons) > 1000 && l.classe !== 'fronteira')
+    .sort((a, b) => Math.abs(b.resCons) - Math.abs(a.resCons));
+  // Fronteira só-por-relativo: passou de R$1k absoluto mas < 0,05% do PL (falso-positivo do piso).
+  const frontRel = res.linhas.filter(l => Math.abs(l.resCons) > 1000 && l.classe === 'fronteira')
+    .sort((a, b) => Math.abs(b.resCons) - Math.abs(a.resCons));
+  console.log(`  TOP ${Math.min(topN, mat.length)} resíduos MATERIAIS (>R$1k absoluto E >0,05% do PL):`);
   for (const l of mat.slice(0, topN))
-    console.log(`    ${fmt(l.resCons).padStart(15)} | ${l.classe.padEnd(16)} | conc ${l.concMk} (${fmt(l.concR)}) | ${l.nome}`);
+    console.log(`    ${fmt(l.resCons).padStart(15)} (${(l.relPct * 100).toFixed(3).padStart(6)}% PL) | ${l.classe.padEnd(16)} | conc ${l.concMk} (${fmt(l.concR)}) | ${l.nome}`);
+  if (frontRel.length) {
+    console.log(`  FRONTEIRA por relativo (>R$1k mas <0,05% do PL — imaterial, não é pendência): ${frontRel.length}`);
+    for (const l of frontRel.slice(0, topN))
+      console.log(`    ${fmt(l.resCons).padStart(15)} (${(l.relPct * 100).toFixed(3).padStart(6)}% PL) | ${l.nome}`);
+  }
 }
 
 (async () => {

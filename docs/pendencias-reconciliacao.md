@@ -8,17 +8,19 @@ Identidade por visão (mês a mês, encadeado como a tela):
 - **offshore** = `pl_fim − pl_ini − NNM_real − Rent − GC`
 - **consolidado** = onshore + offshore
 
-> ⚠️ **Regra de medição (aprendida na marra):** qualquer gate/script de correção
-> DEVE reusar o pipeline VERBATIM do harness — auto-repair de `pl_onshore`,
-> encadeamento read-time (`pl_inicial = pl[t-1]`), ghost filter e `impostos_mes`.
-> Um script naïve que lê campos crus mede DIFERENTE da tela e inventa resíduos
-> telescópicos (ex.: viu −118k no LUIZ que na tela fecha em 0). **Nunca gateie um
-> mês cujo cliente já fecha no acumulado** — só o MÊS-CARREGADOR de clientes com
-> `|resOn por-cliente| > R$1k`.
+> ⚠️ **Materialidade = RELATIVA, não piso absoluto.** A identidade usa o BRL.
+> Um resíduo só é pendência se passar de **R$1k absoluto E 0,05% do PL** do cliente.
+> R$2k contra PL de R$37M é fronteira (ruído de arredondamento), não erro. O harness
+> reporta as duas métricas lado a lado e separa "FRONTEIRA por relativo".
+
+> ⚠️ **Regra de medição:** qualquer gate/script DEVE reusar o pipeline VERBATIM do
+> harness (auto-repair de `pl_onshore`, encadeamento read-time, ghost filter,
+> `impostos_mes`). Script naïve mede diferente da tela e inventa resíduos telescópicos.
+> Nunca gateie mês cujo cliente já fecha no acumulado.
 
 ---
 
-## Placar (pós-import Mai/Abr/Jan-26 + gate por-cliente)
+## Placar (pós-import + reclassificação relativa)
 
 | Período | Onshore | Offshore | Consolidado |
 |---|---|---|---|
@@ -26,79 +28,80 @@ Identidade por visão (mês a mês, encadeado como a tela):
 | **2026 YTD** | **−69.285,83** | **0,00** ✅ | −69.285,83 |
 | Base completa (2025→) | −211.854,78 | **0,00** ✅ | −211.854,78 |
 
-> **Offshore: fechado em toda a história.** Check de classificação (rent > 50% do PL): **0**.
-> **Jun/26 fecha 100%.** O resíduo onshore é **100% atribuível** a 7 clientes em 2026
-> + 3 entradas de 2025. Gate por-cliente (rent% implícito vs `rentabilidade_pct`, 5 bps):
-> **0 PASSAM / 7 REPROVAM** — o re-import trouxe dados novos mas o rent ainda é
-> inconsistente. Nenhum é backfillável deterministicamente.
+> **Offshore 100% fechado. Jun/26 100% fechado.** O resíduo onshore −69.285 do 2026 YTD
+> = **3 materiais reais + 1 entrada + fronteira aceita** (77 clientes somando só R$5.344,
+> todos < 0,05% do PL).
 
 ---
 
-## Os 9 que dependiam de lâmina nova — status pós-import
+## LISTA MÍNIMA REAL
 
-| Cliente | Mês | Antes | Agora | Fechou? |
-|---|---|---|---|---|
-| MARCO ANTONIO | Abr/26 | +9.217 | −95 / +348 | ✅ **fechou** (re-import resolveu) |
-| GABRIEL NATHAN | Jan/26 | −7.939 | 2026 = 0 | ✅ **2026 fechou** (resíduo real é 2025-03 entrada) |
-| ALAN KARDEC | Mai/26 | −41.580 | −41.580 | ❌ rent suspeito (Δ −8,3 bps) |
-| MOISES LIMA | Abr/26 | −30.940 | −29.957 | ❌ rent suspeito (Δ −5,8 bps) |
-| FLORENCE | Mai/26 | −12.208 | −12.208 | ❌ rent suspeito (Δ −9,7 bps) |
-| MARIA TEREZA | Mai/26 | +9.115 | +9.115 | ❌ **entrada** (plIni R$5.382, aporte 0) — Δ +48,4 bps |
-| ARTUR VICTOR | Mai/26 | +2.248 | +2.248 | ❌ rent suspeito (Δ −7,9 bps) |
-| RONALDO | Mai/26 | +1.724 | +1.724 | ❌ rent suspeito (Δ −10,2 bps) |
-| LEONARDO | Mai/26 | +1.179 | +1.179 | ❌ rent suspeito (Δ −7,2 bps) |
+### 🔴 Materiais 2026 — problema em APORTE/MOVIMENTO (não rent)
+O viés de rent% (campo `pct` vs BRL) explica só 16-24% do resíduo; o grosso (~80%)
+está no **movimento líquido** (aporte/resgate) mal dimensionado. **Conferir a coluna
+de movimentação da lâmina** contra o aporte-alvo — não o rendimento.
 
-### 🔎 Padrão sistemático em Maio/26 (campo F)
-6 dos 7 (todos exceto MARIA) têm **rent% implícito ABAIXO do `rentabilidade_pct`
-gravado**, de forma consistente — não é aleatório:
+| Cliente | Mês | Resíduo | % PL | aporte ATUAL | **aporte-ALVO** | falta |
+|---|---|---|---|---|---|---|
+| **ALAN KARDEC** | Mai/26 | −41.580 | 0,523% | −289.143,73 | **−330.724,60** | resgate R$41.580 a mais |
+| **MOISES LIMA** | Abr/26 | −30.940 | 0,266% | −187.288,36 | **−218.228,97** | resgate R$30.940 a mais |
+| **FLORENCE** | Mai/26 | −12.208 | 0,408% | +733,51 | **−11.474,54** | era resgate, não aporte |
 
-| Cliente | rent% implícito | rent% gravado | plIni | aporte onshore |
-|---|---|---|---|---|
-| ALAN Mai | 0,747% | 0,830% | 8.219.988 | −289.144 |
-| MOISES Abr | 0,912% | 0,970% | 8.408.953 | −187.288 |
-| FLORENCE Mai | 0,533% | 0,630% | 2.990.834 | +734 |
-| ARTUR Mai | 1,111% | 1,190% | 36.808.449 | +238.451 |
-| RONALDO Mai | 1,378% | 1,480% | 19.386.780 | +3.826.011 |
-| LEONARDO Mai | 1,278% | 1,350% | 7.045.066 | +197.528 |
+> aporte-alvo = `pl − pl_inicial − rent + imp`. Ao abrir a lâmina, compare a coluna de
+> movimento líquido (aporte/resgate) com este número — confirma o saque faltando sem caçar.
+>
+> **ALAN** não é import_faltante clássico (é onshore-puro; o flag vem do dummy R$1,00 de
+> Mar/26). Mai/26 é o 1º mês normal pós-entrada (Abr/26 = tombamento R$8,1M).
 
-→ O BRL `rentabilidade_onshore` (campo F, Rendimento Nominal) **não fecha com o %
-gravado em NENHUMA base** (testado plIni e plIni+aporte). Um dos dois está errado
-na leitura da lâmina. **Ação:** conferir o campo F (Rendimento Nominal R$) das
-lâminas de Maio/26 desses 6 clientes — provável parser lendo célula errada/parcial.
+### 🔵 Entrada — MARIA TEREZA (NÃO é backfill determinístico)
+**Duplicata multi-conta no mesmo mês**, não capital de abertura ausente:
+
+| docId | pl_inicial | pl | aporte |
+|---|---|---|---|
+| `maria_tereza_vasconcelos_barbosa_2026_5` | 14.497,75 | 5.382,08 | −9.015,63 |
+| `mtv_xp_2026_5` | 14.497,75 | 14.538,61 | −0,01 |
+
+Os **dois** docs são 2026-05 (conta principal + conta XP), ambos com pl_inicial de Abril.
+O pipeline encadeia os dois como meses consecutivos (`pl_ini[2º] = pl[1º] = 5.382`) →
+fantasma **+9.115**. **Decisão do Arthur:** são 2 contas reais (→ agregar os PLs:
+total Mai = R$19.920) ou duplicata de re-import (→ excluir uma)? Resolver na lâmina/cadastro.
+**Não é gate, não é rent, não é backfill de entrada.**
+
+### 🟡 2025 — entradas (capital de abertura)
+| Cliente | Mês | Resíduo |
+|---|---|---|
+| PEDRO H. SILVA (PSS) | Jul/25 | −123.641 |
+| PEDRO H. ALMEIDA (PHB) | Mar/25 | −9.992 |
+| GABRIEL NATHAN | Mar/25 | −7.940 |
+
+### ⚪ Fronteira ACEITA (não é pendência — < 0,05% do PL)
+| Cliente | Resíduo | % PL |
+|---|---|---|
+| ARTUR VICTOR | +2.248 | 0,006% |
+| RONALDO | +1.724 | 0,007% |
+| LEONARDO | +1.179 | 0,016% |
+| + cauda (74 clientes) | +192 | todos < 0,05% |
 
 ---
 
-## LISTA MÍNIMA DEFINITIVA DE LÂMINAS A CONFERIR
+## Resumo executivo
+- **Falta zerar 3 lâminas materiais** (ALAN Mai, MOISES Abr, FLORENCE Mai) — foco na
+  **coluna de movimento**, alvo já calculado.
+- **1 decisão de cadastro** (MARIA: agregar XP ou excluir duplicata).
+- **3 entradas de 2025** (PSS, PHB, GABRIEL).
+- Resto é fronteira aceita.
 
-**2026 — rent inconsistente (campo F):**
-- **Maio/26** (6): ALAN, FLORENCE, ARTUR VICTOR, RONALDO, LEONARDO, MARIA TEREZA*
-- **Abril/26** (1): MOISES
-  - *MARIA = caso de entrada (plIni R$5.382): decidir se é capital de entrada (aceitar) ou re-decompor.
-
-**2025 — entradas:**
-- **Jul/25**: PEDRO H. SILVA (PSS) −123.641
-- **Mar/25**: PEDRO H. ALMEIDA (PHB) −9.992
-- **Mar/25**: GABRIEL NATHAN −7.940 (entrada — migrou de Jan/26 ao encadear)
-
-**Total: 10 client-meses** (7 de 2026 + 3 de 2025).
-
-> ⚠️ **ALAN** reclassifica como `import_faltante` na base completa — investigar se
-> tem mês só-offshore (onshore não importado, tipo WESLEY). Pode ser a raiz do −41.580.
+> **Possível padrão a investigar depois:** MARIA revelou multi-conta no mesmo mês
+> (`mtv_xp` + slug canônico) não-agregado pelo pipeline. Vale uma varredura de
+> clientes com >1 doc poupança por mês — pode haver outros fantasmas de encadeamento.
 
 ---
 
 ## Histórico das ondas (resolvido)
-- **GC offshore** = resíduo cambial + guard (`4d14769`); rent gravada primeiroMes
-  (`5af7875`); **bug de entrada offshore na raiz + sanity + check** (`723be8b`).
-- **Harness permanente** (`27439ac`) com check de classificação.
-- **Correções:** lote ponte Maio (7), LOTE A/B, RAFAEL Jul/25, 7 entradas offshore
-  2025, lote final (5 tombamento + 3 gate), gate estendido (+4). Todas com identidade
-  pós-write.
-- **Pós-import Mai/Abr/Jan-26:** MARCO + GABRIEL fecharam; gate por-cliente confirmou
-  os 7 restantes como **rent suspeito** (0 backfills). **Offshore 100% fechado;
-  Jun/26 100% fechado.**
-
-> **Mecânica de fechamento dos 7:** com o campo F correto da lâmina, o gate confirma
-> rent (PASS) ou corrige aporte; identidade fecha. Enquanto o BRL e o % não baterem,
-> qualquer backfill seria chutar qual dos dois está certo — proibido (correção sempre
-> determinística).
+- **GC offshore** = resíduo cambial + guard (`4d14769`); rent primeiroMes (`5af7875`);
+  bug de entrada offshore na raiz (`723be8b`).
+- **Harness permanente** (`27439ac`) + check de classificação + **materialidade relativa**.
+- **Correções:** ponte Maio (7), LOTE A/B, RAFAEL Jul/25, 7 entradas offshore 2025,
+  lote final (5 tombamento + 3 gate), gate estendido (+4). Todas com identidade pós-write.
+- **Pós-import Mai/Abr/Jan-26:** MARCO + GABRIEL(2026) fecharam. Reclassificação relativa
+  tirou ARTUR/RONALDO/LEONARDO da lista. **Offshore 100% fechado; Jun/26 100% fechado.**
