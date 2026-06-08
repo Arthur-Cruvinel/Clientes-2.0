@@ -6,9 +6,19 @@
 
 import { useMemo, useState, useCallback } from 'react';
 import { useApp } from '../../state/AppContext';
-import { atualizarValorCustoIndireto, semearCustosIndiretos } from '../../services/firebase';
+import {
+  atualizarValorCustoIndireto, semearCustosIndiretos,
+  planejarPropagacaoCustos, executarPropagacaoCustos,
+} from '../../services/firebase';
 import { CATEGORIAS_CUSTO_INDIRETO } from '../../utils/constants';
 import type { CustoIndireto } from '../../types';
+
+/** 'YYYY-MM' do mês seguinte (propagação só vai 1 período à frente). */
+function proximoPeriodoDe(p: string): string {
+  const [a, m] = p.split('-').map(Number);
+  const d = new Date(a, m, 1);  // mês JS-0; m=12 → janeiro do ano seguinte
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 export interface LinhaCusto {
   id_estavel: string;
@@ -79,5 +89,27 @@ export function useCustosIndiretos() {
     } finally { setSalvando(false); }
   }, [periodoSelecionado, recarregar]);
 
-  return { periodo: periodoSelecionado, linhas, precisaSemear, totalAtual, salvando, salvarValores, semear };
+  // ── Propagação para o próximo período (só 1 à frente) ───────────────────
+  const proximoPeriodo = periodoSelecionado ? proximoPeriodoDe(periodoSelecionado) : '';
+
+  // Read-only — alimenta o modal de confirmação (valores + anomalias).
+  const planejarPropagacao = useCallback(
+    () => planejarPropagacaoCustos(periodoSelecionado, proximoPeriodo),
+    [periodoSelecionado, proximoPeriodo],
+  );
+
+  // Só após aval explícito da UI. Escreve no PRÓXIMO período (não recarrega o
+  // ativo — os dados do período aberto não mudam).
+  const executarPropagacao = useCallback(async () => {
+    if (!periodoSelecionado) throw new Error('Sem período ativo na tela.');
+    setSalvando(true);
+    try { return await executarPropagacaoCustos(periodoSelecionado, proximoPeriodo); }
+    finally { setSalvando(false); }
+  }, [periodoSelecionado, proximoPeriodo]);
+
+  return {
+    periodo: periodoSelecionado, linhas, precisaSemear, totalAtual, salvando,
+    salvarValores, semear,
+    proximoPeriodo, planejarPropagacao, executarPropagacao,
+  };
 }

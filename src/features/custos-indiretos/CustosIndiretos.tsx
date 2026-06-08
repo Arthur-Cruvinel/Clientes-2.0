@@ -3,16 +3,27 @@
 // nem exclui categorias ("zerar" = valor 0). Aviso permanente do risco do Excel.
 
 import { useState, useEffect } from 'react';
-import { Layers, AlertTriangle, Loader2, Save, Sprout } from 'lucide-react';
+import { Layers, AlertTriangle, Loader2, Save, Sprout, Share2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { Modal } from '../../components/ui/Modal';
 import { useAuth } from '../../state/AuthContext';
 import { useCustosIndiretos } from './useCustosIndiretos';
+
+type Plano = {
+  temOrigem: boolean;
+  destinoVazio: boolean;
+  valores: Array<{ descricao_custo: string; valor: number }>;
+  anomalias: Array<{ docId: string; id_estavel: string; descricao_custo: string; valor_mensal: number }>;
+};
 
 const INP = 'rounded px-2 py-1.5 text-sm w-full text-right';
 const BRD = { border: '1px solid #e2e2e8', color: '#160F41' } as const;
 
 export function CustosIndiretos() {
-  const { periodo, linhas, precisaSemear, salvando, salvarValores, semear } = useCustosIndiretos();
+  const {
+    periodo, linhas, precisaSemear, salvando, salvarValores, semear,
+    proximoPeriodo, planejarPropagacao, executarPropagacao,
+  } = useCustosIndiretos();
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
 
@@ -20,6 +31,8 @@ export function CustosIndiretos() {
   // mudam (troca de período ou após salvar). WYSIWYG do que está no Firestore.
   const [valores, setValores] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [plano, setPlano] = useState<Plano | null>(null);
+  const [carregandoPlano, setCarregandoPlano] = useState(false);
 
   const assinatura = linhas.map(l => `${l.id_estavel}:${l.valorAtual}`).join('|');
   useEffect(() => {
@@ -59,6 +72,25 @@ export function CustosIndiretos() {
     } catch (e) {
       flash(`Erro: ${e instanceof Error ? e.message : 'falha ao semear'}`);
     }
+  }
+
+  async function abrirPropagacao() {
+    setCarregandoPlano(true);
+    try { setPlano(await planejarPropagacao()); }
+    catch (e) { flash(`Erro: ${e instanceof Error ? e.message : 'falha ao planejar'}`); }
+    finally { setCarregandoPlano(false); }
+  }
+
+  async function confirmarPropagacao() {
+    try {
+      const r = await executarPropagacao();
+      const al = r.alinhados.length
+        ? ` ${r.alinhados.length} doc(s) anômalo(s) alinhado(s): ${r.alinhados.map(a => a.descricao_custo).join(', ')}.`
+        : '';
+      flash(`${r.gravados} categoria(s) propagada(s) para ${proximoPeriodo}.${al}`);
+    } catch (e) {
+      flash(`Erro: ${e instanceof Error ? e.message : 'falha ao propagar'}`);
+    } finally { setPlano(null); }
   }
 
   return (
@@ -124,7 +156,14 @@ export function CustosIndiretos() {
           </div>
 
           {isAdmin && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              <button onClick={abrirPropagacao} disabled={salvando || carregandoPlano || !proximoPeriodo}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                style={{ border: '1px solid #160F41', color: '#160F41' }}
+                title={`Copiar estes valores para ${proximoPeriodo}`}>
+                {carregandoPlano ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+                Propagar para {proximoPeriodo}
+              </button>
               <button onClick={salvar} disabled={salvando}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-50">
                 {salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -133,6 +172,56 @@ export function CustosIndiretos() {
             </div>
           )}
         </>
+      )}
+
+      {/* Modal de confirmação da propagação — nomeia o destino, mostra valores
+          e sinaliza anomalias (alinhamento explícito). */}
+      {plano && (
+        <Modal aberto onFechar={() => setPlano(null)} titulo={`Propagar custos indiretos → ${proximoPeriodo}`} largura="lg">
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: '#160F41' }}>
+              Copiar as 5 categorias (com valores) de <strong>{periodo}</strong> para
+              <strong> {proximoPeriodo}</strong>, casando por identidade canônica:
+            </p>
+            <ul className="text-sm space-y-1 rounded-lg p-3" style={{ backgroundColor: '#f3f4f6', color: '#160F41' }}>
+              {plano.valores.map(v => (
+                <li key={v.descricao_custo} className="flex justify-between">
+                  <span>{v.descricao_custo}</span><strong>{formatCurrency(v.valor)}</strong>
+                </li>
+              ))}
+            </ul>
+
+            {!plano.destinoVazio && (
+              <p className="text-xs px-3 py-2 rounded" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+                ⚠ O período {proximoPeriodo} <strong>já tem custos</strong> — eles serão sobrescritos pelos valores acima.
+              </p>
+            )}
+
+            {plano.anomalias.length > 0 && (
+              <div className="text-xs px-3 py-2 rounded space-y-1" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+                <p><strong>Anomalia de identidade no destino</strong> ({plano.anomalias.length}). Confirmar irá
+                  <strong> alinhar à identidade canônica (excluir estes docs)</strong>:</p>
+                <ul className="list-disc pl-4">
+                  {plano.anomalias.map(a => (
+                    <li key={a.docId}>{a.descricao_custo} — docId {a.docId.slice(0, 8)}… / id_estavel {a.id_estavel.slice(0, 8)}…</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
+              <button onClick={() => setPlano(null)} disabled={salvando}
+                className="px-4 py-2 rounded-lg text-sm" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmarPropagacao} disabled={salvando}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-50">
+                {salvando && <Loader2 size={14} className="animate-spin" />}
+                {plano.anomalias.length > 0 ? 'Propagar e alinhar' : `Propagar para ${proximoPeriodo}`}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {toast && (

@@ -832,6 +832,74 @@ export async function semearCustosIndiretos(anoMes: string): Promise<number> {
   return semeados;
 }
 
+/** Plano READ-ONLY da propagação de custos indiretos origem→destino (1 período
+ *  à frente). Não escreve nada. Reporta valores a propagar e ANOMALIAS no
+ *  destino (docs cujo par (docId,id_estavel) não é canônico — identidade
+ *  bifurcada). A UI usa isto para o modal de confirmação. */
+export async function planejarPropagacaoCustos(origem: string, destino: string): Promise<{
+  temOrigem: boolean;
+  destinoVazio: boolean;
+  valores: Array<{ descricao_custo: string; valor: number }>;
+  anomalias: Array<{ docId: string; id_estavel: string; descricao_custo: string; valor_mensal: number }>;
+}> {
+  const [oSnap, dSnap] = await Promise.all([
+    getDocs(collection(db, 'fechamentos', origem, 'custosIndiretos')),
+    getDocs(collection(db, 'fechamentos', destino, 'custosIndiretos')),
+  ]);
+  const origemPorIde = new Map(oSnap.docs.map(d => [(d.data() as CustoIndireto).id_estavel, d.data() as CustoIndireto]));
+  const canonPairs = new Set(CATEGORIAS_CUSTO_INDIRETO.map(c => `${c.docId}|${c.id_estavel}`));
+
+  const valores = CATEGORIAS_CUSTO_INDIRETO.map(c => ({
+    descricao_custo: c.descricao_custo,
+    valor: origemPorIde.get(c.id_estavel)?.valor_mensal ?? 0,
+  }));
+  const anomalias = dSnap.docs
+    .filter(d => !canonPairs.has(`${d.id}|${(d.data() as CustoIndireto).id_estavel ?? ''}`))
+    .map(d => {
+      const x = d.data() as CustoIndireto;
+      return { docId: d.id, id_estavel: x.id_estavel ?? '(sem)', descricao_custo: x.descricao_custo, valor_mensal: x.valor_mensal };
+    });
+  return { temOrigem: oSnap.size > 0, destinoVazio: dSnap.size === 0, valores, anomalias };
+}
+
+/** Executa a propagação origem→destino. Grava as 5 categorias canônicas no
+ *  docId canônico do destino (setDoc) com o valor da origem — casa por
+ *  id_estavel canônico, preservando identidade entre meses. Docs anômalos do
+ *  destino (par não-canônico) são ALINHADOS = excluídos primeiro (evita
+ *  duplicata) e reportados. Chamado apenas após aval explícito da UI. */
+export async function executarPropagacaoCustos(origem: string, destino: string): Promise<{
+  gravados: number;
+  alinhados: Array<{ docId: string; descricao_custo: string }>;
+}> {
+  const [oSnap, dSnap] = await Promise.all([
+    getDocs(collection(db, 'fechamentos', origem, 'custosIndiretos')),
+    getDocs(collection(db, 'fechamentos', destino, 'custosIndiretos')),
+  ]);
+  const origemPorIde = new Map(oSnap.docs.map(d => [(d.data() as CustoIndireto).id_estavel, d.data() as CustoIndireto]));
+  const canonPairs = new Set(CATEGORIAS_CUSTO_INDIRETO.map(c => `${c.docId}|${c.id_estavel}`));
+
+  // 1. Alinhar: excluir docs anômalos do destino ANTES de gravar (evita dup).
+  const alinhados: Array<{ docId: string; descricao_custo: string }> = [];
+  for (const d of dSnap.docs) {
+    if (!canonPairs.has(`${d.id}|${(d.data() as CustoIndireto).id_estavel ?? ''}`)) {
+      await deleteDoc(d.ref);
+      alinhados.push({ docId: d.id, descricao_custo: (d.data() as CustoIndireto).descricao_custo });
+    }
+  }
+  // 2. Gravar as 5 canônicas no docId canônico do destino com valor da origem.
+  let gravados = 0;
+  for (const cat of CATEGORIAS_CUSTO_INDIRETO) {
+    await setDoc(doc(db, 'fechamentos', destino, 'custosIndiretos', cat.docId), {
+      descricao_custo: cat.descricao_custo,
+      tipo_custo: cat.tipo_custo,
+      id_estavel: cat.id_estavel,
+      valor_mensal: origemPorIde.get(cat.id_estavel)?.valor_mensal ?? 0,
+    });
+    gravados++;
+  }
+  return { gravados, alinhados };
+}
+
 /**
  * Busca registros de poupança (RegistroPoupanca) do período especificado.
  * Fonte de verdade do PL para o cálculo de rebate (CLAUDE.md — decisão arquitetural).
