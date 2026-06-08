@@ -10,11 +10,21 @@ import {
   deletarColaboradorPeriodosFuturos, resolverDocIdClientePorIdEstavel, db,
 } from '../../services/firebase';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
+import { calcularFolhaColaborador } from '../../utils/financials';
 import { slug } from '../../utils/slug';
 import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
 import { compararDerivados, type Ordenacao } from './ordenacao';
 
 export type StatusOcupacao = 'ok' | 'atencao' | 'sobrecarga';
+
+// Subcampos de benefício editáveis em lote. Patch só carrega os campos
+// PREENCHIDOS (campo vazio = não altera, preserva o valor atual do colaborador).
+export type SubBeneficio = 'vale_alimentacao' | 'vale_transporte' | 'plano_saude' | 'outros_beneficios';
+export type BeneficiosPatch = Partial<Record<SubBeneficio, number>>;
+export interface ResultadoLote {
+  atualizados: number;
+  erros: Array<{ nome: string; motivo: string }>;
+}
 
 export interface ColaboradorDerivado {
   colaborador: Colaborador;
@@ -97,6 +107,56 @@ export function useColaboradores() {
     finally { setSalvando(false); }
   }, [periodoSelecionado, recarregar]);
 
+  // Edição de benefícios em lote — ESCREVE EXCLUSIVAMENTE no período ativo.
+  // Para cada colaborador selecionado: aplica só os subcampos preenchidos do
+  // patch (vazios preservam o valor atual), recalcula beneficios_fixos = soma
+  // e o custo via o MOTOR REAL (calcularFolhaColaborador, mesmo do save
+  // individual), e persiste via salvarColaboradorPeriodo (mesmo mecanismo).
+  // Nunca itera períodos nem toca colaboradores_base. Erros não abortam o lote.
+  const salvarBeneficiosEmLote = useCallback(async (
+    ids: string[], patch: BeneficiosPatch,
+  ): Promise<ResultadoLote> => {
+    if (!periodoSelecionado) throw new Error('Sem período ativo na tela.');
+    const ano = parseInt(periodoSelecionado.split('-')[0], 10);
+    const erros: ResultadoLote['erros'] = [];
+    let atualizados = 0;
+    setSalvando(true);
+    try {
+      for (const id of ids) {
+        const col = colaboradoresValidos.find(c => c.id === id);
+        if (!col) { erros.push({ nome: id, motivo: 'colaborador não encontrado no período ativo' }); continue; }
+        try {
+          // Campo no patch (preenchido, inclusive 0) sobrescreve; ausente preserva.
+          const va = patch.vale_alimentacao ?? col.vale_alimentacao ?? 0;
+          const vt = patch.vale_transporte ?? col.vale_transporte ?? 0;
+          const ps = patch.plano_saude ?? col.plano_saude ?? 0;
+          const ob = patch.outros_beneficios ?? col.outros_beneficios ?? 0;
+          const beneficios_fixos = va + vt + ps + ob;
+          const novo: Colaborador = {
+            ...col, vale_alimentacao: va, vale_transporte: vt, plano_saude: ps,
+            outros_beneficios: ob, beneficios_fixos,
+          };
+          // Motor real, period-aware (resolve teto vigente via histórico) — espelha
+          // exatamente o custo que o save individual gravaria. NÃO reimplementado.
+          const r = calcularFolhaColaborador(novo, ano, periodoSelecionado);
+          const payload: Colaborador = {
+            ...novo,
+            custo_total_mensal: r.custo_total_mensal, custo_hora: r.custo_hora,
+            inss: r.inss, irrf: r.irrf_liquido,
+            complemento_plr: r.complemento_plr, reflexos_plr_mensal: r.reflexos_plr_mensal,
+            encargos_patronais: r.encargos_patronais, decimo_terceiro_ferias: r.decimo_terceiro_ferias,
+          };
+          await salvarColaboradorPeriodo(periodoSelecionado, payload);
+          atualizados++;
+        } catch (e) {
+          erros.push({ nome: col.nome_colaborador, motivo: e instanceof Error ? e.message : 'falha ao salvar' });
+        }
+      }
+      recarregar();
+      return { atualizados, erros };
+    } finally { setSalvando(false); }
+  }, [periodoSelecionado, colaboradoresValidos, recarregar]);
+
   const salvarPct = useCallback(async (nomeCliente: string, funcao: FuncaoAlocacao, valor: number) => {
     if (!periodoSelecionado) return;
     const cliente = clientes.find(c => c.nome_cliente === nomeCliente);
@@ -159,5 +219,6 @@ export function useColaboradores() {
     periodo: periodoSelecionado, clientes,
     ordenacao, setOrdenarPor,
     salvarFolha, salvarPct, criarColaborador, excluirColaborador, salvando,
+    salvarBeneficiosEmLote,
   };
 }

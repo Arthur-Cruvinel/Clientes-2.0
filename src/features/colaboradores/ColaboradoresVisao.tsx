@@ -2,8 +2,8 @@
 // KPIs de folha + tabela com linhas expansíveis + modal de edição/criação.
 // Botão "Adicionar" e exclusão restritos a admin (useAuth).
 
-import { useState } from 'react';
-import { Users, AlertTriangle, Plus, Share2, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, AlertTriangle, Plus, Share2, Loader2, Wallet } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { useAuth } from '../../state/AuthContext';
@@ -13,6 +13,7 @@ import { CHAVE_ORD } from './ordenacao';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
 import { ColaboradorCard } from './ColaboradorCard';
 import { ColaboradorModal } from './ColaboradorModal';
+import { BeneficiosLoteModal } from './BeneficiosLoteModal';
 import { PropagacaoEmMassa } from './PropagacaoEmMassa';
 import { RenomearColaboradorModal } from './RenomearColaboradorModal';
 import { COLUNAS } from './columns';
@@ -28,6 +29,7 @@ export function ColaboradoresVisao() {
     derivados, totais, algumSobrecarga, periodo, clientes,
     ordenacao, setOrdenarPor,
     salvarFolha, salvarPct, criarColaborador, excluirColaborador, salvando,
+    salvarBeneficiosEmLote,
   } = useColaboradores();
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
@@ -39,6 +41,28 @@ export function ColaboradoresVisao() {
   // Aberto quando o usuário renomeou o colaborador no Salvar Folha — propaga
   // o novo nome para todos os clientes em todos os períodos.
   const [renomearInfo, setRenomearInfo] = useState<{ antigo: string; novo: string } | null>(null);
+
+  // ── Seleção múltipla para edição de benefícios em lote ──────────────────
+  // Set de ids de colaborador. Limpa ao trocar de período (benefício vigora
+  // por mês; uma seleção de outro período não faz sentido aqui).
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [loteAberto, setLoteAberto] = useState(false);
+  useEffect(() => { setSelecionados(new Set()); }, [periodo]);
+
+  const idsVisiveis = derivados.map(d => d.colaborador.id).filter(Boolean) as string[];
+  const todosSelecionados = idsVisiveis.length > 0 && idsVisiveis.every(id => selecionados.has(id));
+
+  function toggleUm(id?: string) {
+    if (!id) return;
+    setSelecionados(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function toggleTodos() {
+    setSelecionados(todosSelecionados ? new Set() : new Set(idsVisiveis));
+  }
 
   // Pré-busca os períodos disponíveis (usa o 1º colaborador como referência —
   // todos têm cobertura igual no fluxo normal de fechamento de período).
@@ -121,11 +145,36 @@ export function ColaboradoresVisao() {
 
       <p className="text-xs text-gray-400">Campos em cinza são calculados automaticamente.</p>
 
+      {/* Barra de ações em lote — só admin, só com seleção ativa */}
+      {isAdmin && selecionados.size > 0 && (
+        <div className="flex items-center justify-between rounded-lg px-4 py-2"
+          style={{ backgroundColor: '#eef2ff', border: '1px solid #c7d2fe' }}>
+          <span className="text-sm font-medium" style={{ color: '#3730a3' }}>
+            {selecionados.size} selecionado(s)
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelecionados(new Set())}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ color: '#6b6b8a' }}>
+              Limpar seleção
+            </button>
+            <button onClick={() => setLoteAberto(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-gradient-brand">
+              <Wallet size={12} /> Editar benefícios em lote
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tabela — largura total do container, scroll horizontal só se preciso */}
       <div className="w-full overflow-x-auto rounded-lg border" style={{ borderColor: '#e2e2e8' }}>
         <table className="w-full table-fixed">
           <thead style={{ backgroundColor: '#f9f9fb' }}>
             <tr>
+              {/* Coluna de seleção — largura explícita (table-fixed). */}
+              <th className={`${TH} w-10 text-center`}>
+                <input type="checkbox" checked={todosSelecionados} onChange={toggleTodos}
+                  aria-label="Selecionar todos" className="cursor-pointer" />
+              </th>
               {COLUNAS.map(col => {
                 const chaveOrd = CHAVE_ORD[col.chave];
                 const align = col.alinhamento ?? 'left';
@@ -144,7 +193,7 @@ export function ColaboradoresVisao() {
           <tbody>
             {derivados.length === 0 && (
               <tr>
-                <td colSpan={COLUNAS.length} className="px-3 py-6 text-center text-xs"
+                <td colSpan={COLUNAS.length + 1} className="px-3 py-6 text-center text-xs"
                     style={{ color: '#6b6b8a' }}>
                   Nenhum colaborador no período {periodo || '—'}.
                 </td>
@@ -153,7 +202,9 @@ export function ColaboradoresVisao() {
             {derivados.map(d => (
               <ColaboradorCard key={d.colaborador.id ?? d.colaborador.nome_colaborador}
                 derivado={d} clientes={clientes}
-                onAbrirModal={() => setModal({ tipo: 'editar', derivado: d })} />
+                onAbrirModal={() => setModal({ tipo: 'editar', derivado: d })}
+                selecionado={!!d.colaborador.id && selecionados.has(d.colaborador.id)}
+                onToggleSelecao={() => toggleUm(d.colaborador.id)} />
             ))}
           </tbody>
         </table>
@@ -219,6 +270,15 @@ export function ColaboradoresVisao() {
           periodosDisponiveis={propagacaoMassa.periodos}
           periodoAtual={periodo}
           onFechar={() => setPropagacaoMassa(null)} />
+      )}
+
+      {loteAberto && periodo && (
+        <BeneficiosLoteModal
+          selecionados={derivados.filter(d => d.colaborador.id && selecionados.has(d.colaborador.id))}
+          periodo={periodo}
+          salvando={salvando}
+          onAplicar={(patch) => salvarBeneficiosEmLote([...selecionados], patch)}
+          onFechar={() => { setLoteAberto(false); setSelecionados(new Set()); }} />
       )}
 
       {modal?.tipo === 'criar' && periodo && (

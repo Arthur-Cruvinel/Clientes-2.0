@@ -12,9 +12,11 @@ interface Props {
   derivado: ColaboradorDerivado;
   clientes: Cliente[];
   onAbrirModal: () => void;
+  selecionado: boolean;
+  onToggleSelecao: () => void;
 }
 
-export function ColaboradorCard({ derivado, clientes, onAbrirModal }: Props) {
+export function ColaboradorCard({ derivado, clientes, onAbrirModal, selecionado, onToggleSelecao }: Props) {
   const [expandido, setExpandido] = useState(false);
   const { colaborador: c, custoTotalMensal, ocupacao, statusOcupacao, funcao, somaPctClientes } = derivado;
   // Narrowing temporário: 'estagio' mapeado para 'clt' visualmente
@@ -39,6 +41,11 @@ export function ColaboradorCard({ derivado, clientes, onAbrirModal }: Props) {
     <>
       <tr className="border-b hover:bg-gray-50 cursor-pointer" style={{ borderColor: '#e2e2e8' }}
           onClick={() => setExpandido(v => !v)}>
+        {/* Checkbox de seleção — não propaga o clique (não expande a linha). */}
+        <td className={`${TD} w-10 text-center`} onClick={e => e.stopPropagation()}>
+          <input type="checkbox" checked={selecionado} onChange={onToggleSelecao}
+            aria-label={`Selecionar ${c.nome_colaborador}`} className="cursor-pointer" />
+        </td>
         <td className={`${TD} ${COLUNAS[0].classe ?? ''}`}>
           <div className="flex items-center gap-1.5 truncate" style={{ color: '#160F41' }}>
             {expandido ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -78,7 +85,8 @@ export function ColaboradorCard({ derivado, clientes, onAbrirModal }: Props) {
 
       {expandido && (
         <tr style={{ backgroundColor: '#fafafa' }}>
-          <td colSpan={COLUNAS.length} className="px-6 py-3">
+          {/* +1 coluna pelo checkbox de seleção. */}
+          <td colSpan={COLUNAS.length + 1} className="px-6 py-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-medium" style={{ color: '#160F41' }}>
                 Alocação por cliente · soma {(somaPctClientes * 100).toFixed(1)}%
