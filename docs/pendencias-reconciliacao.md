@@ -25,12 +25,13 @@ Identidade por visão (mês a mês, encadeado como a tela):
 | Período | Onshore | Offshore | Consolidado |
 |---|---|---|---|
 | Mês corrente (2026-06) | **0,00** ✅ | **0,00** ✅ | **0,00** ✅ |
-| **2026 YTD** | **−69.285,83** | **0,00** ✅ | −69.285,83 |
-| Base completa (2025→) | −211.854,78 | **0,00** ✅ | −211.854,78 |
+| **2026 YTD** | **−78.400,52** | **0,00** ✅ | −78.400,52 |
+| Base completa (2025→) | −220.969,47 | **0,00** ✅ | −220.969,47 |
 
-> **Offshore 100% fechado. Jun/26 100% fechado.** O resíduo onshore −69.285 do 2026 YTD
-> = **3 materiais reais + 1 entrada + fronteira aceita** (77 clientes somando só R$5.344,
-> todos < 0,05% do PL).
+> **Offshore 100% fechado. Jun/26 100% fechado.** O 2026 YTD foi de −69.285 → **−78.400**
+> após recuperar MARIA: o +9.115 que ela tinha era **fantasma de colisão** que *mascarava*
+> o resíduo (fazia o livro parecer menos negativo). Removido, aparece o número honesto =
+> **3 materiais reais (ALAN/MOISES/FLORENCE) + fronteira aceita**. MARIA agora fecha 0,00.
 
 ---
 
@@ -112,13 +113,24 @@ toda op por-nome** (que mira `slug(nome)`). `deleteDoc` em docId inexistente é 
 silencioso → UI diz "excluído" e o fragmento sobrevive; em colisão, exclui o canônico
 (o bom) e deixa o fragmento. **Correção só funciona por docId DIRETO.**
 
-### Mapa — 30 fragmentos, 3 clientes
+### Mapa — fragmentos por cliente
 
-| Cliente | Frags | slug-keyed | Meses | Colisão | pl_max | Tipo |
+| Cliente | Frags | slug-keyed | Meses | Colisão | pl_max | Status |
 |---|---|---|---|---|---|---|
-| **ALLAN ANDRADE ELIAS** | 13 | `aae_btg` | 2025-03 → 2026-05 | só 2026-05 | 201.770 | 12 sole-source (história real) + 1 colisão |
-| **EDUARDA DA SILVA MINUTTI** | 14 | `esm_btg` | 2025-02 → 2026-04 | nenhuma | **R$ 5,36** | sole-source, **imaterial** (poeira) |
-| **MARIA TEREZA** | 3 | `mtv_xp` | 2026-03/04/05 | todas 3 | 14.857 | colisão (fantasma +9.115) |
+| **ALLAN ANDRADE ELIAS** | 13 | `aae_btg` | 2025-03 → 2026-05 | só 2026-05 | 201.770 | ⏳ 12 sole-source p/ migrar + 1 colisão (lâmina) |
+| **EDUARDA DA SILVA MINUTTI** | 14 | `esm_btg` | 2025-02 → 2026-04 | nenhuma | **R$ 5,36** | ⏳ sole-source, **imaterial** (poeira) |
+| **MARIA TEREZA** | ~~3~~ 0 | ~~`mtv_xp`~~ | — | — | — | ✅ **RESOLVIDA** (ver abaixo) |
+| **RAFAEL RICIERI FACI** | ~~2~~ 0 | ~~`rrf_glpg`~~ | — | — | — | ✅ excluído (dummies R$1) |
+
+**✅ MARIA TEREZA — recuperada (dado perdido pela UI + reimport):** a tentativa de
+exclusão pela UI mirou `slug(nome)` e **apagou a série canônica VIVA** (Mai 5.382 com
+resgate −9.016 → Jun 5.390), deixando o `mtv_xp` stale (14.538). Recuperação: Arthur
+**reimportou a lâmina XP** → como `MTV_XP` está mapeado, aterrissou no docId **canônico**
+`maria_tereza_vasconcelos_barbosa_2026_3/4/5/6` (Mai 5.382,08 c/ resgate −9.016,63
+confirmado na lâmina). Os 3 `mtv_xp` stale **excluídos por docId direto**. Harness:
+Mar→Jun fecha R_on=0,00 cada mês; fantasma +9.115 eliminado; MARIA agora gerenciável
+pela UI (docId canônico). **Prova viva do BACKLOG #4: sem o re-key no write-path, a UI
+apaga o doc certo.**
 
 > `aae_btg` é a série **contínua e ÚNICA** do ALLAN por 14 meses → **é a história real
 > dele**, NÃO stale (corrige a leitura do turno anterior). O canônico
