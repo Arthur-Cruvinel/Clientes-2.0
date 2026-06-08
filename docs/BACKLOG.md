@@ -71,6 +71,20 @@ colisão). RAFAEL já corrigido.
 **Gatilho:** ao tocar o fluxo de import/normalização de poupança por sigla / quando
 aparecer um novo fragmento sigla-keyed.
 
+### 5. RISCO ACEITO: import de Excel de custosIndiretos é wipe-replace destrutivo
+O import de Excel de `custosIndiretos` segue **wipe-replace com docId aleatório e
+sem `id_estavel`** (`useUploadImport.ts` ~264 `wipeSubcollection` + ~186
+`escreverBatch` com `crypto.randomUUID()`). **Reimportar um período destrói os
+valores e a identidade (docId/id_estavel) gravados pela UI** de Custos Indiretos.
+**Decisão de 06/26: manter como está; a UI (Configurações → Custos Indiretos) é o
+caminho principal de edição.** Os 5 docs/período já têm identidade canônica fixada
+em `CATEGORIAS_CUSTO_INDIRETO` (`constants.ts`).
+**Ação (quando/se o Excel voltar a ser usado para custos indiretos):** blindar o
+write-path — upsert por **identidade canônica** (casar a `categoria_dre` contra as
+5, gravar no docId+id_estavel canônicos da constante), em vez de wipe + UUID
+aleatório.
+**Gatilho:** ao reabilitar/usar o import de Excel para a aba `custos_indiretos`.
+
 ---
 
 ## Resolvidos
