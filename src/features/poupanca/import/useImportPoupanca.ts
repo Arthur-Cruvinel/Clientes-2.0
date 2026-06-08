@@ -276,17 +276,6 @@ export function useImportPoupanca() {
       setNomeClienteMulti(nomeCompleto);
 
       const registros = await parseMultiPeriodoComClaude(texto, sigla);
-      console.log('[DEBUG tombamento] registros do parser:',
-        JSON.stringify(registros.map(r => ({
-          mes: r.mes,
-          ano: r.ano,
-          pl_inicial_total: r.pl_inicial_total,
-          aporte_mes_total: r.aporte_mes_total,
-          rentabilidade_total: r.rentabilidade_total,
-          pl_total: r.pl_total,
-          nnm_linha_abertura: r.nnm_linha_abertura ?? null,
-        })), null, 2),
-      );
       setPreviewMulti(registros);
       console.log(`[ImportMultiPeriodo] ${nomeCompleto}: ${registros.length} meses`);
     } catch (e) {
