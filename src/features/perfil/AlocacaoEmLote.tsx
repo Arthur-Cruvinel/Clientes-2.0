@@ -8,6 +8,7 @@ import { exportAlocacaoExcel } from '../../utils/exportAlocacao';
 import { useCapacidade } from '../capacidade/useCapacidade';
 import { CapacidadeDrillDown } from '../capacidade/CapacidadeDrillDown';
 import { ReplicarAlocacaoModal } from './ReplicarAlocacaoModal';
+import { Modal } from '../../components/ui/Modal';
 import { useAuth } from '../../state/AuthContext';
 import { HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
@@ -17,6 +18,15 @@ function corFator(f: number): string {
   if (f < 0.8) return '#dc2626';
   if (f < 1.0) return '#ea580c';
   return '#16a34a';
+}
+
+// Período por extenso para o banner e a confirmação ("2026-04" → "Abril/2026").
+const MESES_LONGOS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+function formatarPeriodoLongo(p?: string): string {
+  if (!p) return '—';
+  const [a, m] = p.split('-').map(Number);
+  return (m >= 1 && m <= 12) ? `${MESES_LONGOS[m - 1]}/${a}` : p;
 }
 
 // Rótulos curtos p/ o breakdown do KPI consolidado de ocupação.
@@ -42,6 +52,7 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
   const [verCapacidade, setVerCapacidade] = useState(false);
   const [replicarAberto, setReplicarAberto] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [confirmandoSalvar, setConfirmandoSalvar] = useState(false);
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
 
@@ -85,9 +96,11 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-sm font-semibold" style={{ color: '#160F41' }}>Alocação em Lote</h3>
-        <p className="text-xs" style={{ color: '#6b6b8a' }}>Distribuição automática proporcional ao pacote — override manual permitido. Período: {periodo || '—'}</p>
+      {/* Banner proeminente do período — sempre visível enquanto se edita, para
+          o operador nunca preencher sem saber em qual mês está. */}
+      <div className="rounded-lg px-4 py-3" style={{ background: 'linear-gradient(135deg, #0065FF, #D000BB)' }}>
+        <p className="text-white text-base font-bold leading-tight">Alocação · {formatarPeriodoLongo(periodo)}</p>
+        <p className="text-white/80 text-xs">Distribuição automática proporcional ao pacote — override manual permitido.</p>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -270,12 +283,40 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
           {toast && <div className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-700">{toast}</div>}
 
           <div className="flex justify-end gap-3 pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
-            <button onClick={handleSalvar} disabled={salvando || alteracoes === 0}
+            <button onClick={() => setConfirmandoSalvar(true)} disabled={salvando || alteracoes === 0}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-50">
               {salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               {salvando ? 'Salvando...' : 'Salvar Alocação'}</button>
           </div>
         </>
+      )}
+
+      {/* Confirmação nomeando o período antes de gravar — evita salvar no mês
+          errado (o painel herda o período do seletor global, que auto-detecta
+          o mês anterior). Não altera o que salvarTodos grava. */}
+      {confirmandoSalvar && (
+        <Modal aberto onFechar={() => setConfirmandoSalvar(false)} titulo="Confirmar gravação da alocação" largura="md">
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: '#160F41' }}>
+              Você está gravando a alocação de <strong>{formatarPeriodoLongo(periodo)}</strong>. Confirma?
+            </p>
+            <p className="text-xs" style={{ color: '#6b6b8a' }}>
+              {alteracoes} alteração{alteracoes === 1 ? '' : 'ões'} será{alteracoes === 1 ? '' : 'ão'} gravada{alteracoes === 1 ? '' : 's'} em
+              {' '}fechamentos/{periodo}/vinculos.
+            </p>
+            <div className="flex justify-end gap-3 pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
+              <button onClick={() => setConfirmandoSalvar(false)} disabled={salvando}
+                className="px-4 py-2 rounded-lg text-sm" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>
+                Cancelar
+              </button>
+              <button onClick={async () => { setConfirmandoSalvar(false); await handleSalvar(); }} disabled={salvando}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-50">
+                {salvando && <Loader2 size={14} className="animate-spin" />}
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
