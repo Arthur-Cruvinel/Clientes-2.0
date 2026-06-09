@@ -280,13 +280,18 @@ export function aplicarFiltro(periodos: string[], f: FiltroPropagacao): string[]
  *  atual. Atualiza em batches de BATCH_LIMIT. Erros por batch acumulados
  *  sem abortar o restante. Reporta progresso após cada commit. */
 export async function propagarFolhaColaborador(
-  colaboradorId: string,
+  origem: Colaborador,
   historico: ReajusteSalarial[],
   salarioTetoAtual: number,
   liquidoAcordadoAtual: number,
   filtro: FiltroPropagacao,
   onProgress?: (periodo: string, atual: number, total: number) => void,
 ): Promise<{ periodos: string[]; erros: string[] }> {
+  const colaboradorId = origem.id;
+  if (!colaboradorId) throw new Error('Colaborador sem id — impossível propagar.');
+  // Perenes comuns vêm da origem (fonte única). Teto/líquido seguem resolvidos
+  // POR PERÍODO via histórico (semântica preservada da individual).
+  const perenes = montarPerenesComuns(origem);
   try {
     const snap = await getDocs(collectionGroup(db, 'colaboradores'));
     // Path: fechamentos/{anoMes}/colaboradores/{id}
@@ -312,10 +317,25 @@ export async function propagarFolhaColaborador(
       for (const d of chunk) {
         const periodo = d.ref.path.split('/')[1];
         const r = buscarTetoPorPeriodo(stubColab, periodo);
+        // Recalcula os derivados no destino com o teto resolvido por período
+        // (motor real; teto já vem de r → sem re-resolver histórico). Mesmo
+        // padrão de salvarBeneficiosEmLote / save individual.
+        const anoDestino = parseInt(periodo.split('-')[0], 10);
+        const novoColab = {
+          ...perenes,
+          salario_teto_cargo: r.salario_teto_cargo,
+          liquido_acordado: r.liquido_acordado,
+        } as Colaborador;
+        const calc = calcularFolhaColaborador(novoColab, anoDestino);
         batch.update(d.ref, {
+          ...perenes,
           historico_reajustes: historico,
           salario_teto_cargo: r.salario_teto_cargo,
           liquido_acordado: r.liquido_acordado,
+          custo_total_mensal: calc.custo_total_mensal, custo_hora: calc.custo_hora,
+          inss: calc.inss, irrf: calc.irrf_liquido,
+          complemento_plr: calc.complemento_plr, reflexos_plr_mensal: calc.reflexos_plr_mensal,
+          encargos_patronais: calc.encargos_patronais, decimo_terceiro_ferias: calc.decimo_terceiro_ferias,
         });
       }
       try {
@@ -410,10 +430,14 @@ export async function propagarFolhaTodosColaboradores(
     // onde o doc existe (colaboradores podem não cobrir todos os períodos).
     const allSnap = await getDocs(collectionGroup(db, 'colaboradores'));
     const colabPeriodos = new Map<string, Map<string, typeof allSnap.docs[0]['ref']>>();
+    // Dados do doc do período-BASE por colaborador — fonte dos perenes a
+    // propagar (o periodoBase pode diferir do período ativo da tela).
+    const baseDocData = new Map<string, Colaborador>();
     for (const d of allSnap.docs) {
       const periodo = d.ref.path.split('/')[1];
       if (!colabPeriodos.has(d.id)) colabPeriodos.set(d.id, new Map());
       colabPeriodos.get(d.id)!.set(periodo, d.ref);
+      if (periodo === periodoBase) baseDocData.set(d.id, d.data() as Colaborador);
     }
     // Snapshot direto do período-base (não passa por histórico) — alinha com
     // o preview do wizard e evita divergências em estado inconsistente.
@@ -431,6 +455,9 @@ export async function propagarFolhaTodosColaboradores(
         continue;
       }
       const refsDoColab = colabPeriodos.get(colab.id) ?? new Map();
+      // Perenes do período-base (fallback no objeto em memória se o doc-base
+      // não veio no collectionGroup — não deveria, snapshot já validou).
+      const perenesBase = montarPerenesComuns(baseDocData.get(colab.id) ?? colab);
       let temSucesso = false;
 
       for (let pi = 0; pi < periodosDestino.length; pi += BATCH_LIMIT) {
@@ -444,9 +471,25 @@ export async function propagarFolhaTodosColaboradores(
             erros.push({ colaborador: colab.nome_colaborador, periodo, erro: 'doc não existe nesse período' });
             continue;
           }
-          batch.update(ref, {
+          // Teto/líquido = ACHATAMENTO do período-base (semântica da massa
+          // preservada). Recalcula derivados SEM período → motor usa o teto
+          // achatado direto (não re-resolve histórico). historico_reajustes
+          // NÃO é tocado (intencional — ver docblock).
+          const anoDestino = parseInt(periodo.split('-')[0], 10);
+          const novoColab = {
+            ...perenesBase,
             salario_teto_cargo: snapshot.salario_teto_cargo,
             liquido_acordado: snapshot.liquido_acordado,
+          } as Colaborador;
+          const calc = calcularFolhaColaborador(novoColab, anoDestino);
+          batch.update(ref, {
+            ...perenesBase,
+            salario_teto_cargo: snapshot.salario_teto_cargo,
+            liquido_acordado: snapshot.liquido_acordado,
+            custo_total_mensal: calc.custo_total_mensal, custo_hora: calc.custo_hora,
+            inss: calc.inss, irrf: calc.irrf_liquido,
+            complemento_plr: calc.complemento_plr, reflexos_plr_mensal: calc.reflexos_plr_mensal,
+            encargos_patronais: calc.encargos_patronais, decimo_terceiro_ferias: calc.decimo_terceiro_ferias,
           });
           chunkRefs.push({ periodo, idx: pi + j });
         }

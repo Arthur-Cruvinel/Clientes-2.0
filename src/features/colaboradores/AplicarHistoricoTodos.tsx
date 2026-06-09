@@ -80,7 +80,7 @@ export function AplicarHistoricoTodos({
     setEtapa('aplicando');
     try {
       const r = await propagarFolhaColaborador(
-        colaborador.id, historico,
+        colaborador, historico,
         previewBase.salario_teto_cargo, previewBase.liquido_acordado,
         filtro,
         (periodo, atual, total) => setProgresso({ periodo, atual, total }),
