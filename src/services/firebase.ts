@@ -326,7 +326,10 @@ export async function propagarFolhaColaborador(
           salario_teto_cargo: r.salario_teto_cargo,
           liquido_acordado: r.liquido_acordado,
         } as Colaborador;
-        const calc = calcularFolhaColaborador(novoColab, anoDestino);
+        // 3º arg (período) explícito por robustez; inerte enquanto novoColab
+        // não carrega histórico (sem histórico, o motor usa o teto direto já
+        // setado = r.salario_teto_cargo). Resultado idêntico ao de 2 args.
+        const calc = calcularFolhaColaborador(novoColab, anoDestino, periodo);
         batch.update(d.ref, {
           ...perenes,
           historico_reajustes: historico,
@@ -483,7 +486,11 @@ export async function propagarFolhaTodosColaboradores(
             salario_teto_cargo: snapshot.salario_teto_cargo,
             liquido_acordado: snapshot.liquido_acordado,
           } as Colaborador;
-          const calc = calcularFolhaColaborador(novoColab, anoDestino);
+          // 3º arg (período) explícito por robustez; inerte enquanto novoColab
+          // não carrega histórico (sem histórico, o motor usa o teto direto =
+          // snapshot achatado). Resultado idêntico ao de 2 args; preserva o
+          // achatamento do período-base.
+          const calc = calcularFolhaColaborador(novoColab, anoDestino, periodo);
           batch.update(ref, {
             ...perenesBase,
             salario_teto_cargo: snapshot.salario_teto_cargo,
