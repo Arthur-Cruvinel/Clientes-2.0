@@ -17,6 +17,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { calcularFolhaColaborador, buscarTetoPorPeriodo } from '../../utils/financials';
 import { buscarPeriodosDoColaborador } from '../../services/firebase';
 import { useAuth } from '../../state/AuthContext';
+import { useApp } from '../../state/AppContext';
 import { FolhaCalculadosResumo } from './FolhaCalculadosResumo';
 import { Campo, SelectField } from './FolhaTabFields';
 import { HistoricoReajustes } from './HistoricoReajustes';
@@ -107,11 +108,77 @@ function construirFormInicial(inicial: Colaborador, periodo: string): FolhaForm 
   };
 }
 
+// Normalização p/ detectar cargo duplicado por grafia (acentos/caixa/espaços).
+function normCargo(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+// Dropdown de cargo DERIVADO dos cargos já usados (sem constante/coleção nova) +
+// opção de adicionar um cargo inédito. Cargo é descritivo — o motor não o usa.
+function CargoField({ valor, cargos, onChange }: { valor: string; cargos: string[]; onChange: (v: string) => void }) {
+  const [adicionando, setAdicionando] = useState(false);
+  const [novo, setNovo] = useState('');
+
+  // Inclui o cargo atual do form para que fique sempre selecionável.
+  const opcoes = useMemo(() => {
+    const set = new Set(cargos.filter(Boolean));
+    if (valor) set.add(valor);
+    return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [cargos, valor]);
+
+  const INP = 'rounded px-2 py-1.5 text-sm w-full';
+  const BRD = { border: '1px solid #e2e2e8', color: '#160F41' } as const;
+
+  function confirmarNovo() {
+    const limpo = novo.trim();
+    if (!limpo) return;
+    // Duplicata por grafia → reaproveita o cargo existente (não cria "diretor " novo).
+    const existente = opcoes.find(c => normCargo(c) === normCargo(limpo));
+    if (existente) { onChange(existente); setAdicionando(false); setNovo(''); return; }
+    // Micro-fricção anti-typo: confirma antes de um cargo inédito entrar na lista.
+    if (!window.confirm(`Criar o cargo «${limpo}»?`)) return;
+    onChange(limpo);
+    setAdicionando(false); setNovo('');
+  }
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>Cargo</label>
+      {adicionando ? (
+        <div className="flex gap-2">
+          <input autoFocus value={novo} onChange={e => setNovo(e.target.value)}
+            placeholder="Novo cargo (ex: Diretor)"
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmarNovo(); } }}
+            className={INP} style={BRD} />
+          <button type="button" onClick={confirmarNovo} disabled={!novo.trim()}
+            className="px-3 py-1.5 rounded text-xs font-medium text-white bg-gradient-brand disabled:opacity-50">Criar</button>
+          <button type="button" onClick={() => { setAdicionando(false); setNovo(''); }}
+            className="px-3 py-1.5 rounded text-xs" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>Cancelar</button>
+        </div>
+      ) : (
+        <select value={valor}
+          onChange={e => { if (e.target.value === '__novo__') setAdicionando(true); else onChange(e.target.value); }}
+          className={INP} style={BRD}>
+          <option value="">Selecione um cargo...</option>
+          {opcoes.map(c => <option key={c} value={c}>{c}</option>)}
+          <option value="__novo__">+ Adicionar novo cargo…</option>
+        </select>
+      )}
+    </div>
+  );
+}
+
 export function FolhaTab({
   modo, inicial, periodo, salvando, onSalvar, onCancelar, extraFooterLeft,
   onDirtyChange, registrarMontarPayload,
 }: Props) {
   const { usuario } = useAuth();
+  const { dadosPeriodo } = useApp();
+  // Lista derivada dos cargos já usados no período (sem constante/coleção nova).
+  const cargos = useMemo(
+    () => [...new Set((dadosPeriodo?.colaboradores ?? []).map(c => c.cargo).filter(Boolean))],
+    [dadosPeriodo],
+  );
   const [form, setForm] = useState<FolhaForm>(() => construirFormInicial(inicial, periodo));
   const [erro, setErro] = useState<string | null>(null);
   const [resumoAberto, setResumoAberto] = useState(true);
@@ -259,10 +326,11 @@ export function FolhaTab({
             todos os clientes que tinham o nome antigo (RenomearColaboradorModal). */}
         <Campo label="Nome do Colaborador" tipo="text" valor={form.nome_colaborador}
           placeholder="Nome completo" onText={v => set('nome_colaborador', v)} />
+        {/* Cargo — dropdown derivado, editável em CRIAR e EDITAR. */}
+        <CargoField valor={form.cargo} cargos={cargos} onChange={v => set('cargo', v)} />
         {modo === 'criar' && (
           <section className="space-y-2">
             <h4 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Cadastro</h4>
-            <Campo label="Cargo" tipo="text" valor={form.cargo} onText={v => set('cargo', v)} />
             <Campo label="Função principal (consultoria_gestao, operacional_financeiro, …)"
               tipo="text" valor={form.funcao_principal} onText={v => set('funcao_principal', v)} />
           </section>
