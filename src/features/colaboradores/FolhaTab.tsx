@@ -15,6 +15,7 @@ import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { Loader2, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import { calcularFolhaColaborador, buscarTetoPorPeriodo } from '../../utils/financials';
+import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { buscarPeriodosDoColaborador } from '../../services/firebase';
 import { useAuth } from '../../state/AuthContext';
 import { useApp } from '../../state/AppContext';
@@ -167,6 +168,23 @@ function CargoField({ valor, cargos, onChange }: { valor: string; cargos: string
     </div>
   );
 }
+
+// Vocabulário FECHADO da função principal: os 6 canônicos (derivados de
+// FUNCOES_ALOCACAO — se a constante mudar, o dropdown acompanha) + 'institucional'
+// (não-alocável; overhead via percentual_institucional — mecanismo legítimo, não
+// erro). SEM "adicionar novo": função fora da lista quebra o motor
+// (HORAS_PACOTE / fator / alocação).
+const OPCOES_FUNCAO: string[] = [...FUNCOES_ALOCACAO, 'institucional'];
+// Labels legíveis (mesma convenção do LABEL_FUNCAO já usado em Capacidade/Pacotes).
+const LABEL_FUNCAO_PRINCIPAL: Record<string, string> = {
+  consultoria_gestao: 'Consultoria Gestão',
+  consultoria_planejamento: 'Consultoria Planejamento',
+  consultoria_financeira: 'Consultoria Financeira',
+  operacional_financeiro: 'Operacional Financeiro',
+  serv_adm: 'Serviços Administrativos',
+  serv_aux_adm: 'Aux. Administrativo',
+  institucional: 'Institucional (não-alocável)',
+};
 
 export function FolhaTab({
   modo, inicial, periodo, salvando, onSalvar, onCancelar, extraFooterLeft,
@@ -331,8 +349,12 @@ export function FolhaTab({
         {modo === 'criar' && (
           <section className="space-y-2">
             <h4 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Cadastro</h4>
-            <Campo label="Função principal (consultoria_gestao, operacional_financeiro, …)"
-              tipo="text" valor={form.funcao_principal} onText={v => set('funcao_principal', v)} />
+            {/* Função principal — vocabulário FECHADO (motor depende dela).
+                Default vazio força escolha consciente na criação. */}
+            <SelectField label="Função principal" valor={form.funcao_principal}
+              opcoes={[['', 'Selecione a função…'],
+                ...OPCOES_FUNCAO.map(f => [f, LABEL_FUNCAO_PRINCIPAL[f] ?? f] as [string, string])]}
+              onChange={v => set('funcao_principal', v)} />
           </section>
         )}
 
