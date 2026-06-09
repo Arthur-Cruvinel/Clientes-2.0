@@ -82,6 +82,12 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
     return periodosDisponiveis.filter(p => p >= intervaloIni && p <= intervaloFim);
   }, [tipo, periodoBase, intervaloIni, intervaloFim, periodosDisponiveis]);
 
+  // Guarda "só para frente": destino > base. Períodos ≤ base são filtrados
+  // (não escondemos as opções do wizard — apenas avisamos quantos saíram).
+  const periodosFrente = useMemo(
+    () => periodosAfetados.filter(p => p > periodoBase), [periodosAfetados, periodoBase]);
+  const excluidosTras = periodosAfetados.length - periodosFrente.length;
+
   const intervaloValido = tipo !== 'intervalo' || (intervaloIni && intervaloFim && intervaloIni <= intervaloFim);
 
   async function aplicar() {
@@ -182,11 +188,17 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
             )}
           </div>
           <p className="text-xs" style={{ color: '#6b6b8a' }}>
-            <strong>{colabsOrdenados.length}</strong> colaboradores × <strong>{periodosAfetados.length}</strong> períodos = <strong>{colabsOrdenados.length * periodosAfetados.length}</strong> atualizações.
+            <strong>{colabsOrdenados.length}</strong> colaboradores × <strong>{periodosFrente.length}</strong> períodos = <strong>{colabsOrdenados.length * periodosFrente.length}</strong> atualizações.
           </p>
+          {excluidosTras > 0 && (
+            <p className="text-xs flex items-start gap-1.5 p-2 rounded" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              <span>{excluidosTras} período(s) ≤ base foram excluídos — a propagação em massa só vai para frente (destino &gt; {periodoBase}).</span>
+            </p>
+          )}
           <Footer onVoltar={() => setEtapa('base')} voltarLabel="Voltar"
             onAvancar={() => setEtapa('confirmar')} avancarLabel="Avançar"
-            avancarDisabled={!intervaloValido || periodosAfetados.length === 0} />
+            avancarDisabled={!intervaloValido || periodosFrente.length === 0} />
         </div>
       )}
 
@@ -197,14 +209,18 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
             <Linha label="Base" valor={periodoBase} />
             <Linha label="Destino" valor={ROT_DESTINO[tipo]} />
             <Linha label="Colaboradores" valor={String(colabsOrdenados.length)} />
-            <Linha label="Períodos"
-              valor={periodosAfetados.length <= 5
-                ? periodosAfetados.join(', ') || '—'
-                : `${periodosAfetados.slice(0, 5).join(', ')} … e mais ${periodosAfetados.length - 5}`} />
+            <Linha label="Períodos (destino)"
+              valor={periodosFrente.length <= 5
+                ? periodosFrente.join(', ') || '—'
+                : `${periodosFrente.slice(0, 5).join(', ')} … e mais ${periodosFrente.length - 5}`} />
           </div>
           <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
-            <p className="text-xs"><strong>Esta operação não pode ser desfeita.</strong> Certifique-se de que os dados do período base estão corretos antes de continuar.</p>
+            <p className="text-xs">
+              <strong>Sobrescreve os dados existentes</strong> dos {colabsOrdenados.length} colaboradores
+              {' '}nos {periodosFrente.length} período(s) acima ({periodosFrente[0] ?? '—'} … {periodosFrente[periodosFrente.length - 1] ?? '—'}).
+              {' '}<strong>Não pode ser desfeito.</strong> Confira o período base antes de continuar.
+            </p>
           </div>
           <Footer onVoltar={() => setEtapa('destino')} voltarLabel="Voltar"
             onAvancar={aplicar} avancarLabel="Confirmar e aplicar" />

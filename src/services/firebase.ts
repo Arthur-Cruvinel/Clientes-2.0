@@ -418,7 +418,9 @@ export async function propagarFolhaTodosColaboradores(
   periodosAtualizados: number;
   erros: Array<{ colaborador: string; periodo: string; erro: string }>;
 }> {
-  const periodosDestino = aplicarFiltro(periodosDisponiveis, filtro);
+  // Guarda "só para frente": a massa só escreve em períodos > periodoBase.
+  // Períodos ≤ base são rejeitados (safety net — a UI também filtra e avisa).
+  const periodosDestino = aplicarFiltro(periodosDisponiveis, filtro).filter(p => p > periodoBase);
   const totalColabs = colaboradores.length;
   const totalPeriodos = periodosDestino.length;
   const erros: Array<{ colaborador: string; periodo: string; erro: string }> = [];
