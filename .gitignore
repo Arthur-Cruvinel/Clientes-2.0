@@ -40,3 +40,9 @@ pnpm-debug.log*
 # Local Netlify folder
 .netlify
 audit-results/
+
+# Backups locais do Firestore — snapshots de segurança com DADO SENSÍVEL
+# (alocação de clientes, folha, poupança). NUNCA versionar: o histórico git é
+# permanente e o repo vive em OneDrive sem remoto privado adequado. Backups são
+# segurança LOCAL apenas.
+backups/firestore/
