@@ -8,7 +8,7 @@ import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente,
 import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO, CATEGORIAS_CUSTO_INDIRETO } from '../utils/constants';
 import { PARAMETROS_DEFAULT } from '../utils/constants';
-import { buscarTetoPorPeriodo } from '../utils/financials.custos';
+import { buscarTetoPorPeriodo, calcularFolhaColaborador } from '../utils/financials.custos';
 import { slug } from '../utils/slug';
 
 const firebaseConfig = {
@@ -226,6 +226,39 @@ export interface FiltroPropagacao {
   tipo: 'todos' | 'a_partir_de' | 'ate' | 'intervalo';
   periodoInicio?: string;  // YYYY-MM
   periodoFim?: string;     // YYYY-MM
+}
+
+/** Bloco de campos PERENES COMUNS propagados nas DUAS propagações de folha
+ *  (massa e individual) — FONTE ÚNICA para que os dois caminhos nunca mais
+ *  divirjam nesses campos (causa-raiz do bug "nem tudo propaga").
+ *
+ *  NÃO inclui (cada comando resolve à sua maneira): salario_teto_cargo,
+ *  liquido_acordado, historico_reajustes.
+ *  NÃO inclui (identidade do destino, preservada): id, id_estavel,
+ *  nome_colaborador.
+ *  NÃO inclui (recalculados no destino pelo motor): custo_total_mensal,
+ *  custo_hora, inss, irrf, complemento_plr, reflexos_plr_mensal,
+ *  encargos_patronais, decimo_terceiro_ferias.
+ *
+ *  Opcionais são coalescidos ao default documentado (evita gravar `undefined`
+ *  num batch.update, que o Firestore rejeita). */
+export function montarPerenesComuns(origem: Colaborador) {
+  return {
+    funcao_principal: origem.funcao_principal,
+    cargo: origem.cargo,
+    localidade: origem.localidade ?? 'SP',
+    alocavel: origem.alocavel,
+    tipo_vinculo: origem.tipo_vinculo ?? 'clt',
+    percentual_alocavel: origem.percentual_alocavel,
+    percentual_institucional: origem.percentual_institucional,
+    qtd_dependentes: origem.qtd_dependentes ?? 0,
+    salario_base: origem.salario_base ?? 0,
+    beneficios_fixos: origem.beneficios_fixos ?? 0,
+    vale_alimentacao: origem.vale_alimentacao ?? 0,
+    vale_transporte: origem.vale_transporte ?? 0,
+    plano_saude: origem.plano_saude ?? 0,
+    outros_beneficios: origem.outros_beneficios ?? 0,
+  };
 }
 
 export function aplicarFiltro(periodos: string[], f: FiltroPropagacao): string[] {
