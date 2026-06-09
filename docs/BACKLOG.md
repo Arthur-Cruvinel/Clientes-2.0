@@ -85,6 +85,19 @@ write-path — upsert por **identidade canônica** (casar a `categoria_dre` cont
 aleatório.
 **Gatilho:** ao reabilitar/usar o import de Excel para a aba `custos_indiretos`.
 
+### 6. Backups sensíveis JÁ no histórico do git
+~45 arquivos de backup com **dado de cliente real** (alocação, folha, poupança)
+foram commitados **antes** do `.gitignore` (e5a9bb6) e do `git rm --cached`
+(898e10a). O `git rm --cached` os tira do **rastreamento futuro**, mas eles
+**permanecem nos commits passados** do histórico.
+**Ação (remoção do histórico — git filter-repo / BFG):** só DEPOIS de:
+(a) **remoto configurado** — para ter backup do repo antes de reescrever; e
+(b) idealmente **repo fora do OneDrive** durante a operação.
+Reescrever histórico em `.git` no OneDrive sem remoto = **risco de corrupção
+sem recuperação**. **Encadeia com o item "configurar remoto"** (repo local sem
+remoto — ver item 1 deste backlog / governança).
+**Gatilho:** quando houver remoto privado configurado e janela dedicada.
+
 ---
 
 ## Resolvidos
