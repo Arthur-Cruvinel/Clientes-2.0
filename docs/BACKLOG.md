@@ -110,6 +110,24 @@ deve refletir a validação real (provavelmente nascer `false`/derivado, não `t
 fixo).
 **Gatilho:** ao implementar a Fase 4 (validação de cadastro).
 
+### 8. Duas formas de doc de colaborador coexistem em produção
+Os docs de `fechamentos/{periodo}/colaboradores/` têm **dois formatos**:
+- **forma-migração** (criados pelos scripts Fase 2): têm `slug`, `origem`,
+  `replicado_de`, `data_replicacao` + `irrf_liquido`, `liquido_do_teto`,
+  `redutor_ir_2026`; **não têm** `id` como campo.
+- **forma-save-da-app** (`salvarColaboradorPeriodo` — criação/edição pela UI e
+  agora a propagação): têm `id`; **não têm** os 7 campos acima.
+**Os 7 campos divergentes são INERTES:** nenhum é lido pelo pipeline (o
+`AppContext` recalcula a folha na leitura); os de cálculo (`irrf_liquido`/
+`liquido_do_teto`/`redutor_ir_2026`) são saídas auxiliares mortas e os de
+proveniência (`slug`/`origem`/`replicado_de`/`data_replicacao`) são metadados
+da migração.
+**Ação (opcional):** uniformizar NÃO é necessário. Se um dia for feito, a
+direção é **remover os campos mortos da forma-migração** (e derivar `slug` do
+docId quando preciso), **não adicioná-los aos docs novos** — proveniência não
+se inventa e campos não-lidos não devem ser propagados.
+**Gatilho:** só se uma futura feature passar a depender de uniformidade de schema.
+
 ---
 
 ## Resolvidos
