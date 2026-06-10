@@ -145,6 +145,19 @@ migrar a origem da lista para os vínculos**.
 de (1) esvaziaria as listas das duas telas.
 **Gatilho:** etapa de limpeza dedicada, após validação da ficha religada em produção.
 
+### 10. Unificar as cópias inline do dual-read no helper único
+O padrão dual-read (`vínculo.pct>0 ? vínculo : legado`) tem hoje uma fonte
+canônica: `pctEfetivo` / `ocupacaoConsolidada` em `utils/financials.alocacao.ts`.
+Já consomem o helper: coluna Ocupação (`useColaboradores`), drill-down
+(`ColaboradorCard`) e a guarda de sobre-alocação (`useAlocacaoEmLote`).
+**Ainda têm cópia inline equivalente** (corretas, mas duplicadas):
+`useCapacidade.ts:124-127`, `exportAlocacao.ts:78-81`,
+`EditarClienteModal.tsx` (`resolverPctDoVinculo`), `useAlocacaoEmLote.ts:130-146`
+(o `useEffect` de `pctOriginal`) e `ColaboradorAlocacao.tsx` (`pctEfetivo` local —
+este mistura edição live, pode ficar parcial). **Ação:** trocar essas chamadas
+inline pelo helper, uma de cada vez, com build entre cada (baixo risco, ganho de
+manutenção). **Gatilho:** quando houver janela; não-urgente (todas já corretas).
+
 ---
 
 ## Resolvidos
