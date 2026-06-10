@@ -419,6 +419,8 @@ export async function propagarFolhaTodosColaboradores(
 ): Promise<{
   colaboradoresAtualizados: number;
   periodosAtualizados: number;
+  criados: number;
+  nomesCriados: string[];
   erros: Array<{ colaborador: string; periodo: string; erro: string }>;
 }> {
   // Guarda "só para frente": a massa só escreve em períodos > periodoBase.
@@ -429,6 +431,9 @@ export async function propagarFolhaTodosColaboradores(
   const erros: Array<{ colaborador: string; periodo: string; erro: string }> = [];
   let colabsAtualizados = 0;
   let periodosAtualizadosAcc = 0;
+  // Passo 3 (upsert): contagem de ENTRADAS criadas (doc faltava no destino).
+  let periodosCriadosAcc = 0;
+  const nomesCriados = new Set<string>();
 
   try {
     // Pré-busca {colabId → Map(periodo → DocumentReference)} para só atualizar
@@ -460,53 +465,62 @@ export async function propagarFolhaTodosColaboradores(
         continue;
       }
       const refsDoColab = colabPeriodos.get(colab.id) ?? new Map();
-      // Perenes do período-base (fallback no objeto em memória se o doc-base
-      // não veio no collectionGroup — não deveria, snapshot já validou).
-      const perenesBase = montarPerenesComuns(baseDocData.get(colab.id) ?? colab);
+      // Doc do período-base — fonte dos perenes E template do doc novo (Passo 3).
+      // Fallback no objeto em memória se o doc-base não veio no collectionGroup
+      // (não deveria — snapshot já validou).
+      const base = baseDocData.get(colab.id) ?? colab;
+      const perenesBase = montarPerenesComuns(base);
       let temSucesso = false;
 
       for (let pi = 0; pi < periodosDestino.length; pi += BATCH_LIMIT) {
         const batch = writeBatch(db);
         const chunk = periodosDestino.slice(pi, pi + BATCH_LIMIT);
-        const chunkRefs: Array<{ periodo: string; idx: number }> = [];
+        const chunkRefs: Array<{ periodo: string; idx: number; acao: 'update' | 'create' }> = [];
         for (let j = 0; j < chunk.length; j++) {
           const periodo = chunk[j];
           const ref = refsDoColab.get(periodo);
-          if (!ref) {
-            erros.push({ colaborador: colab.nome_colaborador, periodo, erro: 'doc não existe nesse período' });
-            continue;
-          }
-          // Teto/líquido = ACHATAMENTO do período-base (semântica da massa
-          // preservada). Recalcula derivados SEM período → motor usa o teto
-          // achatado direto (não re-resolve histórico). historico_reajustes
-          // NÃO é tocado (intencional — ver docblock).
+          // Teto/líquido = ACHATAMENTO do período-base (semântica da massa).
+          // Recalcula derivados com o teto achatado; 3º arg (período) é inerte
+          // pois novoColab não carrega histórico → motor usa o teto direto.
           const anoDestino = parseInt(periodo.split('-')[0], 10);
           const novoColab = {
             ...perenesBase,
             salario_teto_cargo: snapshot.salario_teto_cargo,
             liquido_acordado: snapshot.liquido_acordado,
           } as Colaborador;
-          // 3º arg (período) explícito por robustez; inerte enquanto novoColab
-          // não carrega histórico (sem histórico, o motor usa o teto direto =
-          // snapshot achatado). Resultado idêntico ao de 2 args; preserva o
-          // achatamento do período-base.
           const calc = calcularFolhaColaborador(novoColab, anoDestino, periodo);
-          batch.update(ref, {
-            ...perenesBase,
+          const calculados = {
             salario_teto_cargo: snapshot.salario_teto_cargo,
             liquido_acordado: snapshot.liquido_acordado,
             custo_total_mensal: calc.custo_total_mensal, custo_hora: calc.custo_hora,
             inss: calc.inss, irrf: calc.irrf_liquido,
             complemento_plr: calc.complemento_plr, reflexos_plr_mensal: calc.reflexos_plr_mensal,
             encargos_patronais: calc.encargos_patronais, decimo_terceiro_ferias: calc.decimo_terceiro_ferias,
-          });
-          chunkRefs.push({ periodo, idx: pi + j });
+          };
+          if (!ref) {
+            // CRIAR (Passo 3 — upsert): doc não existe no destino. Nasce com o
+            // MESMO docId/id_estavel da origem (identidade da pessoa). Spread do
+            // base traz identidade + status (ativo/data_*) + funcoes_secundarias
+            // + cadastro_completo + historico — sem nascer órfão. Idempotente:
+            // setDoc no docId determinístico sobrescreve, nunca duplica.
+            // NÃO filtra inativo (Passo 4 fará isso): cria todo mundo que falta.
+            const novoDoc = { ...base, ...perenesBase, ...calculados } as Record<string, unknown>;
+            delete novoDoc.id;  // 'id' é o docId (path), não vai como campo
+            batch.set(doc(db, 'fechamentos', periodo, 'colaboradores', colab.id), novoDoc);
+            chunkRefs.push({ periodo, idx: pi + j, acao: 'create' });
+          } else {
+            // UPDATE (comportamento atual): só perenes + teto/líquido + derivados.
+            // historico_reajustes NÃO é tocado (intencional — ver docblock).
+            batch.update(ref, { ...perenesBase, ...calculados });
+            chunkRefs.push({ periodo, idx: pi + j, acao: 'update' });
+          }
         }
         if (chunkRefs.length === 0) continue;
         try {
           await batch.commit();
-          for (const { periodo, idx } of chunkRefs) {
-            periodosAtualizadosAcc++;
+          for (const { periodo, idx, acao } of chunkRefs) {
+            if (acao === 'create') { periodosCriadosAcc++; nomesCriados.add(colab.nome_colaborador); }
+            else periodosAtualizadosAcc++;
             onProgress?.(colab.nome_colaborador, ci + 1, totalColabs, periodo, idx + 1, totalPeriodos);
           }
           temSucesso = true;
@@ -518,7 +532,13 @@ export async function propagarFolhaTodosColaboradores(
       if (temSucesso) colabsAtualizados++;
     }
 
-    return { colaboradoresAtualizados: colabsAtualizados, periodosAtualizados: periodosAtualizadosAcc, erros };
+    return {
+      colaboradoresAtualizados: colabsAtualizados,
+      periodosAtualizados: periodosAtualizadosAcc,
+      criados: periodosCriadosAcc,
+      nomesCriados: [...nomesCriados].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      erros,
+    };
   } catch (error) {
     console.error('[Firebase] Erro ao propagar folha em massa:', error);
     throw error;

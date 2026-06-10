@@ -44,7 +44,7 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
   const [intervaloIni, setIntervaloIni] = useState(periodoAtual);
   const [intervaloFim, setIntervaloFim] = useState(periodoAtual);
   const [progresso, setProgresso] = useState({ nome: '', colabAtual: 0, totalColabs: 0, periodo: '', periodoIdx: 0, totalPeriodos: 0 });
-  const [resultado, setResultado] = useState<{ colaboradoresAtualizados: number; periodosAtualizados: number; erros: ErroProp[] } | null>(null);
+  const [resultado, setResultado] = useState<{ colaboradoresAtualizados: number; periodosAtualizados: number; criados: number; nomesCriados: string[]; erros: ErroProp[] } | null>(null);
   const [errosExpandidos, setErrosExpandidos] = useState(false);
 
   const colabsOrdenados = useMemo(
@@ -102,7 +102,7 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
       setEtapa(r.erros.length > 0 ? 'erro' : 'concluido');
       if (r.colaboradoresAtualizados > 0) recarregar();
     } catch (e) {
-      setResultado({ colaboradoresAtualizados: 0, periodosAtualizados: 0,
+      setResultado({ colaboradoresAtualizados: 0, periodosAtualizados: 0, criados: 0, nomesCriados: [],
         erros: [{ colaborador: '—', periodo: '—', erro: e instanceof Error ? e.message : 'Erro desconhecido' }] });
       setEtapa('erro');
     }
@@ -245,12 +245,17 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
 
       {(etapa === 'concluido' || etapa === 'erro') && resultado && (
         <div className="space-y-3">
-          {resultado.colaboradoresAtualizados > 0 && (
+          {(resultado.colaboradoresAtualizados > 0 || resultado.criados > 0) && (
             <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: '#dcfce7', color: '#166534' }}>
               <CheckCircle2 size={16} className="mt-0.5 flex-shrink-0" />
-              <p className="text-sm">
-                <strong>{resultado.colaboradoresAtualizados}</strong> colaborador{resultado.colaboradoresAtualizados === 1 ? '' : 'es'} × <strong>{resultado.periodosAtualizados}</strong> atualizaç{resultado.periodosAtualizados === 1 ? 'ão' : 'ões'} de período concluídas.
-              </p>
+              <div className="text-sm space-y-0.5">
+                {resultado.periodosAtualizados > 0 && (
+                  <p><strong>{resultado.periodosAtualizados}</strong> atualizaç{resultado.periodosAtualizados === 1 ? 'ão' : 'ões'} de período em <strong>{resultado.colaboradoresAtualizados}</strong> colaborador{resultado.colaboradoresAtualizados === 1 ? '' : 'es'}.</p>
+                )}
+                {resultado.criados > 0 && (
+                  <p><strong>{resultado.criados}</strong> entrada{resultado.criados === 1 ? '' : 's'} criada{resultado.criados === 1 ? '' : 's'}: {resultado.nomesCriados.join(', ')}.</p>
+                )}
+              </div>
             </div>
           )}
           {resultado.erros.length > 0 && (
