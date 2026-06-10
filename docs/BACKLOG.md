@@ -128,6 +128,23 @@ docId quando preciso), **não adicioná-los aos docs novos** — proveniência n
 se inventa e campos não-lidos não devem ser propagados.
 **Gatilho:** só se uma futura feature passar a depender de uniformidade de schema.
 
+### 9. Campos legados de alocação (`cliente.pct_*` e `{funcao}=nome`) são dado morto
+Os campos `cliente.pct_*` e `cliente.{funcao}` (nome do colaborador) em
+`clientes_base/` e `fechamentos/*/clientes/` são **dado morto**: **0% do custo
+direto vem deles** (medido em 2026-01 — 100% via `vinculos/`). Persistem
+divergentes entre coleções (ex.: em 2026-01, `clientes_base` tem só
+`ALLAN=pct 1`; o snapshot tem 10 stubs `≈0,10` sem nome). Com a ficha religada
+aos vínculos (e o lote/pipeline já em vínculos), **nenhuma escrita da UI toca
+mais `pct_*`**. O campo `{funcao}=nome` ainda é lido para montar a LISTA de
+clientes atendidos (ficha e lote) — então **não pode ser removido sem antes
+migrar a origem da lista para os vínculos**.
+**Ação (migração própria, dry-run + checkpoint):** (1) migrar a lista de
+"clientes atendidos por (colab, função)" para derivar de `vinculos/` em vez de
+`cliente.{funcao}`; (2) então limpar `pct_*` e `{funcao}` legados de
+`clientes_base` e `fechamentos/*/clientes`. Ordem importa — limpar o nome antes
+de (1) esvaziaria as listas das duas telas.
+**Gatilho:** etapa de limpeza dedicada, após validação da ficha religada em produção.
+
 ---
 
 ## Resolvidos
