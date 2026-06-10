@@ -504,8 +504,17 @@ export async function propagarFolhaTodosColaboradores(
             // + cadastro_completo + historico — sem nascer órfão. Idempotente:
             // setDoc no docId determinístico sobrescreve, nunca duplica.
             // NÃO filtra inativo (Passo 4 fará isso): cria todo mundo que falta.
-            const novoDoc = { ...base, ...perenesBase, ...calculados } as Record<string, unknown>;
-            delete novoDoc.id;  // 'id' é o docId (path), não vai como campo
+            // Normaliza na fronteira: garante o conjunto COMPLETO de campos
+            // mesmo se a origem estiver incompleta (ex.: doc pré-Passo-1 sem
+            // ativo). `id` gravado como campo (os docs salvos pela app têm).
+            // data_admissao/data_demissao ficam como vierem (opcionais).
+            const novoDoc = {
+              ...base, ...perenesBase, ...calculados,
+              id: colab.id,
+              ativo: base.ativo ?? true,
+              funcoes_secundarias: base.funcoes_secundarias ?? [],
+              cadastro_completo: base.cadastro_completo ?? true,
+            };
             batch.set(doc(db, 'fechamentos', periodo, 'colaboradores', colab.id), novoDoc);
             chunkRefs.push({ periodo, idx: pi + j, acao: 'create' });
           } else {
