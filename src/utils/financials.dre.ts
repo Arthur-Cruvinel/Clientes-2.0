@@ -57,20 +57,30 @@ export function calcularDRE(
   const custo_direto = todosCustosDiretos[cliente.nome_cliente]
     ?? calcularCustoDireto(cliente, colaboradores, vinculos, fatorNorm);
 
-  const custo_dedicado_contabilidade = cliente.custo_contabilidade_dedicado ?? 0;
-  const custo_dedicado_pagamento = cliente.custo_pagamento_dedicado ?? 0;
-  const custo_dedicado_administrativo = cliente.custo_administrativo_dedicado ?? 0;
-  const custo_dedicado = custo_dedicado_contabilidade
-    + custo_dedicado_pagamento
-    + custo_dedicado_administrativo;
-
   // Pool não-alocado pré-computado (institucional + ociosidade). Fallback p/
   // chamadas isoladas: institucional puro (sem ociosidade — não há contexto).
   const pool = poolNaoAlocado ?? calcularCustoInstitucional(colaboradores);
-  const custo_indireto_rateado = calcularCustosIndiretos(
+  // Rateios separados por tipo. juridico/conciliacao são DIRETOS (compõem o
+  // dedicado — decisão CFO); só `geral` é custo_indireto_rateado.
+  const rateios = calcularCustosIndiretos(
     cliente, custo_direto, todosClientes, todosCustosDiretos,
     custosIndiretos, pool,
   );
+
+  const custo_dedicado_contabilidade = cliente.custo_contabilidade_dedicado ?? 0;
+  const custo_dedicado_pagamento = cliente.custo_pagamento_dedicado ?? 0;
+  const custo_dedicado_administrativo = cliente.custo_administrativo_dedicado ?? 0;
+  const custo_dedicado_viagem = cliente.custo_viagem_dedicado ?? 0;
+  const custo_dedicado_juridico = rateios.juridico;
+  const custo_dedicado_conciliacao = rateios.conciliacao;
+  const custo_dedicado = custo_dedicado_contabilidade
+    + custo_dedicado_pagamento
+    + custo_dedicado_administrativo
+    + custo_dedicado_viagem
+    + custo_dedicado_juridico
+    + custo_dedicado_conciliacao;
+
+  const custo_indireto_rateado = rateios.geral;
 
   const custo_total = custo_direto + custo_dedicado + custo_indireto_rateado;
   const ebitda = receita_bruta - impostos_faturamento - custo_total;
@@ -93,6 +103,7 @@ export function calcularDRE(
     impostos_faturamento, impostos_lucro,
     custo_direto, custo_dedicado,
     custo_dedicado_contabilidade, custo_dedicado_pagamento, custo_dedicado_administrativo,
+    custo_dedicado_viagem, custo_dedicado_juridico, custo_dedicado_conciliacao,
     custo_indireto_rateado, custo_total,
     ebitda,
     margem_ebitda: divisaoSegura(ebitda, receita_bruta),

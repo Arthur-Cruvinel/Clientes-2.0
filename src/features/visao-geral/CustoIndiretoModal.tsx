@@ -34,14 +34,8 @@ export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, cu
   const ociosidade = calcularOciosidade(colaboradores, somaPct);
   const poolNaoAlocado = custoInstitucional + ociosidade;
 
-  // Denominadores globais (mesma lógica do motor financeiro)
+  // Denominador do rateio geral (proporcional ao custo direto).
   const somaCustoDireto = todosClientes.reduce((s, c) => s + (custosDiretos.get(c.nome_cliente) ?? 0), 0);
-  const somaPesoJuridico = todosClientes
-    .filter(c => c.utiliza_servico_juridico)
-    .reduce((s, c) => s + (c.peso_juridico ?? 1.0), 0);
-  const somaVolumeConciliacao = todosClientes
-    .filter(c => c.utiliza_conciliacao && (c.volume_movimentos_mes ?? 0) > 0)
-    .reduce((s, c) => s + (c.volume_movimentos_mes ?? 0), 0);
 
   // Agrupa custos por tipo. Pool 'geral' soma também o institucional dos
   // colaboradores — alinhado com financials.custos.ts:99-100.
@@ -72,34 +66,17 @@ export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, cu
 
   const custoDiretoCliente = custosDiretos.get(cliente.nome_cliente) ?? 0;
 
-  for (const tipo of ['geral', 'juridico', 'conciliacao'] as const) {
-    const total = custosPorTipo[tipo];
-    if (total <= 0) continue;
-
-    let pct = 0;
-    let base = '';
-
-    if (tipo === 'geral') {
-      pct = somaCustoDireto > 0 ? custoDiretoCliente / somaCustoDireto : 0;
-      base = 'Custo direto';
-    } else if (tipo === 'juridico') {
-      if (!cliente.utiliza_servico_juridico) continue;
-      const peso = cliente.peso_juridico ?? 1.0;
-      pct = somaPesoJuridico > 0 ? peso / somaPesoJuridico : 0;
-      base = `Peso: ${peso.toFixed(1)} / ${somaPesoJuridico.toFixed(1)}`;
-    } else {
-      const vol = cliente.volume_movimentos_mes ?? 0;
-      if (!cliente.utiliza_conciliacao || vol <= 0) continue;
-      pct = somaVolumeConciliacao > 0 ? vol / somaVolumeConciliacao : 0;
-      base = `${vol} mov / ${somaVolumeConciliacao} mov`;
-    }
-
+  // Só 'geral' é custo INDIRETO. Jurídico/conciliação foram reclassificados
+  // como custo DIRETO (compõem o dedicado) — aparecem no CustoDiretoModal.
+  {
+    const total = custosPorTipo.geral;
+    const pct = somaCustoDireto > 0 ? custoDiretoCliente / somaCustoDireto : 0;
     const alocado = total * pct;
     somaAlocado += alocado;
-
-    // Uma linha por tipo (agrupando descrições)
-    const desc = descricoesPorTipo[tipo].map(ci => ci.descricao_custo).join(', ');
-    linhas.push({ descricao: desc, tipo: LABEL_TIPO[tipo], valorTotal: total, baseRateio: base, pctCliente: pct, alocado });
+    if (total > 0) {
+      const desc = descricoesPorTipo.geral.map(ci => ci.descricao_custo).join(', ');
+      linhas.push({ descricao: desc, tipo: LABEL_TIPO.geral, valorTotal: total, baseRateio: 'Custo direto', pctCliente: pct, alocado });
+    }
   }
 
   const TH = 'px-3 py-2 text-xs font-bold uppercase tracking-wider text-left';

@@ -62,12 +62,14 @@ Pró-labore (sem 13º/férias):
         'Custos de natureza diferente têm drivers de consumo diferentes — usar '
         + 'um único critério distorceria a rentabilidade.',
       formula:
-`Geral       → proporcional ao custo_direto
-              pure_asset excluído (custo_direto = 0)
-Jurídico    → proporcional ao peso_juridico (default 1,0)
-              apenas clientes com utiliza_servico_juridico = true
-Conciliação → proporcional ao volume_movimentos_mes
-              apenas clientes com utiliza_conciliacao = true`,
+`Geral (INDIRETO)         → proporcional ao custo_direto
+                           pure_asset excluído (custo_direto = 0)
+Consultoria & Legal      → proporcional ao peso_juridico (default 1,0)
+(Jurídico) [DIRETO]        apenas clientes com utiliza_servico_juridico = true
+                           rateio compõe o CUSTO DEDICADO do cliente
+Conciliação [DIRETO]     → proporcional ao volume_movimentos_mes
+                           apenas clientes com utiliza_conciliacao = true
+                           rateio compõe o CUSTO DEDICADO do cliente`,
       vigencia: 'Desde a implementação inicial',
     },
     {

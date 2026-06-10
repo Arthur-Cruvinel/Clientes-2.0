@@ -88,7 +88,7 @@ export function CustoDiretoModal({ cliente, onFechar }: Props) {
               <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
                 {d.juridico > 0 && (
                   <tr>
-                    <td className={TD}>Jurídico</td>
+                    <td className={TD}>Consultoria & Legal (Jurídico)</td>
                     <td className={TD} style={{ color: '#6b6b8a' }}>Peso {(cliente.peso_juridico ?? 1.0).toFixed(1)}</td>
                     <td className={`${TD} text-right font-medium`}>{formatCurrency(d.juridico)}</td>
                   </tr>
@@ -106,7 +106,7 @@ export function CustoDiretoModal({ cliente, onFechar }: Props) {
         )}
 
         {/* Seção 3 — Custos dedicados */}
-        {(d.contabilidade > 0 || d.pagamento > 0 || d.administrativo > 0) && (
+        {(d.contabilidade > 0 || d.pagamento > 0 || d.administrativo > 0 || d.viagem > 0) && (
           <div>
             <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6b6b8a' }}>Custos dedicados</p>
             <table className="min-w-full text-sm">
@@ -117,6 +117,7 @@ export function CustoDiretoModal({ cliente, onFechar }: Props) {
                 {d.contabilidade > 0 && <tr><td className={TD}>Contabilidade</td><td className={`${TD} text-right font-medium`}>{formatCurrency(d.contabilidade)}</td></tr>}
                 {d.pagamento > 0 && <tr><td className={TD}>Plataforma Tempo</td><td className={`${TD} text-right font-medium`}>{formatCurrency(d.pagamento)}</td></tr>}
                 {d.administrativo > 0 && <tr><td className={TD}>Administrativo</td><td className={`${TD} text-right font-medium`}>{formatCurrency(d.administrativo)}</td></tr>}
+                {d.viagem > 0 && <tr><td className={TD}>Viagem</td><td className={`${TD} text-right font-medium`}>{formatCurrency(d.viagem)}</td></tr>}
               </tbody>
             </table>
           </div>

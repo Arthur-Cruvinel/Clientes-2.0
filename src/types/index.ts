@@ -64,6 +64,7 @@ export interface Cliente {
   custo_contabilidade_dedicado?: number;
   custo_pagamento_dedicado?: number;
   custo_administrativo_dedicado?: number;
+  custo_viagem_dedicado?: number;       // gasto de viagem lançado no cliente que o originou
   custo_conciliacao_dedicado?: number;
 
   // Flags de serviço
@@ -458,6 +459,7 @@ export interface DetalhesCustoDireto {
   contabilidade: number;
   pagamento: number;
   administrativo: number;
+  viagem: number;
   total: number;
   linhasMaoDeObra: LinhaMaoDeObra[];
 }
@@ -540,6 +542,10 @@ export interface ResultadoCliente {
   custo_dedicado_contabilidade: number;
   custo_dedicado_pagamento: number;
   custo_dedicado_administrativo: number;
+  custo_dedicado_viagem: number;
+  // Rateios DIRETOS (Consultoria & Legal / Conciliação) — compõem o dedicado.
+  custo_dedicado_juridico: number;
+  custo_dedicado_conciliacao: number;
   custo_indireto_rateado: number;
   custo_total: number;
 

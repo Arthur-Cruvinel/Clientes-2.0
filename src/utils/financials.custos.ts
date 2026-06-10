@@ -416,7 +416,12 @@ function somarPorTipo(custos: CustoIndireto[], tipo: CustoIndireto['tipo_custo']
   return custos.filter(ci => ci.tipo_custo === tipo).reduce((s, ci) => s + ci.valor_mensal, 0);
 }
 
-/** Rateio dos três pools (geral, jurídico, conciliação) para um cliente. */
+/** Rateio dos três pools para um cliente, RETORNADO SEPARADO por tipo.
+ *  - geral: pool indireto (5 categorias + institucional + ociosidade).
+ *  - juridico/conciliacao: rateios DIRETOS — o DRE os soma ao custo DEDICADO
+ *    do cliente (decisão CFO: Consultoria & Legal é despesa direta), NÃO ao
+ *    custo_indireto_rateado. As fórmulas de rateio (peso/volume) são intocadas;
+ *    só o destino da soma muda (feito em calcularDRE). */
 export function calcularCustosIndiretos(
   cliente: Cliente,
   custoDiretoCliente: number,
@@ -427,7 +432,7 @@ export function calcularCustosIndiretos(
   // pré-computado UMA vez pelo pipeline (calcularCustoInstitucional +
   // calcularOciosidade). Entra no pool geral, mesma regra de rateio.
   poolNaoAlocado: number,
-): number {
+): { geral: number; juridico: number; conciliacao: number } {
   // Pool geral = itens 'geral' + (institucional + ociosidade). Rateio
   // proporcional ao custo direto. Pure asset (custo direto = 0) é EXCLUÍDO.
   const poolGeral = somarPorTipo(custosIndiretos, 'geral') + poolNaoAlocado;
@@ -465,5 +470,5 @@ export function calcularCustosIndiretos(
     }
   }
 
-  return parcelaGeral + parcelaJuridico + parcelaConciliacao;
+  return { geral: parcelaGeral, juridico: parcelaJuridico, conciliacao: parcelaConciliacao };
 }

@@ -130,11 +130,12 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
     },
   ];
 
-  // Custo Dedicado: contabilidade + pagamento + administrativo
+  // Custo Dedicado: todos os componentes (contab/pgto/adm/viagem + rateios
+  // diretos jurídico/conciliação) — usa o agregado do motor, não a soma parcial.
   cols.push({
     chave: 'custo_dedicado', titulo: 'Custo Dedicado', alinhamento: 'right', ordenavel: true,
     render: (c) => {
-      const val = c.custo_direto_detalhe.contabilidade + c.custo_direto_detalhe.pagamento + c.custo_direto_detalhe.administrativo;
+      const val = c.custo_dedicado;
       return val > 0 ? (
         <span className="cursor-pointer hover:underline" onClick={() => cb.onClickCustoDireto(c)}>
           {formatCurrency(val)}
@@ -205,7 +206,7 @@ export function valorTextoColuna(c: DadosCliente, chave: string, isMC: boolean):
     case 'receita_fee_mensal': return c.receita_fee_mensal > 0 ? formatCurrency(c.receita_fee_mensal) : '-';
     case 'receita_rebate': return c.receita_rebate > 0 ? formatCurrency(c.receita_rebate) : '-';
     case 'custo_direto': return formatCurrency(c.custo_direto);
-    case 'custo_dedicado': return formatCurrency(c.custo_direto_detalhe.contabilidade + c.custo_direto_detalhe.pagamento + c.custo_direto_detalhe.administrativo);
+    case 'custo_dedicado': return formatCurrency(c.custo_dedicado);
     case 'custo_indireto_rateado': return isMC ? '—' : formatCurrency(c.custo_indireto_rateado);
     case 'impostos_faturamento': return formatCurrency(c.impostos_faturamento + c.impostos_lucro);
     case 'margem_contribuicao': return formatCurrency(c.margem_contribuicao);

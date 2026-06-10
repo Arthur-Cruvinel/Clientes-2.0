@@ -48,16 +48,16 @@ export function mesclarClienteResultado(
     margem: resultado?.margem_ebitda ?? 0,
     classificacao: resultado ? PERFIL_PARA_CLASSIFICACAO[resultado.perfil] : 'Pure Asset',
     horas_totais: 0,
-    // Detalhamento popula contabilidade/pagamento/administrativo a partir do
-    // motor; mão de obra/jurídico/conciliação ainda não são detalhados pelo
-    // motor — entram como total agregado em 'maoDeObra' (futuro: linhasMaoDeObra).
+    // Detalhamento: mão de obra = custo direto agregado; jurídico/conciliação
+    // agora vêm dos rateios DIRETOS do motor; dedicados manuais por componente.
     custo_direto_detalhe: {
       maoDeObra: resultado?.custo_direto ?? 0,
-      juridico: 0,
-      conciliacao: 0,
+      juridico: resultado?.custo_dedicado_juridico ?? 0,
+      conciliacao: resultado?.custo_dedicado_conciliacao ?? 0,
       contabilidade: resultado?.custo_dedicado_contabilidade ?? 0,
       pagamento: resultado?.custo_dedicado_pagamento ?? 0,
       administrativo: resultado?.custo_dedicado_administrativo ?? 0,
+      viagem: resultado?.custo_dedicado_viagem ?? 0,
       total: resultado?.custo_total ?? 0,
       linhasMaoDeObra: [],
     },
