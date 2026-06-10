@@ -132,6 +132,15 @@ export const CATEGORIAS_CUSTO_INDIRETO = [
     id_estavel: '419d664c-fb49-44e0-83f4-6935916c104d', docId: '283a1d93-c334-4ba7-b204-f457e7723cf6' },
   { descricao_custo: 'Viagens', tipo_custo: 'geral',
     id_estavel: '50d49df4-323e-4e11-8abb-f924c6d3db64', docId: '8d2f70e9-881f-4553-a9b1-cec88ef3ebfe' },
+  // ── Custos DIRETOS rateados ────────────────────────────────────────────────
+  // tipo 'juridico'/'conciliacao' NÃO entram no pool indireto: o motor rateia
+  // (por peso_juridico / volume_movimentos_mes) e o rateio COMPÕE o custo
+  // dedicado do cliente (a DRE contábil classifica Consultoria & Legal como
+  // despesa DIRETA). Mesma disciplina de identidade canônica das 5 gerais.
+  { descricao_custo: 'Consultoria & Legal (Jurídico)', tipo_custo: 'juridico',
+    id_estavel: '9ca8b49e-6ee8-4a4b-a7ec-78e01681b647', docId: '0ad49e8c-0a7d-4116-9cb6-e025708b790d' },
+  { descricao_custo: 'Conciliação', tipo_custo: 'conciliacao',
+    id_estavel: 'b0781783-0cb0-4cd4-98bf-cc10516fd19f', docId: '3fa2655d-2aa1-4ce4-8b09-d549274ddfdd' },
 ] as const;
 
 // ── PACOTES DE SERVIÇO ─────────────────────────────────────────────────────

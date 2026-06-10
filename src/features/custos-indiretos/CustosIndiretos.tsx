@@ -7,7 +7,7 @@ import { Layers, AlertTriangle, Loader2, Save, Sprout, Share2 } from 'lucide-rea
 import { formatCurrency } from '../../utils/formatters';
 import { Modal } from '../../components/ui/Modal';
 import { useAuth } from '../../state/AuthContext';
-import { useCustosIndiretos } from './useCustosIndiretos';
+import { useCustosIndiretos, type LinhaCusto } from './useCustosIndiretos';
 
 type Plano = {
   temOrigem: boolean;
@@ -48,6 +48,18 @@ export function CustosIndiretos() {
   }
 
   const totalLive = linhas.reduce((s, l) => s + (Number(valores[l.id_estavel]) || 0), 0);
+
+  // Linha editável (reutilizada nos dois grupos: gerais e diretos-rateados).
+  const linhaRow = (l: LinhaCusto) => (
+    <tr key={l.id_estavel} className="border-b" style={{ borderColor: '#e2e2e8' }}>
+      <td className="px-3 py-2 text-sm" style={{ color: '#160F41' }}>{l.descricao_custo}</td>
+      <td className="px-3 py-2 w-48">
+        <input type="number" step="0.01" value={valores[l.id_estavel] ?? ''}
+          onChange={e => setValores(p => ({ ...p, [l.id_estavel]: e.target.value }))}
+          className={INP} style={BRD} disabled={!isAdmin} />
+      </td>
+    </tr>
+  );
 
   async function salvar() {
     const edicoes = linhas
@@ -135,20 +147,20 @@ export function CustosIndiretos() {
                 </tr>
               </thead>
               <tbody>
-                {linhas.map(l => (
-                  <tr key={l.id_estavel} className="border-b" style={{ borderColor: '#e2e2e8' }}>
-                    <td className="px-3 py-2 text-sm" style={{ color: '#160F41' }}>{l.descricao_custo}</td>
-                    <td className="px-3 py-2 w-48">
-                      <input type="number" step="0.01" value={valores[l.id_estavel] ?? ''}
-                        onChange={e => setValores(p => ({ ...p, [l.id_estavel]: e.target.value }))}
-                        className={INP} style={BRD} disabled={!isAdmin} />
+                {linhas.filter(l => l.tipo_custo === 'geral').map(linhaRow)}
+                {linhas.some(l => l.tipo_custo !== 'geral') && (
+                  <tr style={{ backgroundColor: '#f9f9fb' }}>
+                    <td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}
+                      title="Rateados ao cliente (peso jurídico / volume) e somados ao CUSTO DEDICADO — não ao pool indireto.">
+                      Custos diretos rateados (compõem o dedicado do cliente)
                     </td>
                   </tr>
-                ))}
+                )}
+                {linhas.filter(l => l.tipo_custo !== 'geral').map(linhaRow)}
               </tbody>
               <tfoot>
                 <tr style={{ backgroundColor: '#f3f4f6' }}>
-                  <td className="px-3 py-2 text-sm font-bold" style={{ color: '#160F41' }}>Total (soma das 5)</td>
+                  <td className="px-3 py-2 text-sm font-bold" style={{ color: '#160F41' }}>Total lançado</td>
                   <td className="px-3 py-2 text-sm font-bold text-right" style={{ color: '#160F41' }}>{formatCurrency(totalLive)}</td>
                 </tr>
               </tfoot>
