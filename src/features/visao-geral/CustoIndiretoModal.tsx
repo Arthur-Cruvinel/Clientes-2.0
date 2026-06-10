@@ -6,7 +6,7 @@
 import { Modal } from '../../components/ui/Modal';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { useApp } from '../../state/AppContext';
-import { calcularCustoInstitucional } from '../../utils/financials';
+import { calcularCustoInstitucional, calcularOciosidade, somarPctPorColaborador } from '../../utils/financials';
 import type { DadosCliente, CustoIndireto } from '../../types';
 
 interface Props {
@@ -26,9 +26,13 @@ const LABEL_TIPO: Record<string, string> = {
 export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, custosDiretos, onFechar }: Props) {
   const { dadosPeriodo } = useApp();
   const colaboradores = dadosPeriodo?.colaboradores ?? [];
-  // Pool institucional dos colaboradores (% institucional × custo_total_mensal)
-  // entra no pool 'geral' do motor — incluir aqui para que o detalhamento bata.
+  // Pool da folha NÃO-ALOCADA = institucional + ociosidade — entra no pool
+  // 'geral' do motor; incluir aqui para o detalhamento bater ao centavo.
   const custoInstitucional = calcularCustoInstitucional(colaboradores);
+  const somaPct = somarPctPorColaborador(
+    dadosPeriodo?.clientes ?? [], colaboradores, dadosPeriodo?.vinculos ?? []);
+  const ociosidade = calcularOciosidade(colaboradores, somaPct);
+  const poolNaoAlocado = custoInstitucional + ociosidade;
 
   // Denominadores globais (mesma lógica do motor financeiro)
   const somaCustoDireto = todosClientes.reduce((s, c) => s + (custosDiretos.get(c.nome_cliente) ?? 0), 0);
@@ -41,7 +45,7 @@ export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, cu
 
   // Agrupa custos por tipo. Pool 'geral' soma também o institucional dos
   // colaboradores — alinhado com financials.custos.ts:99-100.
-  const custosPorTipo = { geral: custoInstitucional, juridico: 0, conciliacao: 0 };
+  const custosPorTipo = { geral: poolNaoAlocado, juridico: 0, conciliacao: 0 };
   const descricoesPorTipo: Record<string, CustoIndireto[]> = { geral: [], juridico: [], conciliacao: [] };
   for (const ci of custosIndiretos) {
     custosPorTipo[ci.tipo_custo] += ci.valor_mensal;
@@ -51,6 +55,13 @@ export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, cu
     descricoesPorTipo.geral.push({
       descricao_custo: 'Custo Institucional (folha)',
       valor_mensal: custoInstitucional,
+      tipo_custo: 'geral',
+    });
+  }
+  if (ociosidade > 0) {
+    descricoesPorTipo.geral.push({
+      descricao_custo: 'Ociosidade (folha não-alocada)',
+      valor_mensal: ociosidade,
       tipo_custo: 'geral',
     });
   }
