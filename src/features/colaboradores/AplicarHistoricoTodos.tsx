@@ -75,6 +75,29 @@ export function AplicarHistoricoTodos({
 
   const intervaloValido = tipo !== 'intervalo' || (intervaloIni && intervaloFim && intervaloIni <= intervaloFim);
 
+  // Passo 4: a propagação individual NÃO opera sobre colaborador desligado
+  // (e NUNCA remove — remoção é só da massa, com confirmação nominal). Bloqueia
+  // com orientação de reativar (UI Passo 2) antes de propagar.
+  if (colaborador.ativo === false) {
+    return (
+      <Modal aberto onFechar={onFechar} titulo="Propagar folha do colaborador">
+        <div className="space-y-4">
+          <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            <p className="text-sm">
+              <strong>{colaborador.nome_colaborador}</strong> está <strong>desligado</strong>
+              {colaborador.data_demissao ? ` (em ${colaborador.data_demissao})` : ''} — reative-o antes de
+              propagar a folha. A propagação individual não opera sobre colaboradores desligados.
+            </p>
+          </div>
+          <div className="flex justify-end pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
+            <button onClick={onFechar} className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand">Fechar</button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
   async function aplicar() {
     if (!colaborador.id || !previewBase) return;
     setEtapa('aplicando');

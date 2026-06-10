@@ -421,6 +421,8 @@ export async function propagarFolhaTodosColaboradores(
   periodosAtualizados: number;
   criados: number;
   nomesCriados: string[];
+  removidos: number;
+  nomesRemovidos: string[];
   erros: Array<{ colaborador: string; periodo: string; erro: string }>;
 }> {
   // Guarda "só para frente": a massa só escreve em períodos > periodoBase.
@@ -434,6 +436,9 @@ export async function propagarFolhaTodosColaboradores(
   // Passo 3 (upsert): contagem de ENTRADAS criadas (doc faltava no destino).
   let periodosCriadosAcc = 0;
   const nomesCriados = new Set<string>();
+  // Passo 4 (sincronização): contagem de docs REMOVIDOS (demitido no base).
+  let periodosRemovidosAcc = 0;
+  const nomesRemovidos = new Set<string>();
 
   try {
     // Pré-busca {colabId → Map(periodo → DocumentReference)} para só atualizar
@@ -459,16 +464,50 @@ export async function propagarFolhaTodosColaboradores(
         for (const p of periodosDestino) erros.push({ colaborador: colab.nome_colaborador, periodo: p, erro: 'colaborador sem id' });
         continue;
       }
+      const refsDoColab = colabPeriodos.get(colab.id) ?? new Map();
+      // Doc do período-base — fonte dos perenes/template (Passo 3) E do critério
+      // de status (Passo 4). Fallback no objeto em memória se não veio no
+      // collectionGroup (não deveria).
+      const base = baseDocData.get(colab.id) ?? colab;
+
+      // ── REMOÇÃO (Passo 4): demitido no BASE (ativo===false; undefined=ativo,
+      // legado NUNCA removido) não propaga e é REMOVIDO dos destinos>base onde o
+      // doc existe. Nunca toca o base nem períodos ≤ base (periodosDestino já é
+      // > base). Reversível: reativar no base (UI Passo 2) + re-propagar recria
+      // via upsert (Passo 3) — o JSON de backup preserva o estado exato pré-remoção.
+      if (base.ativo === false) {
+        for (let pi = 0; pi < periodosDestino.length; pi += BATCH_LIMIT) {
+          const batch = writeBatch(db);
+          const chunk = periodosDestino.slice(pi, pi + BATCH_LIMIT);
+          const chunkRefs: Array<{ periodo: string; idx: number }> = [];
+          for (let j = 0; j < chunk.length; j++) {
+            const periodo = chunk[j];
+            const ref = refsDoColab.get(periodo);
+            if (!ref) continue;  // nada a remover nesse destino
+            batch.delete(ref);
+            chunkRefs.push({ periodo, idx: pi + j });
+          }
+          if (chunkRefs.length === 0) continue;
+          try {
+            await batch.commit();
+            for (const { periodo, idx } of chunkRefs) {
+              periodosRemovidosAcc++; nomesRemovidos.add(colab.nome_colaborador);
+              onProgress?.(colab.nome_colaborador, ci + 1, totalColabs, periodo, idx + 1, totalPeriodos);
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'erro desconhecido';
+            for (const { periodo } of chunkRefs) erros.push({ colaborador: colab.nome_colaborador, periodo, erro: msg });
+          }
+        }
+        continue;  // demitido: não cria nem atualiza
+      }
+
+      // ── ATIVO: cria/atualiza ──
       const snapshot = snapshotBase[colab.id];
       if (!snapshot) {
         for (const p of periodosDestino) erros.push({ colaborador: colab.nome_colaborador, periodo: p, erro: `sem dados em ${periodoBase}` });
         continue;
       }
-      const refsDoColab = colabPeriodos.get(colab.id) ?? new Map();
-      // Doc do período-base — fonte dos perenes E template do doc novo (Passo 3).
-      // Fallback no objeto em memória se o doc-base não veio no collectionGroup
-      // (não deveria — snapshot já validou).
-      const base = baseDocData.get(colab.id) ?? colab;
       const perenesBase = montarPerenesComuns(base);
       let temSucesso = false;
 
@@ -546,12 +585,65 @@ export async function propagarFolhaTodosColaboradores(
       periodosAtualizados: periodosAtualizadosAcc,
       criados: periodosCriadosAcc,
       nomesCriados: [...nomesCriados].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      removidos: periodosRemovidosAcc,
+      nomesRemovidos: [...nomesRemovidos].sort((a, b) => a.localeCompare(b, 'pt-BR')),
       erros,
     };
   } catch (error) {
     console.error('[Firebase] Erro ao propagar folha em massa:', error);
     throw error;
   }
+}
+
+export interface PlanoPropagacaoMassa {
+  criar: Array<{ periodo: string; nome: string }>;
+  atualizar: number;
+  remover: Array<{ periodo: string; docId: string; nome: string; data_demissao?: string; dados: Colaborador }>;
+}
+
+/** READ-ONLY (Passo 4): prevê o efeito da propagação em massa para o preview
+ *  nominal do wizard — NÃO escreve nada. Classifica por `ativo` do doc-BASE:
+ *  - demitido (ativo===false; undefined=ativo → nunca remove) → REMOVER nos
+ *    destinos>base onde o doc existe (captura o doc completo p/ backup JSON).
+ *  - ativo → ATUALIZAR onde existe, CRIAR onde falta.
+ *  Mesma classificação do executor; espelha o que a escrita fará. */
+export async function planejarPropagacaoMassa(
+  colaboradores: Colaborador[],
+  periodosDisponiveis: string[],
+  periodoBase: string,
+  filtro: FiltroPropagacao,
+): Promise<PlanoPropagacaoMassa> {
+  const periodosDestino = aplicarFiltro(periodosDisponiveis, filtro).filter(p => p > periodoBase);
+  const allSnap = await getDocs(collectionGroup(db, 'colaboradores'));
+  const colabPeriodos = new Map<string, Map<string, Colaborador>>();
+  const baseDocData = new Map<string, Colaborador>();
+  for (const d of allSnap.docs) {
+    const periodo = d.ref.path.split('/')[1];
+    if (!colabPeriodos.has(d.id)) colabPeriodos.set(d.id, new Map());
+    colabPeriodos.get(d.id)!.set(periodo, d.data() as Colaborador);
+    if (periodo === periodoBase) baseDocData.set(d.id, d.data() as Colaborador);
+  }
+  const criar: PlanoPropagacaoMassa['criar'] = [];
+  let atualizar = 0;
+  const remover: PlanoPropagacaoMassa['remover'] = [];
+  for (const colab of colaboradores) {
+    if (!colab.id) continue;
+    const base = baseDocData.get(colab.id);
+    if (!base) continue;  // sem doc-base → não propaga (mesma guarda do executor)
+    const refs = colabPeriodos.get(colab.id) ?? new Map<string, Colaborador>();
+    const demitido = base.ativo === false;  // undefined = ativo → nunca remove
+    for (const periodo of periodosDestino) {
+      const docDestino = refs.get(periodo);
+      if (demitido) {
+        if (docDestino) remover.push({ periodo, docId: colab.id, nome: colab.nome_colaborador, data_demissao: base.data_demissao, dados: docDestino });
+      } else if (docDestino) {
+        atualizar++;
+      } else {
+        criar.push({ periodo, nome: colab.nome_colaborador });
+      }
+    }
+  }
+  return { criar, atualizar, remover };
 }
 
 /** Persiste o histórico de reajustes salariais e os campos principais

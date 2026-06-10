@@ -10,7 +10,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Loader2, AlertTriangle, CheckCircle2, ArrowLeft, ArrowRight, ChevronDown } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { useApp } from '../../state/AppContext';
-import { propagarFolhaTodosColaboradores, buscarDadosFolhaPorPeriodo, type FiltroPropagacao } from '../../services/firebase';
+import { propagarFolhaTodosColaboradores, buscarDadosFolhaPorPeriodo, planejarPropagacaoMassa, type FiltroPropagacao, type PlanoPropagacaoMassa } from '../../services/firebase';
 import { formatCurrency } from '../../utils/formatters';
 import type { Colaborador } from '../../types';
 
@@ -44,8 +44,12 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
   const [intervaloIni, setIntervaloIni] = useState(periodoAtual);
   const [intervaloFim, setIntervaloFim] = useState(periodoAtual);
   const [progresso, setProgresso] = useState({ nome: '', colabAtual: 0, totalColabs: 0, periodo: '', periodoIdx: 0, totalPeriodos: 0 });
-  const [resultado, setResultado] = useState<{ colaboradoresAtualizados: number; periodosAtualizados: number; criados: number; nomesCriados: string[]; erros: ErroProp[] } | null>(null);
+  const [resultado, setResultado] = useState<{ colaboradoresAtualizados: number; periodosAtualizados: number; criados: number; nomesCriados: string[]; removidos: number; nomesRemovidos: string[]; erros: ErroProp[] } | null>(null);
   const [errosExpandidos, setErrosExpandidos] = useState(false);
+  // Plano read-only (Passo 4) — preview nominal de criações/atualizações/remoções.
+  const [plano, setPlano] = useState<PlanoPropagacaoMassa | null>(null);
+  const [carregandoPlano, setCarregandoPlano] = useState(false);
+  const [avisoBackup, setAvisoBackup] = useState<string | null>(null);
 
   const colabsOrdenados = useMemo(
     () => [...colaboradores].sort((a, b) => a.nome_colaborador.localeCompare(b.nome_colaborador, 'pt-BR')),
@@ -90,7 +94,50 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
 
   const intervaloValido = tipo !== 'intervalo' || (intervaloIni && intervaloFim && intervaloIni <= intervaloFim);
 
+  // Plano read-only para o preview nominal (criar/atualizar/remover) antes do aval.
+  async function irParaConfirmar() {
+    setCarregandoPlano(true);
+    try {
+      setPlano(await planejarPropagacaoMassa(colabsOrdenados, periodosDisponiveis, periodoBase, filtro));
+      setEtapa('confirmar');
+    } catch (e) {
+      setResultado({ colaboradoresAtualizados: 0, periodosAtualizados: 0, criados: 0, nomesCriados: [], removidos: 0, nomesRemovidos: [],
+        erros: [{ colaborador: '—', periodo: '—', erro: e instanceof Error ? e.message : 'falha ao planejar' }] });
+      setEtapa('erro');
+    } finally { setCarregandoPlano(false); }
+  }
+
+  // Backup (opção A): download do JSON dos docs a remover (estado exato
+  // pré-remoção). Reversibilidade recria do BASE — um ajuste feito só no destino
+  // se perderia; o JSON preserva o estado exato para esse caso raro.
+  function baixarBackupRemocoes(): boolean {
+    if (!plano || plano.remover.length === 0) return true;
+    try {
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const destinosLabel = periodosFrente.length === 1
+        ? periodosFrente[0]
+        : `${periodosFrente[0]}_a_${periodosFrente[periodosFrente.length - 1]}`;
+      const conteudo = {
+        gerado_em: new Date().toISOString(), base: periodoBase,
+        remocoes: plano.remover.map(r => ({ periodo: r.periodo, docId: r.docId, nome: r.nome, data_demissao: r.data_demissao, doc: r.dados })),
+      };
+      const blob = new Blob([JSON.stringify(conteudo, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `remocao-propagacao-${periodoBase}-para-${destinosLabel}-${ts}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      return true;
+    } catch { return false; }
+  }
+
   async function aplicar() {
+    // Backup não-bloqueante ANTES de qualquer escrita: se o download falhar
+    // (política do navegador), AVISA mas NÃO aborta — backup é rede de
+    // segurança, não pré-condição.
+    if (plano && plano.remover.length > 0 && !baixarBackupRemocoes()) {
+      setAvisoBackup('Não foi possível baixar o backup automático das remoções (política do navegador). A propagação prosseguiu.');
+    }
     setEtapa('aplicando');
     try {
       const r = await propagarFolhaTodosColaboradores(
@@ -100,9 +147,9 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
       );
       setResultado(r);
       setEtapa(r.erros.length > 0 ? 'erro' : 'concluido');
-      if (r.colaboradoresAtualizados > 0) recarregar();
+      if (r.colaboradoresAtualizados > 0 || r.removidos > 0) recarregar();
     } catch (e) {
-      setResultado({ colaboradoresAtualizados: 0, periodosAtualizados: 0, criados: 0, nomesCriados: [],
+      setResultado({ colaboradoresAtualizados: 0, periodosAtualizados: 0, criados: 0, nomesCriados: [], removidos: 0, nomesRemovidos: [],
         erros: [{ colaborador: '—', periodo: '—', erro: e instanceof Error ? e.message : 'Erro desconhecido' }] });
       setEtapa('erro');
     }
@@ -197,8 +244,8 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
             </p>
           )}
           <Footer onVoltar={() => setEtapa('base')} voltarLabel="Voltar"
-            onAvancar={() => setEtapa('confirmar')} avancarLabel="Avançar"
-            avancarDisabled={!intervaloValido || periodosFrente.length === 0} />
+            onAvancar={irParaConfirmar} avancarLabel={carregandoPlano ? 'Analisando…' : 'Avançar'}
+            avancarDisabled={!intervaloValido || periodosFrente.length === 0 || carregandoPlano} />
         </div>
       )}
 
@@ -214,6 +261,29 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
                 ? periodosFrente.join(', ') || '—'
                 : `${periodosFrente.slice(0, 5).join(', ')} … e mais ${periodosFrente.length - 5}`} />
           </div>
+          {plano && (
+            <div className="space-y-2">
+              <p className="text-xs rounded-lg p-3" style={{ backgroundColor: '#f3f4f6', color: '#160F41' }}>
+                <strong>{plano.atualizar}</strong> atualização(ões) de período · <strong>{plano.criar.length}</strong> criação(ões)
+                {plano.criar.length > 0 ? `: ${[...new Set(plano.criar.map(c => c.nome))].join(', ')}` : ''}.
+              </p>
+              {plano.remover.length > 0 && (
+                <div className="rounded-lg p-3 space-y-1 text-xs" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+                  <p className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle size={13} className="shrink-0" /> {plano.remover.length} remoção(ões) — desligado(s) não vão adiante e serão APAGADOS do destino:
+                  </p>
+                  <ul className="list-disc pl-5 max-h-32 overflow-y-auto">
+                    {plano.remover.map(r => (
+                      <li key={`${r.docId}_${r.periodo}`}>
+                        Será removido de <strong>{r.periodo}</strong>: {r.nome}{r.data_demissao ? ` (desligado em ${r.data_demissao})` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="italic">Um backup JSON dos docs removidos será baixado automaticamente ao confirmar.</p>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
             <p className="text-xs">
@@ -256,6 +326,19 @@ export function PropagacaoEmMassa({ colaboradores, periodosDisponiveis, periodoA
                   <p><strong>{resultado.criados}</strong> entrada{resultado.criados === 1 ? '' : 's'} criada{resultado.criados === 1 ? '' : 's'}: {resultado.nomesCriados.join(', ')}.</p>
                 )}
               </div>
+            </div>
+          )}
+          {resultado.removidos > 0 && (
+            <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+              <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+              <p className="text-sm">
+                <strong>{resultado.removidos}</strong> remoção(ões) — desligado(s) apagado(s) do destino: {resultado.nomesRemovidos.join(', ')}.
+              </p>
+            </div>
+          )}
+          {avisoBackup && (
+            <div className="flex items-start gap-2 p-3 rounded-lg text-xs" style={{ backgroundColor: '#fef9c3', color: '#854d0e' }}>
+              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" /> {avisoBackup}
             </div>
           )}
           {resultado.erros.length > 0 && (
