@@ -61,6 +61,14 @@ export function useColaboradores() {
   const clientes = dadosPeriodo?.clientes ?? [];
 
   // Linhas fantasma (sem nome/cargo/função) ficam fora dos cálculos e da UI.
+  //
+  // ⚠ NÃO filtrar por `ativo` aqui (regra de modelo do CFO): o demitido
+  // PERMANECE no mês da saída — o custo dele é real no fechamento desse mês.
+  // Filtrar por ativo zeraria esse custo e quebraria o fechamento. O filtro de
+  // "OMITIR INATIVO" pertence à PROPAGAÇÃO PARA FRENTE (Passo 4 — ainda não
+  // implementado), em `propagarFolhaTodosColaboradores` (services/firebase.ts):
+  // ao replicar para o próximo período, pular colaboradores com `ativo===false`.
+  // Aqui (período corrente) o status é apenas informativo.
   const colaboradoresValidos = useMemo(() => todosColaboradores.filter(
     c => c.nome_colaborador?.trim() && c.cargo?.trim() && c.funcao_principal,
   ), [todosColaboradores]);

@@ -50,6 +50,9 @@ const ABAS = ['Folha', 'Alocação'] as const;
 const COLABORADOR_VAZIO: Colaborador = {
   nome_colaborador: '', cargo: '', localidade: 'SP',
   funcao_principal: '', alocavel: true, tipo_vinculo: 'clt',
+  // Status nasce igual aos colaboradores migrados na Fase 2 (corrige a
+  // bifurcação: criados pela UI antes não tinham estes campos).
+  ativo: true, funcoes_secundarias: [], cadastro_completo: true,
   percentual_alocavel: 0.7, percentual_institucional: 0.3,
   salario_base: 0, beneficios_fixos: 0,
   vale_alimentacao: 0, vale_transporte: 0, plano_saude: 0, outros_beneficios: 0,

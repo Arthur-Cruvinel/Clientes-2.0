@@ -226,6 +226,24 @@ export interface Colaborador {
   alocavel: boolean;
   tipo_vinculo?: 'clt' | 'pro_labore' | 'estagio';  // default tratado como 'clt' quando ausente
 
+  // ── CICLO DE VIDA / STATUS ───────────────────────────────────────────────
+  // ativo/funcoes_secundarias/cadastro_completo já existem nos dados desde a
+  // migração Fase 2 — declarados aqui para deixarem de ser órfãos (a Fase 3B
+  // de tipos para colaboradores ficou pendente). Todos OPCIONAIS: ausência de
+  // `ativo` = tratado como ATIVO (retrocompat com docs pré-migração / criados
+  // sem o campo).
+  //
+  // MODELO (fechado com o CFO — NÃO violar): demissão = `ativo:false` +
+  // `data_demissao` (os dois juntos). O demitido PERMANECE no mês da saída
+  // (custo real do fechamento) e some só dos meses POSTERIORES. Por isso
+  // `ativo` NÃO é filtro do cálculo do período corrente — é sinal para a
+  // PROPAGAÇÃO PARA FRENTE (omitir inativo no próximo mês — Passo 4).
+  ativo?: boolean;
+  data_admissao?: string;   // 'YYYY-MM' (convenção do projeto — ver Cliente.data_entrada)
+  data_demissao?: string;   // 'YYYY-MM'
+  funcoes_secundarias?: FuncaoAlocacao[];
+  cadastro_completo?: boolean;
+
   // Percentuais de alocação
   percentual_alocavel: number;
   percentual_institucional: number;
