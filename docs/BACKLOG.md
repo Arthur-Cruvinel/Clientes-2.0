@@ -98,6 +98,18 @@ sem recuperação**. **Encadeia com o item "configurar remoto"** (repo local sem
 remoto — ver item 1 deste backlog / governança).
 **Gatilho:** quando houver remoto privado configurado e janela dedicada.
 
+### 7. `cadastro_completo` defaulta `true` em `COLABORADOR_VAZIO`
+`COLABORADOR_VAZIO` (`ColaboradorModal.tsx`) grava `cadastro_completo: true` por
+**coerência com os 21 colaboradores migrados** (que estão `true` em produção).
+Hoje o campo **não é lido por nenhum código** — sem efeito funcional. Mas ele
+**afirma "cadastro completo" antes de qualquer validação existir**, o que será
+**incorreto** quando o campo passar a ser consumido.
+**Ação:** ao implementar a **Fase 4 (validação de cadastro / Princípio 2 —
+`identidade-unificada-principios.md`)**, revisar este default: `cadastro_completo`
+deve refletir a validação real (provavelmente nascer `false`/derivado, não `true`
+fixo).
+**Gatilho:** ao implementar a Fase 4 (validação de cadastro).
+
 ---
 
 ## Resolvidos
