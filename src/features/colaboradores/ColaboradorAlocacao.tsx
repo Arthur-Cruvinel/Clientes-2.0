@@ -1,10 +1,15 @@
-// --- Aba "Alocação" do modal: edita pct_* dos clientes atendidos ---
-// Mostra horas efetivas (pct × 168 × % alocável) e fator de escopo por cliente.
+// --- Aba "Alocação" do modal: edita o pct dos clientes atendidos ---
+// FONTE ÚNICA: lê/grava fechamentos/{periodo}/vinculos/ (mesma do lote e do
+// pipeline). Escala em PERCENTUAL (8 = 8%), idêntica à Alocação em Lote.
+// O campo legado cliente.pct_* foi APOSENTADO aqui (era dado morto).
 
 import { useState, useMemo, useCallback } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { formatPercent } from '../../utils/formatters';
-import { HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
+import { HORAS_CLT_MES, HORAS_PACOTE, FUNCOES_ALOCACAO } from '../../utils/constants';
+import { Modal } from '../../components/ui/Modal';
+import { useApp } from '../../state/AppContext';
+import { salvarVinculosPct } from '../../services/firebase';
 import { corBarraOcupacao } from './columns';
 import type { Cliente, FuncaoAlocacao } from '../../types';
 import type { ColaboradorDerivado, StatusOcupacao } from './useColaboradores';
@@ -13,8 +18,14 @@ interface Props {
   derivado: ColaboradorDerivado;
   clientes: Cliente[];
   periodo: string;
-  onSalvarPct: (nomeCliente: string, funcao: FuncaoAlocacao, valor: number) => Promise<void>;
-  salvando: boolean;
+}
+
+const MESES_LONGOS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+function formatarPeriodoLongo(p?: string): string {
+  if (!p) return '—';
+  const [a, m] = p.split('-').map(Number);
+  return (m >= 1 && m <= 12) ? `${MESES_LONGOS[m - 1]}/${a}` : p;
 }
 
 function statusDe(ocupacao: number): StatusOcupacao {
@@ -22,45 +33,82 @@ function statusDe(ocupacao: number): StatusOcupacao {
   if (ocupacao > 1.0) return 'atencao';
   return 'ok';
 }
-
 function corFator(fator: number): string {
   if (fator > 1.5) return '#dc2626';
   if (fator > 1.0) return '#ea580c';
   return '#16a34a';
 }
 
-export function ColaboradorAlocacao({ derivado, clientes, periodo, onSalvarPct, salvando }: Props) {
+export function ColaboradorAlocacao({ derivado, clientes, periodo }: Props) {
   const { colaborador: c, funcao } = derivado;
+  const { dadosPeriodo, recarregar } = useApp();
+  const vinculos = dadosPeriodo?.vinculos ?? [];
+  const [salvando, setSalvando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Clientes atendidos nesta função: campo legado cli[funcao]===nome (mesma
+  // fonte do lote e do useColaboradores). O pct, porém, vem do VÍNCULO.
   const atendidos = useMemo(() => funcao
     ? clientes.filter(cli => (cli[funcao] as string | undefined) === c.nome_colaborador)
     : [], [clientes, funcao, c.nome_colaborador]);
 
-  // Estado local com pct editáveis indexados por nome_cliente.
+  // pct efetivo de (cliente, função): vínculo com pct>0 vence; senão legado
+  // (paridade exata com resolverColaboradorParaFuncao / useAlocacaoEmLote).
+  const pctEfetivo = useCallback((cli: Cliente, f: FuncaoAlocacao): number => {
+    const v = (c.id_estavel && cli.id_estavel)
+      ? vinculos.find(x => x.id_estavel_colaborador === c.id_estavel
+          && x.id_estavel_cliente === cli.id_estavel && x.funcao === f)
+      : undefined;
+    const legado = (cli[`pct_${f}` as keyof Cliente] as number | undefined) ?? 0;
+    return (v && v.pct > 0) ? v.pct : legado;
+  }, [vinculos, c.id_estavel]);
+
+  // Estado editável (fração interna; exibida ×100). Inicializa do vínculo.
   const [pcts, setPcts] = useState<Record<string, number>>(() => {
-    const inicial: Record<string, number> = {};
-    if (funcao) {
-      for (const cli of atendidos) {
-        const key = `pct_${funcao}` as keyof Cliente;
-        inicial[cli.nome_cliente] = (cli[key] as number | undefined) ?? 0;
-      }
-    }
-    return inicial;
+    const init: Record<string, number> = {};
+    if (funcao) for (const cli of atendidos) init[cli.nome_cliente] = pctEfetivo(cli, funcao);
+    return init;
   });
 
-  const somaPct = Object.values(pcts).reduce((s, v) => s + v, 0);
-  const ocupacao = c.percentual_alocavel > 0 ? somaPct / c.percentual_alocavel : 0;
-  const status = statusDe(ocupacao);
+  const pa = c.percentual_alocavel ?? 0;
+  const pi = c.percentual_institucional ?? 0;
 
-  const handleSalvar = useCallback(async () => {
-    if (!funcao) return;
-    for (const [nome, valor] of Object.entries(pcts)) {
-      const cli = atendidos.find(a => a.nome_cliente === nome);
-      const pctOriginal = (cli?.[`pct_${funcao}` as keyof Cliente] as number | undefined) ?? 0;
-      if (Math.abs(valor - pctOriginal) > 1e-6) {
-        await onSalvarPct(nome, funcao, valor);
+  // Ocupação CONSOLIDADA (todas as 6 funções) — usa o valor EDITADO na função
+  // atual e o vínculo nas demais. Espelha ocupacaoConsolidada do lote.
+  const ocupConsolidada = useMemo(() => {
+    let total = 0;
+    for (const f of FUNCOES_ALOCACAO) {
+      for (const cli of clientes) {
+        if ((cli[f] as string | undefined) !== c.nome_colaborador) continue;
+        total += (f === funcao && cli.nome_cliente in pcts)
+          ? (pcts[cli.nome_cliente] ?? 0)
+          : pctEfetivo(cli, f);
       }
     }
-  }, [pcts, atendidos, funcao, onSalvarPct]);
+    return total;
+  }, [clientes, c.nome_colaborador, funcao, pcts, pctEfetivo]);
+
+  const sobreAlocado = ocupConsolidada > pa + 1e-9;
+  const institucionalComVinculo = (pi >= 0.999 || pa <= 1e-9) && ocupConsolidada > 1e-9;
+
+  const handleSalvar = useCallback(async () => {
+    if (!funcao || !c.id_estavel) return;
+    setSalvando(true);
+    try {
+      const edicoes = atendidos
+        .filter(cli => cli.id_estavel && Math.abs((pcts[cli.nome_cliente] ?? 0) - pctEfetivo(cli, funcao)) > 1e-9)
+        .map(cli => ({ cliente: cli, funcao, pct: pcts[cli.nome_cliente] ?? 0 }));
+      const n = await salvarVinculosPct({ periodo, colaborador: c, edicoes, vinculosExistentes: vinculos });
+      recarregar();
+      setToast(`${n} alocação(ões) gravada(s) em ${formatarPeriodoLongo(periodo)}.`);
+    } catch (e) {
+      setToast(`Erro: ${e instanceof Error ? e.message : 'falha ao salvar'}`);
+    } finally {
+      setSalvando(false); setConfirmando(false);
+      setTimeout(() => setToast(null), 3500);
+    }
+  }, [funcao, c, atendidos, pcts, pctEfetivo, periodo, vinculos, recarregar]);
 
   if (!funcao) {
     return <p className="text-sm py-4 italic" style={{ color: '#6b6b8a' }}>
@@ -68,12 +116,31 @@ export function ColaboradorAlocacao({ derivado, clientes, periodo, onSalvarPct, 
     </p>;
   }
 
+  const somaPctFuncao = Object.values(pcts).reduce((s, v) => s + v, 0);
+  const ocupacaoFuncao = pa > 0 ? somaPctFuncao / pa : 0;
+  const alteracoes = atendidos.filter(cli =>
+    cli.id_estavel && Math.abs((pcts[cli.nome_cliente] ?? 0) - pctEfetivo(cli, funcao)) > 1e-9).length;
+
   const TH = 'px-3 py-2 text-[10px] font-bold uppercase tracking-wider';
   const TD = 'px-3 py-2 text-xs';
 
   return (
     <div className="space-y-3">
-      <p className="text-xs" style={{ color: '#6b6b8a' }}>Período: {periodo}</p>
+      <p className="text-xs" style={{ color: '#6b6b8a' }}>Período: {formatarPeriodoLongo(periodo)} · fonte: vínculos</p>
+
+      {/* Guardas de sobre-alocação (avisam, não bloqueiam). */}
+      {institucionalComVinculo && (
+        <div className="flex items-start gap-2 rounded-lg p-3 text-xs" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <span><strong>100% institucional com alocação a cliente</strong> ({(ocupConsolidada * 100).toFixed(0)}%) = dupla contagem no custo. Este colaborador é institucional (alocável 0%) mas tem vínculos — revise.</span>
+        </div>
+      )}
+      {sobreAlocado && !institucionalComVinculo && (
+        <div className="flex items-start gap-2 rounded-lg p-3 text-xs" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <span><strong>Sobre-alocado: {(ocupConsolidada * 100).toFixed(0)}% de {(pa * 100).toFixed(0)}% disponíveis</strong> (todas as funções) — o custo direto contará mais que a folha deste colaborador.</span>
+        </div>
+      )}
 
       {atendidos.length === 0 ? (
         <p className="text-sm py-4 italic" style={{ color: '#6b6b8a' }}>
@@ -94,19 +161,20 @@ export function ColaboradorAlocacao({ derivado, clientes, periodo, onSalvarPct, 
             <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
               {atendidos.map(cli => {
                 const pct = pcts[cli.nome_cliente] ?? 0;
-                const horasEfet = pct * HORAS_CLT_MES * c.percentual_alocavel;
+                const horasEfet = pct * HORAS_CLT_MES * pa;
                 const horasPacote = HORAS_PACOTE[cli.pacote_servico]?.[funcao] ?? 0;
                 const pctNorm = horasPacote / HORAS_CLT_MES;
                 const fator = pctNorm > 0 ? pct / pctNorm : 0;
+                const alterado = cli.id_estavel && Math.abs(pct - pctEfetivo(cli, funcao)) > 1e-9;
                 return (
                   <tr key={cli.nome_cliente}>
                     <td className={TD} style={{ color: '#160F41' }}>{cli.nome_cliente}</td>
                     <td className={TD} style={{ color: '#6b6b8a' }}>{cli.pacote_servico}</td>
                     <td className={`${TD} text-right`}>
-                      <input type="number" step="0.01" min={0} max={1} value={pct}
-                        onChange={e => setPcts(p => ({ ...p, [cli.nome_cliente]: Number(e.target.value) }))}
+                      <input type="number" step="0.1" min={0} max={100} value={Number((pct * 100).toFixed(1))}
+                        onChange={e => setPcts(p => ({ ...p, [cli.nome_cliente]: Number(e.target.value) / 100 }))}
                         className="w-20 rounded px-2 py-1 text-xs text-right"
-                        style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
+                        style={{ border: '1px solid #e2e2e8', color: '#160F41', backgroundColor: alterado ? '#fef3c7' : '#fff' }} />
                     </td>
                     <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{horasEfet.toFixed(1)}h</td>
                     <td className={`${TD} text-right`}>
@@ -122,27 +190,51 @@ export function ColaboradorAlocacao({ derivado, clientes, periodo, onSalvarPct, 
 
       <div className="rounded-lg p-3" style={{ backgroundColor: '#f9f9fb' }}>
         <div className="flex items-center justify-between mb-2 text-xs">
-          <span style={{ color: '#6b6b8a' }}>Capacidade alocável: {formatPercent(c.percentual_alocavel * 100)}</span>
-          <span style={{ color: '#160F41' }}>Ocupação atual: {(somaPct * 100).toFixed(1)}%</span>
+          <span style={{ color: '#6b6b8a' }}>Capacidade alocável: {formatPercent(pa * 100)}</span>
+          <span style={{ color: '#160F41' }}>Ocupação ({funcao}): {(somaPctFuncao * 100).toFixed(1)}% · consolidada: {(ocupConsolidada * 100).toFixed(1)}%</span>
         </div>
         <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#fff' }}>
           <div className="h-full rounded-full transition-all"
-            style={{ width: `${Math.min(ocupacao * 100, 200)}%`, backgroundColor: corBarraOcupacao(status) }} />
+            style={{ width: `${Math.min(ocupacaoFuncao * 100, 200)}%`, backgroundColor: corBarraOcupacao(statusDe(ocupacaoFuncao)) }} />
         </div>
-        {ocupacao > 1.0 && (
-          <p className="mt-2 flex items-center gap-1 text-[11px]" style={{ color: '#dc2626' }}>
-            <AlertTriangle size={11} /> Soma de pct excede capacidade alocável do colaborador.
-          </p>
-        )}
       </div>
 
+      {toast && (
+        <div className="text-xs font-medium px-3 py-1.5 rounded-lg"
+          style={{ backgroundColor: toast.startsWith('Erro') ? '#fee2e2' : '#dcfce7', color: toast.startsWith('Erro') ? '#991b1b' : '#166534' }}>
+          {toast}
+        </div>
+      )}
+
       <div className="flex justify-end pt-2">
-        <button onClick={handleSalvar} disabled={salvando || atendidos.length === 0}
+        <button onClick={() => setConfirmando(true)} disabled={salvando || alteracoes === 0}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-50">
           {salvando && <Loader2 size={14} className="animate-spin" />}
           {salvando ? 'Salvando...' : 'Salvar Alocação'}
         </button>
       </div>
+
+      {/* Confirmação nomeando o período (padrão do projeto). */}
+      {confirmando && (
+        <Modal aberto onFechar={() => setConfirmando(false)} titulo="Confirmar gravação da alocação" largura="md">
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: '#160F41' }}>
+              Gravar a alocação de <strong>{c.nome_colaborador}</strong> em <strong>{formatarPeriodoLongo(periodo)}</strong>?
+            </p>
+            <p className="text-xs" style={{ color: '#6b6b8a' }}>
+              {alteracoes} alteração{alteracoes === 1 ? '' : 'ões'} em fechamentos/{periodo}/vinculos.
+            </p>
+            <div className="flex justify-end gap-3 pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
+              <button onClick={() => setConfirmando(false)} disabled={salvando}
+                className="px-4 py-2 rounded-lg text-sm" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>Cancelar</button>
+              <button onClick={handleSalvar} disabled={salvando}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-50">
+                {salvando && <Loader2 size={14} className="animate-spin" />} Confirmar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

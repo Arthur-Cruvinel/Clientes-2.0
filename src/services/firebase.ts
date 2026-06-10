@@ -89,6 +89,52 @@ export async function buscarVinculos(anoMes: string): Promise<Vinculo[]> {
   }
 }
 
+/** Grava pct em fechamentos/{periodo}/vinculos/ — FONTE ÚNICA de escrita de
+ *  alocação, usada pela Alocação em Lote E pela ficha do colaborador.
+ *
+ *  docId determinístico {slug_colab}_{slug_cli}_{funcao}. Vínculo existente →
+ *  merge só do pct (preserva identificadores). Sem vínculo → payload completo
+ *  (evita doc órfão que o pipeline da Peça 5 não acharia). Edições sem
+ *  id_estavel de cliente são puladas. Não recarrega — o chamador decide.
+ *  Retorna quantos docs foram gravados. */
+export async function salvarVinculosPct(params: {
+  periodo: string;
+  colaborador: Colaborador;
+  edicoes: Array<{ cliente: Cliente; funcao: FuncaoAlocacao; pct: number }>;
+  vinculosExistentes: Vinculo[];
+}): Promise<number> {
+  const { periodo, colaborador, edicoes, vinculosExistentes } = params;
+  if (!colaborador.id_estavel || edicoes.length === 0) return 0;
+  const slugColab = slug(colaborador.nome_colaborador);
+  const batch = writeBatch(db);
+  let mudou = 0;
+  for (const { cliente, funcao, pct } of edicoes) {
+    if (!cliente.id_estavel) continue;
+    const existente = vinculosExistentes.find(v =>
+      v.id_estavel_colaborador === colaborador.id_estavel
+      && v.id_estavel_cliente === cliente.id_estavel
+      && v.funcao === funcao);
+    const docId = existente?.id ?? `${slugColab}_${slug(cliente.nome_cliente)}_${funcao}`;
+    const ref = doc(db, 'fechamentos', periodo, 'vinculos', docId);
+    if (existente) {
+      batch.set(ref, { pct }, { merge: true });
+    } else {
+      const novo: Vinculo = {
+        id: docId, periodo,
+        id_estavel_colaborador: colaborador.id_estavel,
+        id_estavel_cliente: cliente.id_estavel,
+        nome_colaborador: colaborador.nome_colaborador,
+        nome_cliente: cliente.nome_cliente,
+        funcao, pct, origem: 'manual', data_criacao: new Date().toISOString(),
+      };
+      batch.set(ref, novo);
+    }
+    mudou++;
+  }
+  await batch.commit();
+  return mudou;
+}
+
 export interface SincronizarVinculoParams {
   cliente: Cliente;                      // precisa id_estavel + nome_cliente
   funcao: FuncaoAlocacao;

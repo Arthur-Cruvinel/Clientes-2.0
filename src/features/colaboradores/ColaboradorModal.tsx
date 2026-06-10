@@ -11,14 +11,13 @@ import { useAuth } from '../../state/AuthContext';
 import { ColaboradorAlocacao } from './ColaboradorAlocacao';
 import { FolhaTab } from './FolhaTab';
 import { ConfirmacaoExclusao } from './ConfirmacaoExclusao';
-import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
+import type { Colaborador, Cliente } from '../../types';
 import type { ColaboradorDerivado } from './useColaboradores';
 
 interface PropsBase {
   clientes: Cliente[];
   periodo: string;
   salvando: boolean;
-  onSalvarPct: (nomeCliente: string, funcao: FuncaoAlocacao, valor: number) => Promise<void>;
   onFechar: () => void;
 }
 
@@ -191,7 +190,7 @@ export function ColaboradorModal(props: Props) {
       {aba === 'Alocação' && props.modo === 'editar' && (
         <div className="max-h-[60vh] overflow-y-auto">
           <ColaboradorAlocacao derivado={props.derivado} clientes={props.clientes}
-            periodo={props.periodo} onSalvarPct={props.onSalvarPct} salvando={props.salvando} />
+            periodo={props.periodo} />
         </div>
       )}
 

@@ -28,7 +28,7 @@ export function ColaboradoresVisao() {
   const {
     derivados, totais, algumSobrecarga, periodo, clientes,
     ordenacao, setOrdenarPor,
-    salvarFolha, salvarPct, criarColaborador, excluirColaborador, salvando,
+    salvarFolha, criarColaborador, excluirColaborador, salvando,
     salvarBeneficiosEmLote,
   } = useColaboradores();
   const { usuario } = useAuth();
@@ -231,7 +231,7 @@ export function ColaboradoresVisao() {
         return (
           <ColaboradorModal key={chaveAtual} modo="editar" derivado={modal.derivado}
             clientes={clientes} periodo={periodo}
-            salvando={salvando} onSalvarPct={salvarPct} onFechar={() => setModal(null)}
+            salvando={salvando} onFechar={() => setModal(null)}
             anterior={anterior} proximo={proximo}
             onNavegar={(destino) => setModal({ tipo: 'editar', derivado: destino })}
             onSalvarFolha={async (atualizado) => {
@@ -300,7 +300,7 @@ export function ColaboradoresVisao() {
 
       {modal?.tipo === 'criar' && periodo && (
         <ColaboradorModal modo="criar" clientes={clientes} periodo={periodo}
-          salvando={salvando} onSalvarPct={salvarPct} onFechar={() => setModal(null)}
+          salvando={salvando} onFechar={() => setModal(null)}
           onCriar={async (novo) => {
             try { await criarColaborador(novo); flash('Colaborador criado.'); setModal(null); }
             catch (e) { flash(`Erro: ${e instanceof Error ? e.message : 'falha ao criar'}`); }

@@ -3,11 +3,10 @@
 // Fonte: AppContext.dadosPeriodo (clientes + colaboradores + período).
 
 import { useMemo, useCallback, useState } from 'react';
-import { doc, setDoc } from 'firebase/firestore';
 import { useApp } from '../../state/AppContext';
 import {
   salvarColaboradorPeriodo, deletarColaboradorPeriodo,
-  deletarColaboradorPeriodosFuturos, resolverDocIdClientePorIdEstavel, db,
+  deletarColaboradorPeriodosFuturos,
 } from '../../services/firebase';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { calcularFolhaColaborador } from '../../utils/financials';
@@ -165,30 +164,8 @@ export function useColaboradores() {
     } finally { setSalvando(false); }
   }, [periodoSelecionado, colaboradoresValidos, recarregar]);
 
-  const salvarPct = useCallback(async (nomeCliente: string, funcao: FuncaoAlocacao, valor: number) => {
-    if (!periodoSelecionado) return;
-    const cliente = clientes.find(c => c.nome_cliente === nomeCliente);
-    if (!cliente?.id) return;
-    setSalvando(true);
-    try {
-      // Bug Arquitetural #1: cliente.id pode vir de clientes_base/ (docId=slug)
-      // enquanto o snapshot do período tem docId=UUID. Antes do setDoc, resolve
-      // o docId canônico do período via id_estavel — evita criar doc-sombra
-      // com slug em períodos onde já existe doc UUID. Fallback para cliente.id
-      // quando period não tem snapshot ainda (cliente novo).
-      const docIdCanonico = await resolverDocIdClientePorIdEstavel(
-        periodoSelecionado, cliente.id_estavel, cliente.id,
-      );
-      // setDoc com merge cria o doc se inexistente no período — robusto a
-      // clientes recém-criados ou períodos sem fechamento copiado.
-      await setDoc(
-        doc(db, 'fechamentos', periodoSelecionado, 'clientes', docIdCanonico),
-        { [`pct_${funcao}`]: valor },
-        { merge: true },
-      );
-      recarregar();
-    } finally { setSalvando(false); }
-  }, [clientes, periodoSelecionado, recarregar]);
+  // (salvarPct legado removido — a aba Alocação da ficha agora grava em
+  // fechamentos/{periodo}/vinculos/ via salvarVinculosPct, fonte única.)
 
   /** Cria documento em fechamentos/{periodo}/colaboradores/{slug}. */
   const criarColaborador = useCallback(async (novo: Colaborador) => {
@@ -226,7 +203,7 @@ export function useColaboradores() {
     derivados: derivadosOrdenados, totais, algumSobrecarga,
     periodo: periodoSelecionado, clientes,
     ordenacao, setOrdenarPor,
-    salvarFolha, salvarPct, criarColaborador, excluirColaborador, salvando,
+    salvarFolha, criarColaborador, excluirColaborador, salvando,
     salvarBeneficiosEmLote,
   };
 }

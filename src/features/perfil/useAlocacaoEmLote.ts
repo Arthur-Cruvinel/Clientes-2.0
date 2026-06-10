@@ -4,21 +4,16 @@
 // editado entra em "travados"; não-travados redistribuem o espaço restante.
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { doc, writeBatch } from 'firebase/firestore';
-// batch.set com { merge: true } cria o doc se ainda não existir no período —
-// evita falha quando o cliente é alocado num período sem fechamento prévio.
 import { useApp } from '../../state/AppContext';
-import { db, salvarClienteBase, sincronizarVinculoFuncao } from '../../services/firebase';
+import { salvarClienteBase, sincronizarVinculoFuncao, salvarVinculosPct } from '../../services/firebase';
 import {
   calcularPctDistribuido, calcularFatorSobrecarga,
   somarHorasNormativas, horasProdutivasMes,
 } from '../../utils/financials';
-import { slug } from '../../utils/slug';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { compararClientes, type OrdenacaoAlocacao } from './ordenacaoAlocacao';
 import { redistribuir } from './utilsAlocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
-import type { Vinculo } from '../../types/vinculo';
 
 // Seleção (colaborador × função) persistida em nível de módulo como chave
 // composta "nome|funcao". recarregar() liga loading=true → Perfil.tsx desmonta
@@ -247,67 +242,27 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
 
   const salvarTodos = useCallback(async (): Promise<number> => {
     if (!periodoSelecionado || !funcao || alteracoes === 0) return 0;
+    if (!colaboradorSelecionado?.id_estavel) return 0;
     setSalvando(true);
     try {
-      const batch = writeBatch(db);
-      let mudou = 0;
-      // Fase 2.5 — Peça 6: a escrita vai para fechamentos/{periodo}/vinculos/.
-      // Bug Arquitetural #1 fecha lateralmente — docId do vínculo é
-      // {slug_colab}_{slug_cli}_{funcao}, determinístico, sem query. Quando o
-      // vínculo já existe (todos os 860 da migração Peça 2 têm), usa-se o
-      // próprio v.id (zero risco de mismatch). Cenário sem vínculo prévio
-      // (cliente novo ainda não migrado) cai no fallback de construção via
-      // slug(nome), simétrico ao 2º branch de resolverSlugCliente em
-      // scripts/fase25-peca2-apply.mjs.
-      if (!colaboradorSelecionado?.id_estavel) return 0;
-      const idEstColab = colaboradorSelecionado.id_estavel;
-      const slugColab = slug(colaboradorSelecionado.nome_colaborador);
-      for (const cli of clientesDoColaborador) {
-        const novo = pctEditado[cli.nome_cliente] ?? 0;
-        const orig = pctOriginal[cli.nome_cliente] ?? 0;
-        const diff = Math.abs(novo - orig);
-        if (!cli.id_estavel) continue;
-        if (diff <= 1e-9) continue;
-        const vinculoExistente = vinculos.find(v =>
-          v.id_estavel_colaborador === idEstColab
-          && v.id_estavel_cliente === cli.id_estavel
-          && v.funcao === funcao);
-        const docIdVinculo = vinculoExistente?.id
-          ?? `${slugColab}_${slug(cli.nome_cliente)}_${funcao}`;
-        const refVinc = doc(db, 'fechamentos', periodoSelecionado, 'vinculos', docIdVinculo);
-        if (vinculoExistente) {
-          // Vínculo já tem campos identificadores (id_estavel_*, nome_*, funcao,
-          // origem). merge:true atualiza só pct e preserva o resto.
-          batch.set(refVinc, { pct: novo }, { merge: true });
-        } else {
-          // Vínculo não existe — payload completo. Sem merge para evitar doc
-          // órfão (causa-raiz da 1ª iteração da Peça 6: setDoc({pct}, merge:true)
-          // criava doc só com pct, sem identificadores → pipeline Peça 5 nunca
-          // encontrava o vínculo no filtro por id_estavel_cliente).
-          const novoVinculo: Vinculo = {
-            id: docIdVinculo,
-            periodo: periodoSelecionado,
-            id_estavel_colaborador: idEstColab,
-            id_estavel_cliente: cli.id_estavel,
-            nome_colaborador: colaboradorSelecionado.nome_colaborador,
-            nome_cliente: cli.nome_cliente,
-            funcao,
-            pct: novo,
-            origem: 'manual',
-            data_criacao: new Date().toISOString(),
-          };
-          batch.set(refVinc, novoVinculo);
-        }
-        mudou++;
-      }
-      await batch.commit();
+      // Escrita via FONTE ÚNICA (salvarVinculosPct) — mesma gravação que a ficha
+      // do colaborador usa. docId determinístico, merge p/ existente, payload
+      // completo p/ novo (lógica encapsulada no serviço).
+      const edicoes = clientesDoColaborador
+        .filter(cli => cli.id_estavel
+          && Math.abs((pctEditado[cli.nome_cliente] ?? 0) - (pctOriginal[cli.nome_cliente] ?? 0)) > 1e-9)
+        .map(cli => ({ cliente: cli, funcao, pct: pctEditado[cli.nome_cliente] ?? 0 }));
+      const mudou = await salvarVinculosPct({
+        periodo: periodoSelecionado, colaborador: colaboradorSelecionado,
+        edicoes, vinculosExistentes: vinculos,
+      });
       recarregar();
       return mudou;
     } catch (err) {
       console.error('[salvarTodos] erro ao salvar:', err);
       throw err;
     } finally { setSalvando(false); }
-  }, [periodoSelecionado, funcao, alteracoes, clientesDoColaborador, pctEditado, pctOriginal, recarregar, colaboradorSelecionado, vinculos, nomeSel]);
+  }, [periodoSelecionado, funcao, alteracoes, clientesDoColaborador, pctEditado, pctOriginal, recarregar, colaboradorSelecionado, vinculos]);
 
   // Remove o vínculo direto de um cliente com o colaborador selecionado:
   // (1) limpa cliente[funcao] + zera pct_funcao em clientes_base/ (deleteField
