@@ -1057,6 +1057,22 @@ export async function atualizarValorCustoIndireto(
   await updateDoc(ref, { valor_mensal: valorMensal });
 }
 
+/** UPSERT de uma categoria CANÔNICA com valor — cria o doc (docId/id_estavel
+ *  canônicos) se faltante, ou atualiza se existe. Usado pelo Save da tela de
+ *  Custos para categoria que nunca foi semeada no período (input aceito =
+ *  input persistido; nunca descartar silenciosamente). merge:true preserva
+ *  outros campos de docs existentes. */
+export async function definirCustoIndireto(
+  anoMes: string,
+  p: { docId: string; id_estavel: string; descricao_custo: string; tipo_custo: string; valor_mensal: number },
+): Promise<void> {
+  await setDoc(
+    doc(db, 'fechamentos', anoMes, 'custosIndiretos', p.docId),
+    { descricao_custo: p.descricao_custo, tipo_custo: p.tipo_custo, id_estavel: p.id_estavel, valor_mensal: p.valor_mensal },
+    { merge: true },
+  );
+}
+
 /** Semeia as 5 categorias canônicas num período que não as tenha (período novo
  *  ou incompleto). Usa docId E id_estavel CANÔNICOS da constante (CLAUDE.md:
  *  id_estavel é propriedade da categoria) com valor_mensal:0. Idempotente —

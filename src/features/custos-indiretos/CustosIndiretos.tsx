@@ -48,6 +48,7 @@ export function CustosIndiretos() {
   }
 
   const totalLive = linhas.reduce((s, l) => s + (Number(valores[l.id_estavel]) || 0), 0);
+  const faltantes = linhas.filter(l => !l.docAtual);  // categorias ainda não semeadas no período
 
   // Linha editável (reutilizada nos dois grupos: gerais e diretos-rateados).
   const linhaRow = (l: LinhaCusto) => (
@@ -62,10 +63,18 @@ export function CustosIndiretos() {
   );
 
   async function salvar() {
+    // UPSERT: categoria existente com valor alterado → update; categoria
+    // FALTANTE (nunca semeada) com valor digitado → CRIAR no docId canônico.
+    // Nunca descartar input: o que foi digitado é persistido.
     const edicoes = linhas
-      .filter(l => l.docAtual && valores[l.id_estavel]?.trim() !== ''
-        && Number(valores[l.id_estavel]) !== l.valorAtual)
-      .map(l => ({ docId: l.docAtual!.id!, valor: Number(valores[l.id_estavel]), nome: l.descricao_custo }));
+      .filter(l => valores[l.id_estavel] != null && valores[l.id_estavel].trim() !== '')
+      .filter(l => l.docAtual ? Number(valores[l.id_estavel]) !== l.valorAtual : true)
+      .map(l => l.docAtual
+        ? { docId: l.docAtual.id!, valor: Number(valores[l.id_estavel]), nome: l.descricao_custo }
+        : {
+            docId: l.docIdCanonico, valor: Number(valores[l.id_estavel]), nome: l.descricao_custo,
+            criar: { id_estavel: l.id_estavel, descricao_custo: l.descricao_custo, tipo_custo: l.tipo_custo },
+          });
     if (edicoes.length === 0) { flash('Nenhuma alteração para salvar.'); return; }
     try {
       const r = await salvarValores(edicoes);
@@ -80,7 +89,7 @@ export function CustosIndiretos() {
   async function semearHandler() {
     try {
       const n = await semear();
-      flash(n > 0 ? `${n} categoria(s) semeada(s) com valor 0 no período ${periodo}.` : 'Nada a semear — as 5 já existem.');
+      flash(n > 0 ? `${n} categoria(s) semeada(s) com valor 0 no período ${periodo}.` : 'Nada a semear — as canônicas já existem.');
     } catch (e) {
       flash(`Erro: ${e instanceof Error ? e.message : 'falha ao semear'}`);
     }
@@ -122,22 +131,26 @@ export function CustosIndiretos() {
 
       {!periodo ? (
         <p className="text-sm" style={{ color: '#6b6b8a' }}>Selecione um período no topo.</p>
-      ) : precisaSemear ? (
-        <div className="space-y-3 rounded-lg border p-4" style={{ borderColor: '#e2e2e8' }}>
-          <p className="text-sm" style={{ color: '#160F41' }}>
-            O período <strong>{periodo}</strong> não tem as 5 categorias canônicas. Semeie-as
-            (valor 0, identidade canônica) para começar a editar.
-          </p>
-          {isAdmin && (
-            <button onClick={semearHandler} disabled={salvando}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white bg-gradient-brand disabled:opacity-50">
-              {salvando ? <Loader2 size={12} className="animate-spin" /> : <Sprout size={12} />}
-              Semear categorias canônicas
-            </button>
-          )}
-        </div>
       ) : (
         <>
+          {precisaSemear && (
+            <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: '#fcd34d', backgroundColor: '#fffbeb' }}>
+              <p className="text-sm" style={{ color: '#92400e' }}>
+                Este período não tem <strong>{faltantes.length}</strong> de {linhas.length} categorias
+                canônicas: <strong>{faltantes.map(l => l.descricao_custo).join(', ')}</strong>. Elas aparecem
+                abaixo com campo vazio — serão <strong>criadas ao salvar</strong> (ou clique "Semear" para
+                criá-las já com valor 0).
+              </p>
+              {isAdmin && (
+                <button onClick={semearHandler} disabled={salvando}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ border: '1px solid #92400e', color: '#92400e' }}>
+                  {salvando ? <Loader2 size={12} className="animate-spin" /> : <Sprout size={12} />}
+                  Semear categorias canônicas
+                </button>
+              )}
+            </div>
+          )}
           <div className="w-full overflow-x-auto rounded-lg border" style={{ borderColor: '#e2e2e8' }}>
             <table className="w-full">
               <thead style={{ backgroundColor: '#f9f9fb' }}>

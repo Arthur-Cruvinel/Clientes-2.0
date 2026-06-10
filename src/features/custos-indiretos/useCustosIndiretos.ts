@@ -7,7 +7,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useApp } from '../../state/AppContext';
 import {
-  atualizarValorCustoIndireto, semearCustosIndiretos,
+  atualizarValorCustoIndireto, definirCustoIndireto, semearCustosIndiretos,
   planejarPropagacaoCustos, executarPropagacaoCustos,
 } from '../../services/firebase';
 import { CATEGORIAS_CUSTO_INDIRETO } from '../../utils/constants';
@@ -56,10 +56,15 @@ export function useCustosIndiretos() {
   const precisaSemear = linhas.some(l => l.docAtual === null);
   const totalAtual = linhas.reduce((s, l) => s + l.valorAtual, 0);
 
-  // Atualiza só os valores editados, por docId real (updateDoc single-field).
+  // Persiste valores editados. Categoria EXISTENTE → updateDoc (docId real).
+  // Categoria FALTANTE (nunca semeada) com `criar` → UPSERT no docId canônico
+  // (definirCustoIndireto) — input aceito = input persistido, nunca descartado.
   // Erro num custo não aborta os demais (acumula). Recarrega ao final.
   const salvarValores = useCallback(async (
-    edicoes: Array<{ docId: string; valor: number; nome: string }>,
+    edicoes: Array<{
+      docId: string; valor: number; nome: string;
+      criar?: { id_estavel: string; descricao_custo: string; tipo_custo: string };
+    }>,
   ): Promise<ResultadoSalvar> => {
     if (!periodoSelecionado) throw new Error('Sem período ativo na tela.');
     const erros: ResultadoSalvar['erros'] = [];
@@ -68,7 +73,13 @@ export function useCustosIndiretos() {
     try {
       for (const e of edicoes) {
         try {
-          await atualizarValorCustoIndireto(periodoSelecionado, e.docId, e.valor);
+          if (e.criar) {
+            await definirCustoIndireto(periodoSelecionado, {
+              docId: e.docId, valor_mensal: e.valor, ...e.criar,
+            });
+          } else {
+            await atualizarValorCustoIndireto(periodoSelecionado, e.docId, e.valor);
+          }
           atualizados++;
         } catch (err) {
           erros.push({ nome: e.nome, motivo: err instanceof Error ? err.message : 'falha ao salvar' });
