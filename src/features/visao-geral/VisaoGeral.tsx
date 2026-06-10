@@ -34,13 +34,13 @@ function periodoCurto(anoMes: string | undefined): string {
 }
 
 export function VisaoGeral() {
-  const { periodoSelecionado, visaoFinanceira, parametros, periodoFechado, statusPeriodo, recarregar } = useApp();
+  const { periodoSelecionado, visaoFinanceira, periodoFechado, statusPeriodo, recarregar } = useApp();
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const {
     clientes, clientesAtivos, totais, loading, regime,
     custosIndiretos,
-    modal, abrirCustoDireto, abrirCustoIndireto, abrirImpostos, fecharModal,
+    modal, abrirCustoDireto, abrirCustoDedicado, abrirCustoIndireto, abrirImpostos, fecharModal,
   } = useVisaoGeral();
 
   // Default alfabético por nome_cliente (CLAUDE.md — regra de ordenação em
@@ -169,8 +169,8 @@ export function VisaoGeral() {
   }, [colunaOrdenada]);
 
   const colunas = useMemo(
-    () => criarColunas({ onClickCustoDireto: abrirCustoDireto, onClickCustoIndireto: abrirCustoIndireto, onClickImpostos: abrirImpostos, visaoFinanceira }),
-    [abrirCustoDireto, abrirCustoIndireto, abrirImpostos, visaoFinanceira],
+    () => criarColunas({ onClickCustoDireto: abrirCustoDireto, onClickCustoDedicado: abrirCustoDedicado, onClickCustoIndireto: abrirCustoIndireto, onClickImpostos: abrirImpostos, visaoFinanceira }),
+    [abrirCustoDireto, abrirCustoDedicado, abrirCustoIndireto, abrirImpostos, visaoFinanceira],
   );
 
   // Valores únicos por coluna (para os dropdowns de filtro)
@@ -345,7 +345,10 @@ export function VisaoGeral() {
       )}
 
       {modal?.tipo === 'custo_direto' && (
-        <CustoDiretoModal cliente={modal.cliente} parametros={parametros} onFechar={fecharModal} />
+        <CustoDiretoModal cliente={modal.cliente} tipo="direto" onFechar={fecharModal} />
+      )}
+      {modal?.tipo === 'custo_dedicado' && (
+        <CustoDiretoModal cliente={modal.cliente} tipo="dedicado" onFechar={fecharModal} />
       )}
       {modal?.tipo === 'custo_indireto' && (
         <CustoIndiretoModal cliente={modal.cliente} todosClientes={clientes} custosIndiretos={custosIndiretos}

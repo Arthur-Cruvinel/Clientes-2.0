@@ -48,6 +48,7 @@ function fmtTaxaRebate(taxa: number): string {
 
 interface ColumnCallbacks {
   onClickCustoDireto: (c: DadosCliente) => void;
+  onClickCustoDedicado: (c: DadosCliente) => void;
   onClickCustoIndireto: (c: DadosCliente) => void;
   onClickImpostos: (c: DadosCliente) => void;
   visaoFinanceira: VisaoFinanceira;
@@ -137,7 +138,7 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
     render: (c) => {
       const val = c.custo_dedicado;
       return val > 0 ? (
-        <span className="cursor-pointer hover:underline" onClick={() => cb.onClickCustoDireto(c)}>
+        <span className="cursor-pointer hover:underline" onClick={() => cb.onClickCustoDedicado(c)}>
           {formatCurrency(val)}
         </span>
       ) : <span style={{ color: '#d1d5db' }}>-</span>;

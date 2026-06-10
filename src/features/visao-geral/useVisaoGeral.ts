@@ -9,7 +9,7 @@ import { mesclarTodos, type DadosClienteComPoupanca } from '../../utils/dadosCli
 type DadosCliente = DadosClienteComPoupanca;
 
 interface ModalState {
-  tipo: 'custo_direto' | 'custo_indireto' | 'impostos';
+  tipo: 'custo_direto' | 'custo_dedicado' | 'custo_indireto' | 'impostos';
   cliente: DadosCliente;
 }
 
@@ -47,6 +47,10 @@ export function useVisaoGeral() {
     setModal({ tipo: 'custo_direto', cliente: c });
   }, []);
 
+  const abrirCustoDedicado = useCallback((c: DadosCliente) => {
+    setModal({ tipo: 'custo_dedicado', cliente: c });
+  }, []);
+
   const abrirCustoIndireto = useCallback((c: DadosCliente) => {
     setModal({ tipo: 'custo_indireto', cliente: c });
   }, []);
@@ -60,6 +64,6 @@ export function useVisaoGeral() {
   return {
     clientes, clientesAtivos, totais, loading, regime,
     colaboradores, custosIndiretos,
-    modal, abrirCustoDireto, abrirCustoIndireto, abrirImpostos, fecharModal,
+    modal, abrirCustoDireto, abrirCustoDedicado, abrirCustoIndireto, abrirImpostos, fecharModal,
   };
 }
