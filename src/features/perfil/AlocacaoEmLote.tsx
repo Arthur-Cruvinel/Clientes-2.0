@@ -93,6 +93,13 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
   const TD = 'px-3 py-2 text-xs';
   const horasLightLivre = funcao ? Math.floor(capacidadeLivreHoras / (HORAS_PACOTE.light[funcao] || 1)) : 0;
   const horasFullLivre = funcao ? Math.floor(capacidadeLivreHoras / (HORAS_PACOTE.full[funcao] || 1)) : 0;
+  // Guarda de sobre-alocação (avisa, não bloqueia) — usa a ocupação CONSOLIDADA
+  // (todas as 6 funções), pois a sobre-alocação cruza funções.
+  const piColab = colaboradorSelecionado?.percentual_institucional ?? 0;
+  const institucionalComVinculo = !!colaboradorSelecionado
+    && (piColab >= 0.999 || percentualAlocavel <= 1e-9) && ocupacaoConsolidada.total > 1e-9;
+  const sobreAlocadoConsolidado = !!colaboradorSelecionado && !institucionalComVinculo
+    && ocupacaoConsolidada.total > percentualAlocavel + 1e-9;
 
   return (
     <div className="space-y-4">
@@ -170,6 +177,19 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                 .join(' · ')})
             </span>
           )}
+        </div>
+      )}
+
+      {institucionalComVinculo && (
+        <div className="flex items-start gap-2 rounded-lg p-3 text-xs" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <span><strong>100% institucional com alocação a cliente</strong> ({(ocupacaoConsolidada.total * 100).toFixed(0)}%) = dupla contagem no custo. Este colaborador é institucional (alocável 0%) mas tem vínculos — revise.</span>
+        </div>
+      )}
+      {sobreAlocadoConsolidado && (
+        <div className="flex items-start gap-2 rounded-lg p-3 text-xs" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <span><strong>Sobre-alocado: {(ocupacaoConsolidada.total * 100).toFixed(0)}% de {(percentualAlocavel * 100).toFixed(0)}% disponíveis</strong> (todas as funções) — o custo direto contará mais que a folha deste colaborador.</span>
         </div>
       )}
 
