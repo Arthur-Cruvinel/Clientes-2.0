@@ -63,15 +63,15 @@ const LABEL_CAMPO: Record<string, string> = {
   consultoria_gestao: 'Gestor', consultoria_planejamento: 'Planejamento',
   consultoria_financeira: 'Financeira', operacional_financeiro: 'Operacional',
   serv_adm: 'Adm.', serv_aux_adm: 'Aux. adm.',
-  peso_juridico: 'Peso jurídico',
+  peso_juridico: 'Peso Consultoria & Legal (Jurídico)',
   volume_movimentos_mes: 'Vol. movimentos',
-  utiliza_servico_juridico: 'Serv. jurídico', utiliza_conciliacao: 'Conciliação',
+  utiliza_servico_juridico: 'Consultoria & Legal (Jurídico)', utiliza_conciliacao: 'Conciliação',
   pl_onshore: 'AUM Onshore', pl_offshore: 'AUM Offshore',
   custo_contabilidade_dedicado: 'Custo contab.', custo_pagamento_dedicado: 'Custo pgto.',
-  custo_administrativo_dedicado: 'Custo adm.',
+  custo_administrativo_dedicado: 'Custo adm.', custo_viagem_dedicado: 'Custo viagem',
 };
 
-const CAMPOS_MOEDA = new Set(['receita_fee', 'pl_onshore', 'pl_offshore', 'custo_contabilidade_dedicado', 'custo_pagamento_dedicado', 'custo_administrativo_dedicado']);
+const CAMPOS_MOEDA = new Set(['receita_fee', 'pl_onshore', 'pl_offshore', 'custo_contabilidade_dedicado', 'custo_pagamento_dedicado', 'custo_administrativo_dedicado', 'custo_viagem_dedicado']);
 const CAMPOS_PCT = new Set(['percentual_rebate_anual_onshore', 'percentual_rebate_anual_offshore', 'aliquota_impostos_rebate']);
 
 function fmtValorHistorico(campo: string, valor: unknown): string {
@@ -194,6 +194,7 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
     custo_contabilidade_dedicado: cliente.custo_contabilidade_dedicado ?? 0,
     custo_pagamento_dedicado: cliente.custo_pagamento_dedicado ?? 0,
     custo_administrativo_dedicado: cliente.custo_administrativo_dedicado ?? 0,
+    custo_viagem_dedicado: cliente.custo_viagem_dedicado ?? 0,
     data_entrada_mes: cliente.data_entrada ? Number(cliente.data_entrada.split('-')[1]) : 0,
     data_entrada_ano: cliente.data_entrada ? Number(cliente.data_entrada.split('-')[0]) : 0,
   }));
@@ -253,6 +254,7 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
       custo_contabilidade_dedicado: form.custo_contabilidade_dedicado,
       custo_pagamento_dedicado: form.custo_pagamento_dedicado,
       custo_administrativo_dedicado: form.custo_administrativo_dedicado,
+      custo_viagem_dedicado: form.custo_viagem_dedicado,
       data_entrada: form.data_entrada_ano > 0 && form.data_entrada_mes > 0
         ? `${form.data_entrada_ano}-${String(form.data_entrada_mes).padStart(2, '0')}`
         : undefined,
@@ -444,6 +446,7 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
               ['custo_contabilidade_dedicado', 'Custo contabilidade'],
               ['custo_pagamento_dedicado', 'Custo pagamento'],
               ['custo_administrativo_dedicado', 'Custo administrativo'],
+              ['custo_viagem_dedicado', 'Custo viagem'],
             ].map(([k, label]) => (
               <div key={k} className="space-y-1">
                 <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>{label}</label>
