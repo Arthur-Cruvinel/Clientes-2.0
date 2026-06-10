@@ -12,13 +12,14 @@
 // Layout: flex-col com corpo scrollável (formulário) + rodapé fixo (ações).
 
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
-import { Loader2, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, Share2, UserX, UserCheck } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import { calcularFolhaColaborador, buscarTetoPorPeriodo } from '../../utils/financials';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { buscarPeriodosDoColaborador } from '../../services/firebase';
 import { useAuth } from '../../state/AuthContext';
 import { useApp } from '../../state/AppContext';
+import { Modal } from '../../components/ui/Modal';
 import { FolhaCalculadosResumo } from './FolhaCalculadosResumo';
 import { Campo, SelectField } from './FolhaTabFields';
 import { HistoricoReajustes } from './HistoricoReajustes';
@@ -43,6 +44,15 @@ function somaBeneficios(va: number, vt: number, ps: number, ob: number): number 
   return (va || 0) + (vt || 0) + (ps || 0) + (ob || 0);
 }
 
+// Período por extenso para a confirmação de desligamento ("2026-04" → "Abril/2026").
+const MESES_LONGOS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+function formatarPeriodoLongo(p?: string): string {
+  if (!p) return '—';
+  const [a, m] = p.split('-').map(Number);
+  return (m >= 1 && m <= 12) ? `${MESES_LONGOS[m - 1]}/${a}` : p;
+}
+
 interface Props {
   modo: 'editar' | 'criar';
   inicial: Colaborador;
@@ -59,6 +69,9 @@ interface Props {
    *  fluxo "Salvar e avançar" orquestrado pelo modal pai. Retorna null se a
    *  validação falhar (o erro já é exibido aqui). */
   registrarMontarPayload?: (fn: () => Colaborador | null) => void;
+  /** Desligamento/reativação (modo editar). Grava ativo + data_demissao no doc
+   *  do período aberto, fora do dirty-check do form (ação explícita). */
+  onAlterarStatus?: (ativo: boolean, dataDemissao?: string) => Promise<void>;
 }
 
 /** Resolve teto/líquido vigentes para o período a partir do colaborador
@@ -188,7 +201,7 @@ const LABEL_FUNCAO_PRINCIPAL: Record<string, string> = {
 
 export function FolhaTab({
   modo, inicial, periodo, salvando, onSalvar, onCancelar, extraFooterLeft,
-  onDirtyChange, registrarMontarPayload,
+  onDirtyChange, registrarMontarPayload, onAlterarStatus,
 }: Props) {
   const { usuario } = useAuth();
   const { dadosPeriodo } = useApp();
@@ -203,6 +216,8 @@ export function FolhaTab({
   const [aplicarTodosAberto, setAplicarTodosAberto] = useState(false);
   const [periodosDisponiveis, setPeriodosDisponiveis] = useState<string[] | null>(null);
   const [carregandoPeriodos, setCarregandoPeriodos] = useState(false);
+  // Confirmação da ação de status (desligar/reativar) — modal nomeando o período.
+  const [confirmarStatus, setConfirmarStatus] = useState<'desligar' | 'reativar' | null>(null);
 
   const isCLT = form.tipo_vinculo === 'clt';
   const set = <K extends keyof FolhaForm>(k: K, v: FolhaForm[K]) => setForm(p => ({ ...p, [k]: v }));
@@ -414,6 +429,37 @@ export function FolhaTab({
           {resumoAberto ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
         {resumoAberto && <FolhaCalculadosResumo resultado={resultado} isCLT={isCLT} localidade={form.localidade} />}
+
+        {/* Status / Desligamento — só em editar. Ação explícita (fora do
+            dirty-check do form): grava ativo + data_demissao no doc do período
+            aberto. O demitido PERMANECE neste mês; "sumir" dos meses seguintes
+            é da propagação (Passo 4). */}
+        {modo === 'editar' && onAlterarStatus && (
+          <section className="space-y-2 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>
+            <h4 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Status / Desligamento</h4>
+            {inicial.ativo === false ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg p-3" style={{ backgroundColor: '#fee2e2' }}>
+                <span className="text-xs" style={{ color: '#991b1b' }}>
+                  Desligado em <strong>{formatarPeriodoLongo(inicial.data_demissao)}</strong>. Ainda consta no fechamento deste mês.
+                </span>
+                <button type="button" onClick={() => setConfirmarStatus('reativar')} disabled={salvando}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50 shrink-0"
+                  style={{ border: '1px solid #16a34a', color: '#16a34a' }}>
+                  <UserCheck size={12} /> Reativar
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3 rounded-lg p-3" style={{ backgroundColor: '#f9f9fb' }}>
+                <span className="text-xs" style={{ color: '#6b6b8a' }}>Colaborador ativo.</span>
+                <button type="button" onClick={() => setConfirmarStatus('desligar')} disabled={salvando}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50 shrink-0"
+                  style={{ border: '1px solid #fecaca', color: '#dc2626' }}>
+                  <UserX size={12} /> Desligar colaborador
+                </button>
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {erro && <p className="text-xs px-3 py-2 mt-2 rounded" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>{erro}</p>}
@@ -446,6 +492,52 @@ export function FolhaTab({
           periodosDisponiveis={periodosDisponiveis}
           onFechar={() => setAplicarTodosAberto(false)}
         />
+      )}
+
+      {/* Confirmação de desligamento — nomeia o período (não marcar no mês errado). */}
+      {confirmarStatus === 'desligar' && (
+        <Modal aberto onFechar={() => setConfirmarStatus(null)} titulo="Desligar colaborador" largura="md">
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: '#160F41' }}>
+              Desligar <strong>{inicial.nome_colaborador}</strong> em <strong>{formatarPeriodoLongo(periodo)}</strong>?
+            </p>
+            <p className="text-xs" style={{ color: '#6b6b8a' }}>
+              Ele <strong>permanece neste mês</strong> (custo real do fechamento); ao propagar, não será
+              levado aos meses seguintes. Reversível.
+            </p>
+            <div className="flex justify-end gap-3 pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
+              <button onClick={() => setConfirmarStatus(null)} disabled={salvando}
+                className="px-4 py-2 rounded-lg text-sm" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>Cancelar</button>
+              <button disabled={salvando}
+                onClick={async () => { await onAlterarStatus?.(false, periodo); setConfirmarStatus(null); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                style={{ backgroundColor: '#dc2626' }}>
+                {salvando && <Loader2 size={14} className="animate-spin" />} Confirmar desligamento
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Confirmação de reativação. */}
+      {confirmarStatus === 'reativar' && (
+        <Modal aberto onFechar={() => setConfirmarStatus(null)} titulo="Reativar colaborador" largura="md">
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: '#160F41' }}>
+              Reativar <strong>{inicial.nome_colaborador}</strong>? Limpa a data de desligamento
+              {' '}({formatarPeriodoLongo(inicial.data_demissao)}) e volta a ativo.
+            </p>
+            <div className="flex justify-end gap-3 pt-2 border-t" style={{ borderColor: '#e2e2e8' }}>
+              <button onClick={() => setConfirmarStatus(null)} disabled={salvando}
+                className="px-4 py-2 rounded-lg text-sm" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>Cancelar</button>
+              <button disabled={salvando}
+                onClick={async () => { await onAlterarStatus?.(true, undefined); setConfirmarStatus(null); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-50">
+                {salvando && <Loader2 size={14} className="animate-spin" />} Confirmar reativação
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

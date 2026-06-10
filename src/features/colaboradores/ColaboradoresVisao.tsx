@@ -245,6 +245,23 @@ export function ColaboradoresVisao() {
               // Persiste e navega para o destino (em vez de fechar).
               if (await persistirFolha(atualizado, antigo)) setModal({ tipo: 'editar', derivado: destino });
             }}
+            onAlterarStatus={async (ativo, dataDemissao) => {
+              // Desligar/reativar grava no doc do período aberto via salvarFolha
+              // (mesmo mecanismo: salvarColaboradorPeriodo + recarregar). Reativar
+              // remove data_demissao (setDoc full-replace omite a chave).
+              const base = modal.derivado.colaborador;
+              const atualizado: Colaborador = { ...base, ativo };
+              if (ativo) delete atualizado.data_demissao;
+              else atualizado.data_demissao = dataDemissao;
+              try {
+                await salvarFolha(atualizado);
+                flash(ativo ? 'Colaborador reativado.' : `Colaborador desligado em ${dataDemissao}.`);
+                // Reflete o novo status no modal sem fechar (key=id não remonta).
+                setModal({ tipo: 'editar', derivado: { ...modal.derivado, colaborador: atualizado } });
+              } catch (e) {
+                flash(`Erro: ${e instanceof Error ? e.message : 'falha ao alterar status'}`);
+              }
+            }}
             onExcluir={async (id, futuros) => {
               try {
                 const r = await excluirColaborador(id, futuros);

@@ -50,6 +50,11 @@ export function ColaboradorCard({ derivado, clientes, onAbrirModal, selecionado,
           <div className="flex items-center gap-1.5 truncate" style={{ color: '#160F41' }}>
             {expandido ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             <span className="font-medium truncate">{c.nome_colaborador}</span>
+            {/* Badge de status — puramente visual; não altera cálculo nem ordenação. */}
+            {c.ativo === false && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0"
+                style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>Desligado</span>
+            )}
           </div>
         </td>
         <td className={`${TD} truncate ${COLUNAS[1].classe ?? ''}`} style={{ color: '#6b6b8a' }}>{c.cargo}</td>

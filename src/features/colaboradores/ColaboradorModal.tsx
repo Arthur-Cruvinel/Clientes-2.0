@@ -36,6 +36,8 @@ interface PropsEditar extends PropsBase {
   // Persiste o payload e navega para o destino (fluxo "Salvar e avançar").
   // Separado de onSalvarFolha (que fecha o modal) — aqui o pai navega.
   onSalvarFolhaEAvancar?: (atualizado: Colaborador, destino: ColaboradorDerivado) => Promise<void>;
+  // Desligamento/reativação: grava ativo + data_demissao no doc do período.
+  onAlterarStatus?: (ativo: boolean, dataDemissao?: string) => Promise<void>;
 }
 
 interface PropsCriar extends PropsBase {
@@ -176,6 +178,7 @@ export function ColaboradorModal(props: Props) {
           salvando={props.salvando} onSalvar={handleSalvar} onCancelar={props.onFechar}
           onDirtyChange={setDirty}
           registrarMontarPayload={fn => { montarRef.current = fn; }}
+          onAlterarStatus={props.modo === 'editar' ? props.onAlterarStatus : undefined}
           extraFooterLeft={props.modo === 'editar' && isAdmin ? (
             <button onClick={() => setConfirmandoExclusao(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
