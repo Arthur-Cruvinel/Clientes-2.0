@@ -9,6 +9,7 @@ import type { Vinculo } from '../types/vinculo';
 import { ALIQUOTAS } from './constants';
 import {
   calcularCustoDireto, calcularCustosIndiretos, calcularFatoresEscopo,
+  calcularCustoInstitucional,
 } from './financials.custos';
 import { calcularReceita } from './financials.receita';
 
@@ -40,6 +41,11 @@ export function calcularDRE(
   // Vínculos do período (Fase 2.5 — Peça 5). Propagados para calcularCustoDireto
   // no fallback de chamadas isoladas. Default [] = comportamento legado.
   vinculos: Vinculo[] = [],
+  // Normalização de sobre-alocação (pré-passe do pipeline). Opcionais para
+  // retrocompat de chamadas isoladas: sem fatorNorm → sem normalização;
+  // sem poolNaoAlocado → cai no institucional puro (sem ociosidade).
+  fatorNorm: Record<string, number> = {},
+  poolNaoAlocado?: number,
 ): ResultadoCliente {
   const { receita_fee, receita_rebate, receita_bruta } = calcularReceita(cliente, poupanca);
   const perfil = definirPerfil(receita_fee, receita_rebate, cliente.pacote_servico);
@@ -49,7 +55,7 @@ export function calcularDRE(
   // Reaproveita o custo direto pré-calculado pelo pipeline; cai p/ cálculo
   // direto em chamadas isoladas (testes, simulador), preservando idempotência.
   const custo_direto = todosCustosDiretos[cliente.nome_cliente]
-    ?? calcularCustoDireto(cliente, colaboradores, vinculos);
+    ?? calcularCustoDireto(cliente, colaboradores, vinculos, fatorNorm);
 
   const custo_dedicado_contabilidade = cliente.custo_contabilidade_dedicado ?? 0;
   const custo_dedicado_pagamento = cliente.custo_pagamento_dedicado ?? 0;
@@ -58,9 +64,12 @@ export function calcularDRE(
     + custo_dedicado_pagamento
     + custo_dedicado_administrativo;
 
+  // Pool não-alocado pré-computado (institucional + ociosidade). Fallback p/
+  // chamadas isoladas: institucional puro (sem ociosidade — não há contexto).
+  const pool = poolNaoAlocado ?? calcularCustoInstitucional(colaboradores);
   const custo_indireto_rateado = calcularCustosIndiretos(
     cliente, custo_direto, todosClientes, todosCustosDiretos,
-    custosIndiretos, colaboradores,
+    custosIndiretos, pool,
   );
 
   const custo_total = custo_direto + custo_dedicado + custo_indireto_rateado;

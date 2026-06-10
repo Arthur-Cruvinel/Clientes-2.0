@@ -260,6 +260,13 @@ export function calcularCustoDireto(
   cliente: Cliente,
   colaboradores: Colaborador[],
   vinculos: Vinculo[] = [],
+  // Fator de normalização por colaborador (id_estavel → fator). Quando o
+  // colaborador está sobre-alocado (Σpct>alocavel), seu pct é escalado por
+  // alocavel/Σpct → distribui no máximo 100% do custo real. Ausência de mapa
+  // (ou colaborador fora dele) = fator 1 = SEM normalização — é o caso das
+  // chamadas ISOLADAS (simulador/what-if mono-cliente), que não têm o contexto
+  // cross-cliente da normalização. NÃO "consertar": é intencional.
+  fatorNormPorColab: Record<string, number> = {},
 ): number {
   // Só pure asset genuíno (sem serviço prestado) tem custo direto zero.
   // Clientes com fee isento por volume/cortesia (receita_fee = 0 mas pacote ≠ asset_only)
@@ -316,8 +323,10 @@ export function calcularCustoDireto(
     if (fonte === 'vinculo') usouVinculo = true;
     // pct já representa fração do tempo total do colaborador dedicada a este
     // cliente — não escalar por percentual_alocavel (que já está incorporado
-    // no pct via calcularPctDistribuido).
-    total += colab.custo_total_mensal * pct;
+    // no pct via calcularPctDistribuido). fatorNorm escala os pcts a pesos
+    // quando o colaborador está sobre-alocado (≤1; fallback 1 = sem mudança).
+    const fatorNorm = fatorNormPorColab[colab.id_estavel ?? ''] ?? 1;
+    total += colab.custo_total_mensal * pct * fatorNorm;
   }
   // Fator de sobrecarga é monitorado por colaborador (calcularFatorSobrecarga).
   if (total > 0) {
@@ -335,6 +344,45 @@ export function calcularCustoDireto(
     );
   }
   return total;
+}
+
+/** Σpct por colaborador (id_estavel → soma) com a MESMA atribuição que
+ *  calcularCustoDireto usa (resolverColaboradorParaFuncao: vínculo por
+ *  id_estavel, senão legado por nome). É a BASE CANÔNICA do fatorNorm e da
+ *  ociosidade — garante a invariante folha ≡ direto+institucional+ociosidade.
+ *
+ *  ⚠ NÃO usar ocupacaoConsolidada aqui: aquela conta por membership de NOME
+ *  (cliente[funcao]===nome), que diverge da atribuição do custo quando um
+ *  vínculo (id_estavel) aponta para colaborador diferente do nome no cliente
+ *  (caso institucional-com-vínculo). A base financeira é a do resolver. */
+export function somarPctPorColaborador(
+  clientes: Cliente[],
+  colaboradores: Colaborador[],
+  vinculos: Vinculo[],
+): Record<string, number> {
+  const normalize = (s: string): string =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const mapExato = new Map<string, Colaborador>();
+  const mapNorm = new Map<string, Colaborador>();
+  const mapPorIdEstavel = new Map<string, Colaborador>();
+  for (const c of colaboradores) {
+    mapExato.set(c.nome_colaborador, c);
+    mapNorm.set(normalize(c.nome_colaborador), c);
+    if (c.id_estavel) mapPorIdEstavel.set(c.id_estavel, c);
+  }
+  const soma: Record<string, number> = {};
+  for (const cliente of clientes) {
+    if (cliente.pacote_servico === 'asset_only') continue;  // mesmo gate do custo
+    for (const funcao of FUNCOES_ALOCACAO) {
+      const { colaborador: colab, pct } = resolverColaboradorParaFuncao(
+        cliente, funcao, vinculos, mapExato, mapNorm, mapPorIdEstavel, normalize,
+      );
+      if (!colab || pct <= 0) continue;
+      const key = colab.id_estavel ?? '';
+      soma[key] = (soma[key] ?? 0) + pct;
+    }
+  }
+  return soma;
 }
 
 
@@ -375,12 +423,14 @@ export function calcularCustosIndiretos(
   todosClientes: Cliente[],
   todosCustosDiretos: Record<string, number>,
   custosIndiretos: CustoIndireto[],
-  colaboradores: Colaborador[],
+  // Pool da folha NÃO distribuída ao cliente — institucional + ociosidade —
+  // pré-computado UMA vez pelo pipeline (calcularCustoInstitucional +
+  // calcularOciosidade). Entra no pool geral, mesma regra de rateio.
+  poolNaoAlocado: number,
 ): number {
-  // Pool geral = itens 'geral' + custo institucional. Rateio proporcional ao custo direto.
-  // Pure asset (custo direto = 0) é EXCLUÍDO do rateio.
-  const poolGeral = somarPorTipo(custosIndiretos, 'geral')
-    + calcularCustoInstitucional(colaboradores);
+  // Pool geral = itens 'geral' + (institucional + ociosidade). Rateio
+  // proporcional ao custo direto. Pure asset (custo direto = 0) é EXCLUÍDO.
+  const poolGeral = somarPorTipo(custosIndiretos, 'geral') + poolNaoAlocado;
 
   const somaCustoDireto = todosClientes.reduce(
     (s, c) => s + Math.max(0, todosCustosDiretos[c.nome_cliente] ?? 0), 0,

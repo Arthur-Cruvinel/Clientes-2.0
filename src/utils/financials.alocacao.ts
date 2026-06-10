@@ -53,6 +53,59 @@ export function ocupacaoConsolidada(
   return { total, porFuncao };
 }
 
+// ── Normalização de sobre-alocação + ociosidade (regra fechada com o CFO) ───
+// REGRA:
+//   • Σpct > percentual_alocavel → NORMALIZAR: fatorNorm = alocavel/Σpct. Os
+//     pcts viram PESOS RELATIVOS; o colaborador distribui EXATAMENTE 100% do
+//     custo real (alocavel×custo) entre os clientes. NUNCA mais — não pagamos
+//     hora extra.
+//   • Σpct < alocavel → OCIOSIDADE = (alocavel − Σpct) × custo → pool indireto
+//     geral (junto do institucional, mesma regra de rateio).
+//   • INVARIANTE: folha ≡ direto + institucional + ociosidade, sempre.
+// Só o FINANCEIRO normaliza: a sobrecarga continua VISÍVEL na ocupação/guardas
+// (ocupacaoConsolidada não é alterada) — informação operacional preservada.
+
+// IMPORTANTE: fatorNorm e ociosidade usam o Σpct da BASE FINANCEIRA
+// (somarPctPorColaborador, em financials.custos.ts — atribuição por id_estavel,
+// igual ao custo), NÃO ocupacaoConsolidada (membership por nome). As duas
+// divergem no caso institucional-com-vínculo; só a do resolver fecha a
+// invariante folha ≡ direto+institucional+ociosidade.
+
+/** Fator de normalização por colaborador (keyed por id_estavel). Σpct ≤ alocavel
+ *  → 1 (sem mudança). Σpct > alocavel → alocavel/Σpct (escala os pcts a pesos).
+ *  Colaborador 100% institucional (alocavel=0) com vínculos → fator 0 (zera o
+ *  direto; custo vai 100% institucional — corrige a dupla contagem).
+ *  `somaPctPorColab`: id_estavel → Σpct, de somarPctPorColaborador. */
+export function calcularFatorNormalizacao(
+  colaboradores: Colaborador[],
+  somaPctPorColab: Record<string, number>,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const c of colaboradores) {
+    if (!c.id_estavel) continue;
+    const palocavel = c.percentual_alocavel ?? 0;
+    const soma = somaPctPorColab[c.id_estavel] ?? 0;
+    out[c.id_estavel] = soma > palocavel ? palocavel / soma : 1;
+  }
+  return out;
+}
+
+/** Ociosidade de capacidade: Σ por colaborador de (alocavel − Σpct) × custo,
+ *  quando positivo. Vai para o pool indireto geral. Over-alocado (Σpct>alocavel)
+ *  → 0 (já normalizado). Não-alocável (alocavel=0) → 0 natural (max(0, −Σpct)). */
+export function calcularOciosidade(
+  colaboradores: Colaborador[],
+  somaPctPorColab: Record<string, number>,
+): number {
+  let total = 0;
+  for (const c of colaboradores) {
+    const palocavel = c.percentual_alocavel ?? 0;
+    const soma = (c.id_estavel ? somaPctPorColab[c.id_estavel] : 0) ?? 0;
+    total += Math.max(0, palocavel - soma) * (c.custo_total_mensal ?? 0);
+  }
+  return total;
+}
+
 function horasProdMesDe(colaborador: Colaborador): number {
   return HORAS_PRODUTIVAS_MES_POR_LOCALIDADE[colaborador.localidade ?? 'SP']
     ?? HORAS_PRODUTIVAS_MES_POR_LOCALIDADE.SP;

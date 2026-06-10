@@ -10,6 +10,7 @@ export {
   calcularFolhaColaborador,
   buscarTetoPorPeriodo,
   calcularCustoDireto,
+  somarPctPorColaborador,
   calcularFatoresEscopo,
   calcularCustoInstitucional,
   calcularCustosIndiretos,
@@ -29,6 +30,8 @@ export {
   horasProdutivasMes,
   pctEfetivo,
   ocupacaoConsolidada,
+  calcularFatorNormalizacao,
+  calcularOciosidade,
 } from './financials.alocacao';
 
 export {
