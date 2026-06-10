@@ -7,8 +7,51 @@
 // que seja sua origem.
 
 import type { Cliente, Colaborador, FuncaoAlocacao } from '../types';
-import { HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE } from './constants';
+import type { Vinculo } from '../types/vinculo';
+import { HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE, FUNCOES_ALOCACAO } from './constants';
 import { calcularHorasReais } from './financials.horasReais';
+
+// ── Dual-read de alocação (FONTE CANÔNICA) ──────────────────────────────────
+// pct efetivo de (colaborador, cliente, função): vínculo com pct>0 vence;
+// senão o legado cliente.pct_{funcao}. Mesma regra do pipeline
+// (resolverColaboradorParaFuncao) e de toda a UI vínculo-first.
+
+/** pct efetivo de um par (colaborador, cliente) numa função. */
+export function pctEfetivo(
+  colaborador: Pick<Colaborador, 'id_estavel'>,
+  cliente: Cliente,
+  funcao: FuncaoAlocacao,
+  vinculos: Vinculo[],
+): number {
+  const v = (colaborador.id_estavel && cliente.id_estavel)
+    ? vinculos.find(x => x.id_estavel_colaborador === colaborador.id_estavel
+        && x.id_estavel_cliente === cliente.id_estavel && x.funcao === funcao)
+    : undefined;
+  const legado = (cliente[`pct_${funcao}` as keyof Cliente] as number | undefined) ?? 0;
+  return (v && v.pct > 0) ? v.pct : legado;
+}
+
+/** Ocupação CONSOLIDADA do colaborador — Σ pctEfetivo nas 6 funções, sobre os
+ *  clientes que ele atende em cada uma (membership pelo campo cliente[funcao],
+ *  até a migração da lista — BACKLOG #9). Retorna o total (fração) e o detalhe
+ *  por função. Fonte única da guarda de sobre-alocação e da coluna Ocupação. */
+export function ocupacaoConsolidada(
+  colaborador: Colaborador,
+  clientes: Cliente[],
+  vinculos: Vinculo[],
+): { total: number; porFuncao: Record<string, number> } {
+  const porFuncao: Record<string, number> = {};
+  for (const f of FUNCOES_ALOCACAO) {
+    let soma = 0;
+    for (const cli of clientes) {
+      if ((cli[f] as string | undefined) !== colaborador.nome_colaborador) continue;
+      soma += pctEfetivo(colaborador, cli, f, vinculos);
+    }
+    if (soma > 0) porFuncao[f] = soma;
+  }
+  const total = Object.values(porFuncao).reduce((s, v) => s + v, 0);
+  return { total, porFuncao };
+}
 
 function horasProdMesDe(colaborador: Colaborador): number {
   return HORAS_PRODUTIVAS_MES_POR_LOCALIDADE[colaborador.localidade ?? 'SP']

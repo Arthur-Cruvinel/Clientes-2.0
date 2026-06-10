@@ -26,7 +26,7 @@ type ModalState =
 
 export function ColaboradoresVisao() {
   const {
-    derivados, totais, algumSobrecarga, periodo, clientes,
+    derivados, totais, algumSobrecarga, periodo, clientes, vinculos,
     ordenacao, setOrdenarPor,
     salvarFolha, criarColaborador, excluirColaborador, salvando,
     salvarBeneficiosEmLote,
@@ -201,7 +201,7 @@ export function ColaboradoresVisao() {
             )}
             {derivados.map(d => (
               <ColaboradorCard key={d.colaborador.id ?? d.colaborador.nome_colaborador}
-                derivado={d} clientes={clientes}
+                derivado={d} clientes={clientes} vinculos={vinculos}
                 onAbrirModal={() => setModal({ tipo: 'editar', derivado: d })}
                 selecionado={!!d.colaborador.id && selecionados.has(d.colaborador.id)}
                 onToggleSelecao={() => toggleUm(d.colaborador.id)} />

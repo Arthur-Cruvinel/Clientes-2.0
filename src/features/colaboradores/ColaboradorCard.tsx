@@ -4,19 +4,22 @@
 import { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
+import { pctEfetivo } from '../../utils/financials';
 import type { ColaboradorDerivado } from './useColaboradores';
 import type { Cliente } from '../../types';
+import type { Vinculo } from '../../types/vinculo';
 import { COR_VINCULO, COR_LOCALIDADE, COR_STATUS, corBarraOcupacao, COLUNAS } from './columns';
 
 interface Props {
   derivado: ColaboradorDerivado;
   clientes: Cliente[];
+  vinculos: Vinculo[];
   onAbrirModal: () => void;
   selecionado: boolean;
   onToggleSelecao: () => void;
 }
 
-export function ColaboradorCard({ derivado, clientes, onAbrirModal, selecionado, onToggleSelecao }: Props) {
+export function ColaboradorCard({ derivado, clientes, vinculos, onAbrirModal, selecionado, onToggleSelecao }: Props) {
   const [expandido, setExpandido] = useState(false);
   const { colaborador: c, custoTotalMensal, ocupacao, statusOcupacao, funcao, somaPctClientes } = derivado;
   // Narrowing temporário: 'estagio' mapeado para 'clt' visualmente
@@ -106,8 +109,8 @@ export function ColaboradorCard({ derivado, clientes, onAbrirModal, selecionado,
             ) : (
               <div className="grid grid-cols-3 gap-x-6 gap-y-1">
                 {atendidos.map(cli => {
-                  const pctKey = funcao ? (`pct_${funcao}` as keyof Cliente) : null;
-                  const pct = (pctKey ? (cli[pctKey] as number | undefined) : 0) ?? 0;
+                  // pct vínculo-first (helper único) — não mais o legado morto.
+                  const pct = funcao ? pctEfetivo(c, cli, funcao, vinculos) : 0;
                   return (
                     <div key={cli.nome_cliente} className="flex justify-between text-xs">
                       <span style={{ color: '#160F41' }}>{cli.nome_cliente}</span>

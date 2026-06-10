@@ -27,6 +27,8 @@ export {
   calcularFatorSobrecarga,
   somarHorasNormativas,
   horasProdutivasMes,
+  pctEfetivo,
+  ocupacaoConsolidada,
 } from './financials.alocacao';
 
 export {

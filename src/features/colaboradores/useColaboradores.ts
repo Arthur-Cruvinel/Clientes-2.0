@@ -9,9 +9,9 @@ import {
   deletarColaboradorPeriodosFuturos,
 } from '../../services/firebase';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
-import { calcularFolhaColaborador } from '../../utils/financials';
+import { calcularFolhaColaborador, ocupacaoConsolidada } from '../../utils/financials';
 import { slug } from '../../utils/slug';
-import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
+import type { Colaborador, FuncaoAlocacao } from '../../types';
 import { compararDerivados, type Ordenacao } from './ordenacao';
 
 export type StatusOcupacao = 'ok' | 'atencao' | 'sobrecarga';
@@ -58,6 +58,7 @@ export function useColaboradores() {
 
   const todosColaboradores = dadosPeriodo?.colaboradores ?? [];
   const clientes = dadosPeriodo?.clientes ?? [];
+  const vinculos = dadosPeriodo?.vinculos ?? [];
 
   // Linhas fantasma (sem nome/cargo/função) ficam fora dos cálculos e da UI.
   //
@@ -75,13 +76,11 @@ export function useColaboradores() {
   // custo_total_mensal/custo_hora vêm enriquecidos do AppContext (single source of truth).
   const derivados = useMemo<ColaboradorDerivado[]>(() => colaboradoresValidos.map(col => {
     const funcao = normalizarFuncao(col.funcao_principal);
-    let somaPctClientes = 0;
-    if (funcao) {
-      for (const c of clientes) {
-        if ((c[funcao] as string | undefined) !== col.nome_colaborador) continue;
-        somaPctClientes += (c[`pct_${funcao}` as keyof Cliente] as number | undefined) ?? 0;
-      }
-    }
+    // Ocupação vínculo-first CONSOLIDADA (6 funções) via helper único — mesma
+    // fonte/lógica da guarda de sobre-alocação. Substitui o legado mono-função
+    // que lia cliente.pct_* (dado morto). `somaPctClientes` agora é o total
+    // consolidado (todas as funções), não só a principal.
+    const { total: somaPctClientes } = ocupacaoConsolidada(col, clientes, vinculos);
     const ocupacao = col.percentual_alocavel > 0 ? somaPctClientes / col.percentual_alocavel : 0;
     return {
       colaborador: col,
@@ -91,7 +90,7 @@ export function useColaboradores() {
       custoDireto: col.custo_total_mensal * col.percentual_alocavel,
       somaPctClientes, ocupacao, statusOcupacao: statusDe(ocupacao), funcao,
     };
-  }), [colaboradoresValidos, clientes]);
+  }), [colaboradoresValidos, clientes, vinculos]);
 
   const derivadosOrdenados = useMemo<ColaboradorDerivado[]>(
     () => [...derivados].sort(compararDerivados(ordenacao)),
@@ -201,7 +200,7 @@ export function useColaboradores() {
 
   return {
     derivados: derivadosOrdenados, totais, algumSobrecarga,
-    periodo: periodoSelecionado, clientes,
+    periodo: periodoSelecionado, clientes, vinculos,
     ordenacao, setOrdenarPor,
     salvarFolha, criarColaborador, excluirColaborador, salvando,
     salvarBeneficiosEmLote,
