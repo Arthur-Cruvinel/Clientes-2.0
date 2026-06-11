@@ -43,7 +43,7 @@ export function exportAlocacaoExcel(
 
   const wb = XLSX.utils.book_new();
   const usados = new Set<string>();
-  const headers = ['Cliente', 'Pacote', 'PCT REF. (%)', 'Pct atual (%)', '% dedicação (%) — editável', 'Horas efet.', 'Fator'];
+  const headers = ['Cliente', 'Pacote', 'Pct pacote (%)', 'Pct atual (%)', '% dedicação (%) — editável', 'Horas efet.', 'Sobrecarga'];
 
   // Pares (colaborador × função) em ordem: nome ASC, depois função.
   const pares: { nome: string; funcao: FuncaoAlocacao }[] = [];

@@ -155,7 +155,7 @@ export function ColaboradorAlocacao({ derivado, clientes, periodo }: Props) {
                 <th className={`${TH} text-left`} style={{ color: '#6b6b8a' }}>Pacote</th>
                 <th className={`${TH} text-right`} style={{ color: '#6b6b8a' }}>% Dedicação</th>
                 <th className={`${TH} text-right`} style={{ color: '#6b6b8a' }}>Horas efet.</th>
-                <th className={`${TH} text-right`} style={{ color: '#6b6b8a' }}>Fator escopo</th>
+                <th className={`${TH} text-right`} style={{ color: '#6b6b8a' }} title="pct alocado ÷ pct normativo do pacote">Escopo</th>
               </tr>
             </thead>
             <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>

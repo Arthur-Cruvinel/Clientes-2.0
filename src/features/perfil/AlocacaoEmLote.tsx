@@ -73,8 +73,8 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
   const { porColaborador } = useCapacidade();
   const capDado = porColaborador.find(p => p.colaborador.nome_colaborador === nomeColabSelecionado) ?? null;
 
-  const Ord = ({ chave, titulo, align }: { chave: ChaveOrdAlocacao; titulo: string; align: 'left' | 'right' | 'center' }) =>
-    <HeaderOrdenavel titulo={titulo} chave={chave} alinhamento={align} ordenacao={ordenacao} onOrdenar={setOrdenarPor} />;
+  const Ord = ({ chave, titulo, align, tooltip }: { chave: ChaveOrdAlocacao; titulo: string; align: 'left' | 'right' | 'center'; tooltip?: string }) =>
+    <HeaderOrdenavel titulo={titulo} chave={chave} alinhamento={align} ordenacao={ordenacao} onOrdenar={setOrdenarPor} tooltip={tooltip} />;
   const handleSalvar = async () => {
     try {
       const n = await salvarTodos();
@@ -222,12 +222,12 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                 <tr style={{ color: '#6b6b8a' }}>
                   <th className={`${TH} text-left`}><Ord chave="nome_cliente" titulo="Cliente" align="left" /></th>
                   <th className={`${TH} text-left`}><Ord chave="pacote_servico" titulo="Pacote" align="left" /></th>
-                  <th className={`${TH} text-right`} title="Percentual normativo do pacote para esta função">Pct ref.</th>
+                  <th className={`${TH} text-right`} title="Percentual normativo do PACOTE para esta função (HORAS_PACOTE ÷ HORAS_CLT_MES)">Pct pacote</th>
                   <th className={`${TH} text-right`}><Ord chave="pct_atual" titulo="Pct atual" align="right" /></th>
                   <th className={`${TH} text-center`}>Origem</th>
-                  <th className={`${TH} text-right`}><Ord chave="novo_pct" titulo="% dedicação" align="right" /></th>
+                  <th className={`${TH} text-right`}><Ord chave="novo_pct" titulo="% dedicação" align="right" tooltip="O valor Auto é a SUGESTÃO por complexidade (horas reais quando o cliente tem perfil; senão pelo pacote). Editável." /></th>
                   <th className={`${TH} text-right`}><Ord chave="horas_efetivas" titulo="Horas efet." align="right" /></th>
-                  <th className={`${TH} text-center`}>Fator</th>
+                  <th className={`${TH} text-center`} title="Sobrecarga do colaborador: horas disponíveis ÷ Σ horas normativas (< 1 = sem capacidade)">Sobrecarga</th>
                   <th className={`${TH} text-center`}>Ações</th>
                 </tr>
               </thead>

@@ -221,7 +221,7 @@ function AlocacaoTab({ c, hp, vinculos }: { c: import('../../types').DadosClient
     <table className="min-w-full text-sm">
       <thead style={{ backgroundColor: '#f9f9fb' }}>
         <tr><th className={TH}>Função</th><th className={TH}>Responsável</th><th className={`${TH} text-right`}>H. Dir.</th>
-          <th className={`${TH} text-right`}>Fator</th><th className={`${TH} text-right`}>H. Efet.</th></tr>
+          <th className={`${TH} text-right`} title="pct alocado ÷ pct normativo do pacote">Escopo</th><th className={`${TH} text-right`}>H. Efet.</th></tr>
       </thead>
       <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
         {FUNCOES_ALOCACAO.map(f => {
