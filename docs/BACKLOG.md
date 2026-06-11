@@ -166,6 +166,19 @@ este mistura edição live, pode ficar parcial). **Ação:** trocar essas chamad
 inline pelo helper, uma de cada vez, com build entre cada (baixo risco, ganho de
 manutenção). **Gatilho:** quando houver janela; não-urgente (todas já corretas).
 
+### 14. Precificação — persistir propostas + decidir a base do custo do gerador
+**Persistir propostas:** o Gerador de Propostas (Precificação → aba Gerador) é
+EFÊMERO — nada é salvo. Persistir (ex.: `propostas/{id}`) para histórico/comparação.
+**Base do custo (decisão do CFO):** o gerador estima `custo_direto = Σ horas_reais
+× custo_hora MÉDIO da função` (taxa nominal, único caminho sem vínculos). A aba
+Reajustes usa o custo REALIZADO (`pct × custo do colaborador`). Validação cruzada
+2026-01 (HARIEL/ROGER) mostrou rebate idêntico ao centavo (encanamento OK) mas
+`custo_direto` divergindo ±40-196% por método (não é bug/base dupla — direções
+opostas). Decidir se a taxa nominal basta para proposta ou se deve usar a taxa
+EFETIVA (custo alocável ÷ horas reais da carteira do colaborador) — mais próxima
+do realizado, mas dependente da ocupação atual. **Gatilho:** revisão do modelo de
+proposta com o CFO.
+
 ### 13. Limpar campo inerte `aliquota_impostos_rebate` dos clientes
 A alíquota de rebate virou GLOBAL por perna (`parametros.aliquota_rebate_onshore/
 offshore`). O campo por cliente `aliquota_impostos_rebate` foi **aposentado**:
