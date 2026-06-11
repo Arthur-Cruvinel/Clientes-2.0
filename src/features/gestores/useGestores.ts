@@ -7,11 +7,26 @@
 //   custo_alocado    = Σ da linha consultoria_gestao do gestor em cada cliente
 //                      (linhas_mao_de_obra do pipeline = pct × custo_total ×
 //                      fatorNorm) — MESMA base do motor, já computada.
-//   margem_antes     = ebitda_carteira + custo_alocado (devolve o que o EBITDA
-//                      já descontou do gestor → evita dupla contagem).
-//   cobertura        = margem_antes / custo_total_mensal CHEIO do gestor
-//                      (inclui a parcela ociosa).
-//   se_paga          = cobertura ≥ 100%.
+//
+//   ── ARMADILHAS DE DUPLA CONTAGEM ──────────────────────────────────────────
+//   1ª ordem (custo DIRETO): o EBITDA já descontou o custo direto do gestor na
+//      carteira. Somá-lo de volta (custo_alocado) evita cobrar o gestor duas
+//      vezes — uma no EBITDA, outra no denominador.
+//   2ª ordem (auto-OCIOSIDADE rateada): a ociosidade do PRÓPRIO gestor entra no
+//      pool indireto geral e volta, via rateio, a descontar uma fatia do EBITDA
+//      da sua carteira → circularidade. Devolvemos só essa fatia:
+//        ociosidade_do_gestor = max(0, alocavel − Σpct) × custo_total
+//                               (MESMA fórmula/base de calcularOciosidade).
+//        fatia_devolvida = ociosidade_do_gestor × Σ(pct_rateio dos clientes da
+//                          carteira), pct_rateio = custo_direto_cli / Σ direto
+//                          (a MESMA proporção do rateio do pool geral no motor).
+//   NÃO se expurga a ociosidade dos OUTROS colaboradores rateada à carteira —
+//   é overhead legítimo que a carteira deve suportar; só a do próprio gestor é viés.
+//
+//   margem_antes = ebitda_carteira + custo_alocado + fatia_devolvida.
+//   cobertura    = margem_antes / custo_total_mensal CHEIO (denominador
+//                  INALTERADO — é o que a carteira precisa cobrir).
+//   se_paga      = cobertura ≥ 100%.
 //
 // Multi-gestor: em 2026-01 há 0 clientes com 2+ vínculos consultoria_gestao
 // pct>0 — cada cliente pertence a no máximo 1 carteira (sem dupla contagem).
@@ -22,6 +37,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../../state/AppContext';
 import { ocupacaoConsolidada } from '../../utils/financials.alocacao';
+import { somarPctPorColaborador } from '../../utils/financials.custos';
 
 const norm = (s: string) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
 
@@ -41,7 +57,8 @@ export interface GestorRow {
   ebitdaCarteira: number;
   custoAlocado: number;
   custoTotal: number;       // custo_total_mensal CHEIO do gestor
-  margemAntes: number;      // ebitda_carteira + custo_alocado
+  fatiaDevolvida: number;   // auto-ociosidade do gestor rateada de volta à carteira
+  margemAntes: number;      // ebitda_carteira + custo_alocado + fatia_devolvida
   cobertura: number;        // margem_antes / custo_total (1.0 = 100%)
   sePaga: boolean;
   ocupacao: number;         // ocupacaoConsolidada.total (resumo magro de capacidade)
@@ -65,6 +82,10 @@ export function useGestores() {
     const resByNome = new Map(resultados.map(r => [r.nome_cliente, r]));
     const cliById = new Map(clientes.filter(c => c.id_estavel).map(c => [c.id_estavel!, c]));
     const colabById = new Map(colaboradores.filter(c => c.id_estavel).map(c => [c.id_estavel!, c]));
+    // Base do rateio geral (mesma do motor) + Σpct por colaborador (resolver) para
+    // a auto-ociosidade. sumTotalDireto = denominador do pct_rateio do pool geral.
+    const somaPct = somarPctPorColaborador(clientes, colaboradores, vinculos);
+    const sumTotalDireto = resultados.reduce((s, r) => s + r.custo_direto, 0);
 
     // Vínculos de gestão ativos (pct>0) agrupados por gestor (id_estavel).
     const gestVinc = vinculos.filter(v => v.funcao === 'consultoria_gestao' && v.pct > 0);
@@ -80,7 +101,7 @@ export function useGestores() {
       const colab = colabById.get(gid);
       if (!colab) continue; // gestor sem cadastro (placeholder) — ignora
 
-      let receitaCarteira = 0, ebitdaCarteira = 0, custoAlocado = 0;
+      let receitaCarteira = 0, ebitdaCarteira = 0, custoAlocado = 0, carteiraDireto = 0;
       const carteira: ClienteCarteira[] = [];
       for (const v of vincs) {
         const cli = cliById.get(v.id_estavel_cliente);
@@ -96,15 +117,20 @@ export function useGestores() {
         receitaCarteira += r.receita_bruta;
         ebitdaCarteira += r.ebitda;
         custoAlocado += valor;
+        carteiraDireto += r.custo_direto;  // base do pct_rateio do pool geral
         carteira.push({ nome: cli.nome_cliente, pct: v.pct, receita: r.receita_bruta, ebitda: r.ebitda, custoAlocado: valor });
       }
 
       const custoTotal = colab.custo_total_mensal ?? 0;
-      const margemAntes = ebitdaCarteira + custoAlocado;
+      // 2ª ordem: devolve só a fatia da auto-ociosidade do gestor que o rateio
+      // geral cobrou de volta da própria carteira (custo_direto_carteira ÷ Σ direto).
+      const ociosidadeGestor = Math.max(0, (colab.percentual_alocavel ?? 0) - (somaPct[gid] ?? 0)) * custoTotal;
+      const fatiaDevolvida = sumTotalDireto > 0 ? ociosidadeGestor * (carteiraDireto / sumTotalDireto) : 0;
+      const margemAntes = ebitdaCarteira + custoAlocado + fatiaDevolvida;
       const cobertura = custoTotal > 0 ? margemAntes / custoTotal : 0;
       rows.push({
         id_estavel: gid, nome: colab.nome_colaborador, nClientes: carteira.length,
-        receitaCarteira, ebitdaCarteira, custoAlocado, custoTotal, margemAntes, cobertura,
+        receitaCarteira, ebitdaCarteira, custoAlocado, custoTotal, fatiaDevolvida, margemAntes, cobertura,
         sePaga: cobertura >= 1,
         ocupacao: ocupacaoConsolidada(colab, clientes, vinculos).total,
         carteira: carteira.sort((a, b) => b.ebitda - a.ebitda),

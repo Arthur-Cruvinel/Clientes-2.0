@@ -86,7 +86,8 @@ export function Gestores() {
           <div className="space-y-3">
             <p className="text-sm" style={{ color: '#6b6b8a' }}>
               Cobertura <strong style={{ color: sel.sePaga ? '#166534' : '#991b1b' }}>{formatPercent(sel.cobertura * 100)}</strong>
-              {' '}· margem antes do gestor {formatCurrency(sel.margemAntes)} ÷ custo total {formatCurrency(sel.custoTotal)}.
+              {' '}· margem antes {formatCurrency(sel.margemAntes)} = EBITDA {formatCurrency(sel.ebitdaCarteira)} + custo alocado {formatCurrency(sel.custoAlocado)}
+              {' '}+ auto-ociosidade devolvida {formatCurrency(sel.fatiaDevolvida)} · ÷ custo total {formatCurrency(sel.custoTotal)}.
             </p>
             <table className="min-w-full text-sm">
               <thead style={{ backgroundColor: '#f9f9fb' }}>
