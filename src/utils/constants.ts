@@ -233,6 +233,10 @@ export const TETO_SALARIAL_PAGAMENTO_MESES = [2, 8] as const; // Fev e Ago
 export const ALIQUOTA_REBATE_ONSHORE_DEFAULT = 0.1653;   // 16,53%
 export const ALIQUOTA_REBATE_OFFSHORE_DEFAULT = 0.21;    // 21,00%
 
+// Margem EBITDA alvo sobre a receita total — base do fee sugerido na Precificação.
+// Placeholder; o CFO ajusta na tela de Precificação. Editável (parametros/global).
+export const MARGEM_ALVO_DEFAULT = 0.25;                 // 25%
+
 // ── PARÂMETROS GLOBAIS DEFAULT ─────────────────────────────────────────
 export const PARAMETROS_DEFAULT: Parametros = {
   custo_juridico_mensal: 0,
@@ -241,6 +245,7 @@ export const PARAMETROS_DEFAULT: Parametros = {
   taxa_rebate_offshore: 0.006,
   aliquota_rebate_onshore: ALIQUOTA_REBATE_ONSHORE_DEFAULT,
   aliquota_rebate_offshore: ALIQUOTA_REBATE_OFFSHORE_DEFAULT,
+  margem_alvo: MARGEM_ALVO_DEFAULT,
   split_plataforma: 0.5,
   horas_pacote: HORAS_PACOTE as Record<PacoteServico, Record<FuncaoAlocacao, number>>,
 };

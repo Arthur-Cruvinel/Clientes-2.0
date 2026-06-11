@@ -441,6 +441,8 @@ export interface Parametros {
   // Retenção na origem do rebate por perna (globais). Não é IRPJ/CSLL.
   aliquota_rebate_onshore: number;
   aliquota_rebate_offshore: number;
+  // Margem EBITDA alvo sobre a receita total — base do fee sugerido (Precificação).
+  margem_alvo: number;
   split_plataforma: number;
   horas_pacote: Record<PacoteServico, Record<FuncaoAlocacao, number>>;
 }
