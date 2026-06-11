@@ -166,6 +166,13 @@ este mistura edição live, pode ficar parcial). **Ação:** trocar essas chamad
 inline pelo helper, uma de cada vez, com build entre cada (baixo risco, ganho de
 manutenção). **Gatilho:** quando houver janela; não-urgente (todas já corretas).
 
+### 12. Persistir preferência de colunas da Visão Geral
+O toggle de ocultar/exibir colunas (engrenagem "Colunas") guarda o estado em
+React state em memória — **não persiste entre sessões** (padrão do projeto: sem
+localStorage). Se o CFO quiser que a escolha de colunas sobreviva a reload/troca
+de período, persistir a preferência (ex.: `config/preferencias_ui` no Firestore,
+por usuário, ou localStorage se a política mudar). **Gatilho:** só se o CFO pedir.
+
 ---
 
 ## Resolvidos

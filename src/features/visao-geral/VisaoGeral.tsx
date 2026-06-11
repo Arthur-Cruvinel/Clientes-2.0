@@ -2,7 +2,7 @@
 // DRE consolidado: KPIs globais + tabela com filtros/ordenação + modais de custo.
 
 import { useMemo, useState, useCallback } from 'react';
-import { Lock, Unlock, ShieldCheck, Copy, Loader2, Trophy } from 'lucide-react';
+import { Lock, Unlock, ShieldCheck, Copy, Loader2, Trophy, SlidersHorizontal } from 'lucide-react';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
 import { formatPeriodo, formatCurrency, formatPercent } from '../../utils/formatters';
@@ -173,6 +173,20 @@ export function VisaoGeral() {
     [abrirCustoDireto, abrirCustoDedicado, abrirCustoIndireto, abrirImpostos, visaoFinanceira],
   );
 
+  // Visibilidade de colunas — estado em memória (sem localStorage, padrão do
+  // projeto). Default: tudo visível. Não persiste entre sessões nesta versão.
+  const [colunasOcultas, setColunasOcultas] = useState<Set<string>>(new Set());
+  const [menuColunas, setMenuColunas] = useState(false);
+  const colunasVisiveis = useMemo(
+    () => colunas.filter(c => !colunasOcultas.has(c.chave)),
+    [colunas, colunasOcultas],
+  );
+  const toggleColuna = (chave: string) => setColunasOcultas(prev => {
+    const n = new Set(prev);
+    if (n.has(chave)) n.delete(chave); else n.add(chave);
+    return n;
+  });
+
   // Valores únicos por coluna (para os dropdowns de filtro)
   const valoresUnicos = useMemo(() => {
     const mapa = new Map<string, string[]>();
@@ -296,6 +310,32 @@ export function VisaoGeral() {
             </button>
           )}
           {clientes.length > 0 && (
+            <div className="relative">
+              <button onClick={() => setMenuColunas(v => !v)}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100"
+                style={{ color: '#6b6b8a', border: '1px solid #e2e2e8' }}>
+                <SlidersHorizontal size={14} /> Colunas
+              </button>
+              {menuColunas && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuColunas(false)} />
+                  <div className="absolute right-0 mt-1 z-20 bg-white border rounded-lg shadow-lg p-1.5 max-h-80 overflow-auto"
+                    style={{ borderColor: '#e2e2e8', minWidth: 190 }}>
+                    {colunas.map(col => (
+                      <label key={col.chave}
+                        className="flex items-center gap-2 px-2 py-1 text-sm cursor-pointer rounded hover:bg-gray-50"
+                        style={{ color: '#160F41' }}>
+                        <input type="checkbox" checked={!colunasOcultas.has(col.chave)}
+                          onChange={() => toggleColuna(col.chave)} />
+                        <span>{col.titulo}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {clientes.length > 0 && (
             <ExportButton
               onExportExcel={() => exportVisaoGeralExcel(clientes, periodoLabel, regimeLabel)}
               onExportPdf={() => exportVisaoGeralPdf(clientes, periodoLabel, regimeLabel)}
@@ -341,7 +381,7 @@ export function VisaoGeral() {
           )}
         </div>
       ) : (
-        <TabelaClientes clientes={clientesFiltradosOrdenados} colunas={colunas}
+        <TabelaClientes clientes={clientesFiltradosOrdenados} colunas={colunasVisiveis}
           colunaOrdenada={colunaOrdenada} onOrdenar={handleOrdenar} visaoFinanceira={visaoFinanceira}
           valoresUnicos={valoresUnicos} filtros={filtros} onFiltroChange={handleFiltroChange}
           periodoFechado={periodoFechado} />
