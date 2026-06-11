@@ -485,8 +485,10 @@ export interface DadosCliente extends Cliente {
 
   // Resultado
   margem_contribuicao: number;  // Receita - Impostos - CustoDireto - CustoDedicado
-  ebitda: number;               // MargemContribuicao - CustoIndireto
-  margem: number;
+  ebitda: number;               // Receita - impostos_faturamento - custo_total (SEM IRPJ/CSLL)
+  margem: number;               // margem_ebitda
+  lucro_liquido: number;        // EBITDA - impostos_lucro (IRPJ/CSLL)
+  margem_liquida: number;       // lucro_liquido / receita_bruta
 
   // Classificação
   classificacao: ClassificacaoCliente;

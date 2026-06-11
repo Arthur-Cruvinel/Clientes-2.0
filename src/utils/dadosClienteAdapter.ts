@@ -46,6 +46,8 @@ export function mesclarClienteResultado(
       : 0,
     ebitda: resultado?.ebitda ?? 0,
     margem: resultado?.margem_ebitda ?? 0,
+    lucro_liquido: resultado?.lucro_liquido ?? 0,
+    margem_liquida: resultado?.margem_liquida ?? 0,
     classificacao: resultado ? PERFIL_PARA_CLASSIFICACAO[resultado.perfil] : 'Pure Asset',
     horas_totais: 0,
     // Detalhamento: mão de obra = custo direto agregado; jurídico/conciliação
