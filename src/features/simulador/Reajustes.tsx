@@ -26,10 +26,19 @@ function badgeView(r: ReajusteRow) {
   }
 }
 
+function atendView(r: ReajusteRow) {
+  if (r.atendimento == null) return <span style={{ color: '#d1d5db' }}>—</span>;
+  const d = r.deltaAtendimento ?? 0;
+  const txt = `${d >= 0 ? '+' : ''}${d.toFixed(0)}h`;
+  if (r.atendimento === 'subatendido') return <Badge variante="alerta">Subatendido {txt}</Badge>;
+  if (r.atendimento === 'sobreatendido') return <Badge variante="roxo">Sobreatendido {txt}</Badge>;
+  return <Badge variante="sucesso">Alinhado {txt}</Badge>;
+}
+
 export function Reajustes() {
   const { parametros, setParametros } = useApp();
   const [materialidade, setMaterialidade] = useState(10); // % editável
-  const { rows, dinheiroNaMesa, margemAlvo, aliqImpFat, denomInvalido, periodoSelecionado, loading } = useReajustes(materialidade / 100);
+  const { rows, dinheiroNaMesa, nSubatendidos, nSobreatendidos, margemAlvo, aliqImpFat, denomInvalido, periodoSelecionado, loading } = useReajustes(materialidade / 100);
   const [sel, setSel] = useState<ReajusteRow | null>(null);
   const [margemInput, setMargemInput] = useState(margemAlvo * 100);
   const [salvando, setSalvando] = useState(false);
@@ -95,6 +104,8 @@ export function Reajustes() {
                   <th className={`${TH} text-right`}>Fee sugerido</th>
                   <th className={`${TH} text-right`}>Gap</th>
                   <th className={`${TH} text-center`}>Status</th>
+                  <th className={`${TH} text-center`} title="Horas alocadas (realizado) vs horas de demanda (perfil). Diagnóstico de staffing — não muda o custo.">Atend.</th>
+                  <th className={`${TH} text-right`} title="Fee hipotético SE a mão de obra fosse refeita conforme a demanda (horas demanda × custo/h médio). Cenário, não ação.">Fee cenário</th>
                 </tr>
               </thead>
               <tbody>
@@ -116,6 +127,10 @@ export function Reajustes() {
                         {formatCurrency(r.gap)}{r.gapPct != null && <span className="text-[10px]"> ({formatPercent(r.gapPct * 100)})</span>}
                       </td>
                       <td className={`${TD} text-center`}>{badgeView(r)}</td>
+                      <td className={`${TD} text-center`}>{atendView(r)}</td>
+                      <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>
+                        {r.atendimento === 'subatendido' && r.feeCenario != null ? formatCurrency(r.feeCenario) : '—'}
+                      </td>
                     </tr>
                   );
                 })}
@@ -124,7 +139,7 @@ export function Reajustes() {
           </div>
           <p className="text-sm font-medium" style={{ color: '#991b1b' }}>
             💰 Dinheiro na mesa (Σ gap dos subprecificados): {formatCurrency(dinheiroNaMesa)}
-            <span className="text-xs font-normal" style={{ color: '#6b6b8a' }}> · {visiveis.length} de {rows.length} clientes acima da materialidade · período {periodoSelecionado}</span>
+            <span className="text-xs font-normal" style={{ color: '#6b6b8a' }}> · {visiveis.length} de {rows.length} acima da materialidade · staffing: {nSubatendidos} subatendidos / {nSobreatendidos} sobreatendidos · período {periodoSelecionado}</span>
           </p>
         </>
       )}
@@ -132,6 +147,7 @@ export function Reajustes() {
       {sel && (
         <Modal aberto onFechar={() => setSel(null)} titulo={`Reajuste — ${sel.nome}`} largura="lg">
           <div className="space-y-2 text-sm" style={{ color: '#160F41' }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Eixo 1 — Preço (base realizada)</p>
             <Linha label="Custo total servido" valor={formatCurrency(sel.custoTotal)} />
             <Linha label={`÷ (1 − imp.fat ${formatPercent(aliqImpFat * 100)} − margem ${formatPercent(margemAlvo * 100)})`} valor="" />
             <Linha label="= Receita necessária" valor={formatCurrency(sel.receitaNecessaria)} forte />
@@ -141,6 +157,36 @@ export function Reajustes() {
               <Linha label="Fee atual" valor={formatCurrency(sel.feeAtual)} />
               <Linha label="Gap (sugerido − atual)" valor={`${formatCurrency(sel.gap)}${sel.gapPct != null ? ` (${formatPercent(sel.gapPct * 100)})` : ''}`}
                 cor={sel.gap > 0 ? '#991b1b' : '#166534'} forte />
+            </div>
+
+            {/* Eixo 2 — Staffing (diagnóstico; NÃO é custo). */}
+            <div className="border-t pt-3 mt-3" style={{ borderColor: '#e2e2e8' }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#6b6b8a' }}>Eixo 2 — Staffing (horas: alocadas vs demanda)</p>
+              {sel.horasDemanda == null ? (
+                <p className="text-xs" style={{ color: '#9ca3af' }}>Sem perfil de complexidade — diagnóstico de demanda indisponível.</p>
+              ) : (
+                <>
+                  <table className="min-w-full text-xs">
+                    <thead style={{ color: '#6b6b8a' }}>
+                      <tr><th className="text-left py-1">Função</th><th className="text-right py-1">Alocadas</th><th className="text-right py-1">Demanda</th><th className="text-right py-1">Δ</th></tr>
+                    </thead>
+                    <tbody>
+                      {sel.staffing.map(s => (
+                        <tr key={s.funcao}>
+                          <td className="py-1">{s.funcao}</td>
+                          <td className="text-right py-1" style={{ color: '#6b6b8a' }}>{s.alocada.toFixed(1)}h</td>
+                          <td className="text-right py-1" style={{ color: '#6b6b8a' }}>{s.demanda.toFixed(1)}h</td>
+                          <td className="text-right py-1" style={{ color: (s.alocada - s.demanda) < 0 ? '#991b1b' : '#166534' }}>{(s.alocada - s.demanda) >= 0 ? '+' : ''}{(s.alocada - s.demanda).toFixed(1)}h</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <Linha label="Total alocadas vs demanda" valor={`${sel.horasAlocadas.toFixed(1)}h vs ${sel.horasDemanda.toFixed(1)}h (Δ ${(sel.deltaAtendimento ?? 0).toFixed(1)}h)`} forte />
+                  {sel.atendimento === 'subatendido' && sel.feeCenario != null && (
+                    <Linha label="Fee CENÁRIO (se realocado p/ demanda)" valor={`${formatCurrency(sel.feeCenario)} — hipótese, não ação`} cor="#92400e" forte />
+                  )}
+                </>
+              )}
             </div>
           </div>
         </Modal>

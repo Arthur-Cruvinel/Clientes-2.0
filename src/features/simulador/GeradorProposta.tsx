@@ -13,11 +13,8 @@
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../../state/AppContext';
-import {
-  somarPctPorColaborador, calcularCustoInstitucional,
-} from '../../utils/financials.custos';
-import { calcularOciosidade } from '../../utils/financials.alocacao';
 import { calcularHorasReais } from '../../utils/financials';
+import { custoHoraMedioPorFuncao, overheadRatioPeriodo, custoDiretoDemanda } from './precificacaoBase';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import type { Cliente, FuncaoAlocacao, PacoteServico, RegimeTributario } from '../../types';
@@ -66,18 +63,9 @@ export function GeradorProposta() {
     if (!dadosPeriodo) return null;
     const { colaboradores, custosIndiretos, resultados, clientes, vinculos } = dadosPeriodo;
 
-    // custo_hora MÉDIO por função (ponderado por percentual_alocavel).
-    const custoHoraMedio = (f: FuncaoAlocacao): number => {
-      const aloc = colaboradores.filter(c => c.alocavel && c.funcao_principal === f && (c.percentual_alocavel ?? 0) > 0);
-      const peso = aloc.reduce((s, c) => s + (c.percentual_alocavel ?? 0), 0);
-      return peso > 0 ? aloc.reduce((s, c) => s + (c.custo_hora ?? 0) * (c.percentual_alocavel ?? 0), 0) / peso : 0;
-    };
-    // proporção de overhead = pool geral ÷ Σ custo direto do período (rateio real).
-    const somaPct = somarPctPorColaborador(clientes, colaboradores, vinculos);
-    const poolGeral = custosIndiretos.filter(c => c.tipo_custo === 'geral').reduce((s, c) => s + c.valor_mensal, 0)
-      + calcularCustoInstitucional(colaboradores) + calcularOciosidade(colaboradores, somaPct);
-    const sumDireto = resultados.reduce((s, r) => s + r.custo_direto, 0);
-    const overheadRatio = sumDireto > 0 ? poolGeral / sumDireto : 0;
+    // Mesma base do diagnóstico da Parte 1 (motor único — precificacaoBase).
+    const custoHoraMedio = custoHoraMedioPorFuncao(colaboradores);
+    const overheadRatio = overheadRatioPeriodo(colaboradores, custosIndiretos, clientes, vinculos, resultados);
 
     const cliente: Cliente = {
       nome_cliente: 'Proposta', pacote_servico: pacote, receita_fee: 0,
@@ -94,10 +82,10 @@ export function GeradorProposta() {
 
     const horas = calcularHorasReais(cliente, cliente.perfil_complexidade!);
     const porFuncao = FUNCOES_ALOCACAO.map(f => {
-      const h = horas.por_funcao[f] ?? 0; const ch = custoHoraMedio(f);
+      const h = horas.por_funcao[f] ?? 0; const ch = custoHoraMedio[f] ?? 0;
       return { f, horas: h, custoHora: ch, custo: h * ch };
     });
-    const custoDireto = porFuncao.reduce((s, x) => s + x.custo, 0);
+    const custoDireto = custoDiretoDemanda(horas.por_funcao, custoHoraMedio);
     const dedicados = dContab + dPgto + dAdm + dViagem;
     const overhead = custoDireto * overheadRatio;
     const custoTotal = custoDireto + dedicados + overhead;
