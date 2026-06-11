@@ -11,7 +11,7 @@ import {
   calcularCustoDireto, calcularCustosIndiretos, calcularFatoresEscopo,
   calcularCustoInstitucional, detalharMaoDeObra,
 } from './financials.custos';
-import { calcularReceita } from './financials.receita';
+import { calcularReceita, type AliquotasRebate } from './financials.receita';
 
 /** asset_only é o gate definitivo de pure asset (cliente sem serviço prestado).
  *  fee_isento: cliente que usa estrutura mas teve fee descontado (cortesia/volume).
@@ -46,8 +46,11 @@ export function calcularDRE(
   // sem poolNaoAlocado → cai no institucional puro (sem ociosidade).
   fatorNorm: Record<string, number> = {},
   poolNaoAlocado?: number,
+  // Alíquotas globais de retenção do rebate por perna (parametros/global).
+  // Sem isto, calcularReceita cai nos defaults constantes (nunca 0).
+  aliquotasRebate?: AliquotasRebate,
 ): ResultadoCliente {
-  const { receita_fee, receita_rebate, receita_bruta } = calcularReceita(cliente, poupanca);
+  const { receita_fee, receita_rebate, receita_bruta } = calcularReceita(cliente, poupanca, aliquotasRebate);
   const perfil = definirPerfil(receita_fee, receita_rebate, cliente.pacote_servico);
 
   const impostos_faturamento = receita_bruta * ALIQUOTAS[regime].faturamento;

@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import type { RegistroPoupanca, Cliente } from '../../types';
+import { useApp } from '../../state/AppContext';
 import { nnmPoupancaLiquida, nnmReal, nnmRealOnshore, nnmRealOffshore } from '../../utils/financials';
 import { calcOffshore, pickR } from './DetalheTabela';
 import { buscarAumLegado, invalidarCacheAumLegado } from '../../services/aumLegado';
@@ -241,6 +242,9 @@ export function usePoupanca(
   mesFim: number, anoFim: number,
   clientes?: Cliente[],
 ) {
+  // Alíquotas globais de retenção do rebate (parametros/global) — usadas no
+  // "rebate em risco". Não há mais campo por cliente.
+  const { parametros } = useApp();
   const [todosRegistros, setTodosRegistros] = useState<RegistroPoupanca[]>([]);
   const [loading, setLoading] = useState(false);
   const [metaNNM, setMetaNNMState] = useState<number | null>(null);
@@ -858,7 +862,11 @@ export function usePoupanca(
         const on = c?.percentual_rebate_anual_onshore ?? 0;
         const off = c?.percentual_rebate_anual_offshore ?? null;
         const taxaReb = off != null ? (on + off) / 2 : on;
-        const aliq = c?.aliquota_impostos_rebate ?? 0;
+        // Projeção CONSOLIDADA (PL único, taxa média) → alíquota média das duas
+        // pernas globais quando há offshore; senão a onshore. Espelha taxaReb.
+        const aliq = off != null
+          ? (parametros.aliquota_rebate_onshore + parametros.aliquota_rebate_offshore) / 2
+          : parametros.aliquota_rebate_onshore;
         const rebate_em_risco = (em_burn && c)
           ? pl_projetado_por_mes.reduce(
             (acc, m) => acc + m.pl * taxaReb / 12 * (1 - aliq) * 0.5, 0)

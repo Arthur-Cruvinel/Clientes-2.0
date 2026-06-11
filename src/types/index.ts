@@ -434,6 +434,9 @@ export interface Parametros {
   custo_conciliacao_mensal: number;
   taxa_rebate_onshore: number;
   taxa_rebate_offshore: number;
+  // Retenção na origem do rebate por perna (globais). Não é IRPJ/CSLL.
+  aliquota_rebate_onshore: number;
+  aliquota_rebate_offshore: number;
   split_plataforma: number;
   horas_pacote: Record<PacoteServico, Record<FuncaoAlocacao, number>>;
 }

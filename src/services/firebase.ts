@@ -7,7 +7,7 @@ import { getAuth } from 'firebase/auth';
 import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO, CATEGORIAS_CUSTO_INDIRETO } from '../utils/constants';
-import { PARAMETROS_DEFAULT } from '../utils/constants';
+import { PARAMETROS_DEFAULT, ALIQUOTA_REBATE_ONSHORE_DEFAULT, ALIQUOTA_REBATE_OFFSHORE_DEFAULT } from '../utils/constants';
 import { buscarTetoPorPeriodo, calcularFolhaColaborador } from '../utils/financials.custos';
 import { slug } from '../utils/slug';
 
@@ -1276,6 +1276,26 @@ export async function resolverDocIdClientePorIdEstavel(
 // ============================================================
 // Parâmetros globais
 // ============================================================
+
+/** Seed idempotente das alíquotas de rebate por perna em parametros/global.
+ *  Só grava as pernas AUSENTES — nunca sobrescreve valores já editados pelo
+ *  admin. Chamado uma vez no boot do AppContext (fire-and-forget). */
+export async function semearAliquotasRebate(): Promise<void> {
+  try {
+    const ref = doc(db, 'parametros', 'global');
+    const snap = await getDoc(ref);
+    const data = (snap.exists() ? snap.data() : {}) as Record<string, unknown>;
+    const patch: Record<string, number> = {};
+    if (data.aliquota_rebate_onshore == null) patch.aliquota_rebate_onshore = ALIQUOTA_REBATE_ONSHORE_DEFAULT;
+    if (data.aliquota_rebate_offshore == null) patch.aliquota_rebate_offshore = ALIQUOTA_REBATE_OFFSHORE_DEFAULT;
+    if (Object.keys(patch).length > 0) {
+      await setDoc(ref, patch, { merge: true });
+      console.log('[Firebase] Alíquotas de rebate semeadas (ausentes):', patch);
+    }
+  } catch (error) {
+    console.error('[Firebase] Erro ao semear alíquotas de rebate:', error);
+  }
+}
 
 export async function buscarParametros(): Promise<Parametros> {
   try {

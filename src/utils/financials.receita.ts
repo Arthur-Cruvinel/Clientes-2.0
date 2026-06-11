@@ -4,13 +4,24 @@
 //   O cadastro do cliente NÃO armazena PL — vem do RegistroPoupanca do período.
 //   Sem RegistroPoupanca → receita_rebate = 0 (não cair em PL do cadastro).
 //
-// Fórmula:
-//   rebate_bruto    = (PL_on × taxa_on / 12) + (PL_off × taxa_off / 12)
-//   rebate_liquido  = rebate_bruto × (1 - aliquota_impostos_rebate)
-//   receita_rebate  = rebate_liquido × split_plataforma  (Galácticos retém 50%)
+// SEMÂNTICA da alíquota de rebate (por perna, GLOBAL):
+//   Modela a RETENÇÃO NA ORIGEM do rebate — o rebate chega à plataforma já
+//   DESCONTADO. A plataforma projeta o LÍQUIDO A RECEBER. NÃO é imposto devido
+//   pela empresa e NÃO tem relação com IRPJ/CSLL (impostos_lucro), que é outra
+//   camada e fica intocada. As alíquotas são globais (Configurações → Rebate),
+//   não por cliente.
+//
+// Fórmula (por perna, depois soma e aplica o split):
+//   rebate_liq_on  = PL_on  × taxa_on  / 12 × (1 − aliq_on)
+//   rebate_liq_off = PL_off × taxa_off / 12 × (1 − aliq_off)
+//   receita_rebate = (rebate_liq_on + rebate_liq_off) × split_plataforma
+// Sem caso especial para Pure Asset: sem PL numa perna, aquela perna é 0 por
+// construção.
 
 import type { Cliente, RegistroPoupanca } from '../types';
-import { REBATE_DEFAULT } from './constants';
+import {
+  REBATE_DEFAULT, ALIQUOTA_REBATE_ONSHORE_DEFAULT, ALIQUOTA_REBATE_OFFSHORE_DEFAULT,
+} from './constants';
 
 export interface ResultadoReceita {
   receita_fee: number;
@@ -18,9 +29,28 @@ export interface ResultadoReceita {
   receita_bruta: number;
 }
 
+/** Alíquotas globais de retenção do rebate por perna. */
+export interface AliquotasRebate {
+  onshore: number;
+  offshore: number;
+}
+
+/** Fallback defensivo: alíquota ausente/NaN cai no default constante (NUNCA 0,
+ *  que infla a receita silenciosamente) e LOGA qual perna fez fallback. */
+function aliqDefensiva(valor: number | undefined | null, fallback: number, perna: string): number {
+  if (valor == null || Number.isNaN(valor)) {
+    console.warn(`[Receita] aliquota_rebate_${perna} ausente — fallback p/ default ${(fallback * 100).toFixed(2)}% (nunca 0).`);
+    return fallback;
+  }
+  return valor;
+}
+
 export function calcularReceita(
   cliente: Cliente,
   poupanca?: RegistroPoupanca,
+  // Globais (do parametros/global via AppContext). Default = constantes iniciais
+  // para chamadas isoladas (testes/simulador) — nunca 0.
+  aliquotas?: AliquotasRebate,
 ): ResultadoReceita {
   const fee = cliente.receita_fee ?? 0;
 
@@ -31,10 +61,13 @@ export function calcularReceita(
   const taxaOn = cliente.percentual_rebate_anual_onshore ?? 0;
   const taxaOff = cliente.percentual_rebate_anual_offshore ?? 0;
 
-  const rebateBruto = (plOnshore * taxaOn) / 12 + (plOffshore * taxaOff) / 12;
-  const aliquota = cliente.aliquota_impostos_rebate ?? 0;
-  const rebateLiquido = rebateBruto * (1 - aliquota);
-  const receitaRebate = rebateLiquido * REBATE_DEFAULT.split_plataforma;
+  const aliqOn = aliqDefensiva(aliquotas?.onshore, ALIQUOTA_REBATE_ONSHORE_DEFAULT, 'onshore');
+  const aliqOff = aliqDefensiva(aliquotas?.offshore, ALIQUOTA_REBATE_OFFSHORE_DEFAULT, 'offshore');
+
+  // Líquido por perna (retenção na origem aplicada perna a perna).
+  const rebateLiqOn = (plOnshore * taxaOn) / 12 * (1 - aliqOn);
+  const rebateLiqOff = (plOffshore * taxaOff) / 12 * (1 - aliqOff);
+  const receitaRebate = (rebateLiqOn + rebateLiqOff) * REBATE_DEFAULT.split_plataforma;
 
   return {
     receita_fee: fee,

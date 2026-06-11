@@ -12,6 +12,7 @@ import {
 } from './financials.custos';
 import { calcularFatorNormalizacao, calcularOciosidade } from './financials.alocacao';
 import { calcularDRE } from './financials.dre';
+import type { AliquotasRebate } from './financials.receita';
 
 export function processarPeriodo(
   clientes: Cliente[],
@@ -23,6 +24,9 @@ export function processarPeriodo(
   // chamadas isoladas (testes, simulador). Default [] = pipeline cai sempre
   // no fallback legado (campo do cliente), comportamento idêntico ao pré-Peça 5.
   vinculos: Vinculo[] = [],
+  // Alíquotas globais de retenção do rebate por perna (parametros/global).
+  // Opcional: sem isto, calcularReceita usa os defaults constantes (nunca 0).
+  aliquotasRebate?: AliquotasRebate,
 ): ResultadoCliente[] {
   // 0. Pré-passe por colaborador (regra CFO): normalização da sobre-alocação +
   // ociosidade da folga. Computados UMA vez e propagados ao DRE.
@@ -50,7 +54,7 @@ export function processarPeriodo(
     const poupanca = poupancaPorNome.get(c.nome_cliente);
     return calcularDRE(
       c, colaboradores, clientes, todosCustosDiretos, custosIndiretos, regime, poupanca, vinculos,
-      fatorNorm, poolNaoAlocado,
+      fatorNorm, poolNaoAlocado, aliquotasRebate,
     );
   });
 

@@ -293,8 +293,11 @@ export function useAgenteValidacao() {
         const taxaOff = dadosCli.percentual_rebate_anual_offshore ?? 0;
         const plOn = poupancaCli?.pl_onshore ?? 0;
         const plOff = poupancaCli?.pl_offshore ?? 0;
-        const rebateBruto = (plOn * taxaOn) / 12 + (plOff * taxaOff) / 12;
-        const rebateCalc = rebateBruto * (1 - dadosCli.aliquota_impostos_rebate) * parametros.split_plataforma;
+        // Mesma fórmula do motor (financials.receita): retenção por perna com
+        // alíquotas GLOBAIS (parametros), não mais campo por cliente.
+        const aliqOn = parametros.aliquota_rebate_onshore;
+        const aliqOff = parametros.aliquota_rebate_offshore;
+        const rebateCalc = ((plOn * taxaOn) / 12 * (1 - aliqOn) + (plOff * taxaOff) / 12 * (1 - aliqOff)) * parametros.split_plataforma;
         const diffRebate = Math.abs(dadosCli.receita_rebate - rebateCalc);
         if (diffRebate > TOL_REBATE) {
           clienteIncons.push({

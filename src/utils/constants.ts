@@ -224,12 +224,23 @@ export const PLR = {
 
 export const TETO_SALARIAL_PAGAMENTO_MESES = [2, 8] as const; // Fev e Ago
 
+// ── ALÍQUOTAS DE RETENÇÃO NA ORIGEM DO REBATE (por perna) ──────────────────
+// Modelam o quanto do rebate é retido na fonte ANTES de chegar à plataforma —
+// o rebate chega já líquido. NÃO é imposto devido pela empresa e NÃO tem
+// relação com IRPJ/CSLL (impostos_lucro, outra camada). Globais e editáveis
+// (Configurações → Rebate). Usados como fallback defensivo quando o doc de
+// parâmetros não trouxer o valor — nunca cair em 0 (0 inflaria a receita).
+export const ALIQUOTA_REBATE_ONSHORE_DEFAULT = 0.1653;   // 16,53%
+export const ALIQUOTA_REBATE_OFFSHORE_DEFAULT = 0.21;    // 21,00%
+
 // ── PARÂMETROS GLOBAIS DEFAULT ─────────────────────────────────────────
 export const PARAMETROS_DEFAULT: Parametros = {
   custo_juridico_mensal: 0,
   custo_conciliacao_mensal: 6500,
   taxa_rebate_onshore: 0.006,
   taxa_rebate_offshore: 0.006,
+  aliquota_rebate_onshore: ALIQUOTA_REBATE_ONSHORE_DEFAULT,
+  aliquota_rebate_offshore: ALIQUOTA_REBATE_OFFSHORE_DEFAULT,
   split_plataforma: 0.5,
   horas_pacote: HORAS_PACOTE as Record<PacoteServico, Record<FuncaoAlocacao, number>>,
 };

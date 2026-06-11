@@ -10,6 +10,7 @@ import {
   buscarColaboradores,
   buscarCustosIndiretos,
   buscarParametros,
+  semearAliquotasRebate,
   buscarStatusPeriodo,
   buscarRegistrosPoupancaPorPeriodo,
   buscarVinculos,
@@ -59,9 +60,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     modo: 'automatico' | 'manual';
   } | null>(null);
 
-  // Buscar parâmetros uma vez na inicialização
+  // Buscar parâmetros uma vez na inicialização. Antes, semeia (idempotente) as
+  // alíquotas de rebate por perna se ausentes — para que TabRebate as edite.
   useEffect(() => {
-    buscarParametros().then(setParametros);
+    semearAliquotasRebate().finally(() => buscarParametros().then(setParametros));
   }, []);
 
   // Auto-detectar período com dados: tenta mês anterior, depois recua até 12 meses
@@ -204,7 +206,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           receita_fee: 0,
           percentual_rebate_anual_onshore: params.taxa_rebate_onshore,
           percentual_rebate_anual_offshore: params.taxa_rebate_offshore,
-          aliquota_impostos_rebate: 0,
+          aliquota_impostos_rebate: 0,  // legado inerte — motor usa alíquota GLOBAL
           utiliza_servico_juridico: false,
           utiliza_conciliacao: false,
           pacote_servico: 'asset_only',
@@ -229,6 +231,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         registrosPoupanca,
         regimeAtual,
         vinculos,
+        { onshore: params.aliquota_rebate_onshore, offshore: params.aliquota_rebate_offshore },
       );
 
       // Totais consolidados — calculados uma vez aqui para evitar repetir nos consumidores.
