@@ -8,8 +8,15 @@
 
 import type { Cliente, Colaborador, FuncaoAlocacao } from '../types';
 import type { Vinculo } from '../types/vinculo';
-import { HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE, FUNCOES_ALOCACAO } from './constants';
+import { HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE, HORAS_CLT_MES, FUNCOES_ALOCACAO } from './constants';
 import { calcularHorasReais } from './financials.horasReais';
+
+/** Horas mensais que um pct de dedicação representa — MESMA fórmula da tela de
+ *  Alocação ("Horas efet."): pct × HORAS_CLT_MES × percentual_alocavel. Fonte
+ *  única para o drill-down de mão de obra reusar (não recriar a fórmula). */
+export function horasEfetivasMensais(pct: number, percentualAlocavel: number): number {
+  return pct * HORAS_CLT_MES * percentualAlocavel;
+}
 
 // ── Dual-read de alocação (FONTE CANÔNICA) ──────────────────────────────────
 // pct efetivo de (colaborador, cliente, função): vínculo com pct>0 vence;

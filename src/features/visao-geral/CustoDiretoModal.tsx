@@ -53,20 +53,22 @@ export function CustoDiretoModal({ cliente, tipo, onFechar }: Props) {
             <table className="min-w-full text-sm">
               <thead style={{ backgroundColor: '#f9f9fb' }}>
                 <tr>
-                  <th className={TH}>Função</th>
                   <th className={TH}>Colaborador</th>
+                  <th className={TH}>Função</th>
                   <th className={`${TH} text-right`}>% efet.</th>
-                  <th className={`${TH} text-right`}>Valor</th>
+                  <th className={`${TH} text-right`}>Horas</th>
+                  <th className={`${TH} text-right`}>Custo</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
                 {d.linhasMaoDeObra.length === 0 ? (
-                  <tr><td className={TD} colSpan={4} style={{ color: '#6b6b8a' }}>Sem mão de obra alocada (custo direto via campo legado ou nenhum vínculo).</td></tr>
+                  <tr><td className={TD} colSpan={5} style={{ color: '#6b6b8a' }}>Sem mão de obra alocada (custo direto via campo legado ou nenhum vínculo).</td></tr>
                 ) : d.linhasMaoDeObra.map((l, i) => (
                   <tr key={i}>
-                    <td className={TD}>{LABEL_FUNCAO[l.funcao] ?? l.funcao}</td>
                     <td className={TD}>{l.responsavel}</td>
+                    <td className={TD}>{LABEL_FUNCAO[l.funcao] ?? l.funcao}</td>
                     <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{formatPercent(l.pct * 100)}</td>
+                    <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{l.horas.toFixed(1)}h</td>
                     <td className={`${TD} text-right font-medium`}>{formatCurrency(l.valor)}</td>
                   </tr>
                 ))}

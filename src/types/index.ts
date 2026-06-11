@@ -446,6 +446,7 @@ export interface LinhaMaoDeObra {
   funcao: FuncaoAlocacao;
   responsavel: string;   // colaborador que atende a função
   pct: number;           // pct EFETIVO (resolvido × fatorNorm) — o que dirige o custo
+  horas: number;         // pct_efetivo × HORAS_CLT_MES × percentual_alocavel (= "Horas efet." da Alocação)
   valor: number;         // pct_efetivo × custo_total_mensal (compõe o custo_direto)
 }
 
