@@ -191,7 +191,6 @@ export function Configuracoes() {
   const [cadPacoteNovo, setCadPacoteNovo] = useState<PacoteServico>('light');
   const [cadRebateOnNovo, setCadRebateOnNovo] = useState(0.6);
   const [cadRebateOffNovo, setCadRebateOffNovo] = useState(0.6);
-  const [cadAliqRebateNovo, setCadAliqRebateNovo] = useState(0);
   const [cadFeeNovo, setCadFeeNovo] = useState(0);
   const [cadUsaJuridicoNovo, setCadUsaJuridicoNovo] = useState(false);
   const [cadUsaConciliacaoNovo, setCadUsaConciliacaoNovo] = useState(false);
@@ -263,7 +262,6 @@ export function Configuracoes() {
           pacoteServico: cadPacoteNovo,
           percentualRebateOnshore: cadRebateOnNovo / 100,
           percentualRebateOffshore: cadRebateOffNovo / 100,
-          aliquotaImpostosRebate: cadAliqRebateNovo / 100,
           receitaFee: cadFeeNovo,
           utilizaServicoJuridico: cadUsaJuridicoNovo,
           utilizaConciliacao: cadUsaConciliacaoNovo,
@@ -293,7 +291,7 @@ export function Configuracoes() {
         setCadSigla(''); setCadCodigo(''); setCadSlug(''); setCadNomeCanonico('');
         setCadClienteNovo(false); setCadNomeNovo('');
         setCadPacoteNovo('light'); setCadRebateOnNovo(0.6); setCadRebateOffNovo(0.6);
-        setCadAliqRebateNovo(0); setCadFeeNovo(0);
+        setCadFeeNovo(0);
         setCadUsaJuridicoNovo(false); setCadUsaConciliacaoNovo(false);
       } catch (e) {
         setCadastroSiglaToast(`Erro: ${e instanceof Error ? e.message : String(e)}`);
@@ -334,7 +332,7 @@ export function Configuracoes() {
   }, [
     cadSigla, cadCodigo, cadSlug, cadNomeCanonico, usuario,
     cadClienteNovo, cadNomeNovo, cadPacoteNovo, cadRebateOnNovo, cadRebateOffNovo,
-    cadAliqRebateNovo, cadFeeNovo, cadUsaJuridicoNovo, cadUsaConciliacaoNovo,
+    cadFeeNovo, cadUsaJuridicoNovo, cadUsaConciliacaoNovo,
     cadDataEntradaNovo, periodoSelecionado,
   ]);
 
@@ -652,13 +650,6 @@ export function Configuracoes() {
                     <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Rebate offshore (% a.a.)</label>
                     <input type="number" step="0.01" value={cadRebateOffNovo}
                       onChange={e => setCadRebateOffNovo(Number(e.target.value))}
-                      className="rounded px-2 py-1.5 text-xs w-full"
-                      style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
-                  </div>
-                  <div className="space-y-1 col-span-2">
-                    <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Alíquota imp. rebate (%)</label>
-                    <input type="number" step="0.01" value={cadAliqRebateNovo}
-                      onChange={e => setCadAliqRebateNovo(Number(e.target.value))}
                       className="rounded px-2 py-1.5 text-xs w-full"
                       style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
                   </div>

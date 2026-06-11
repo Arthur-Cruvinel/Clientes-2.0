@@ -166,6 +166,14 @@ este mistura edição live, pode ficar parcial). **Ação:** trocar essas chamad
 inline pelo helper, uma de cada vez, com build entre cada (baixo risco, ganho de
 manutenção). **Gatilho:** quando houver janela; não-urgente (todas já corretas).
 
+### 13. Limpar campo inerte `aliquota_impostos_rebate` dos clientes
+A alíquota de rebate virou GLOBAL por perna (`parametros.aliquota_rebate_onshore/
+offshore`). O campo por cliente `aliquota_impostos_rebate` foi **aposentado**:
+nenhuma UI escreve, o import não popula, o motor não lê (opcional no tipo). Ele
+permanece **inerte** nos docs antigos de `clientes_base/` e `fechamentos/*/
+clientes/`. **Ação:** varredura que remove o campo (deleteField) dos docs —
+puramente cosmética, sem efeito no cálculo. **Gatilho:** faxina dedicada; sem urgência.
+
 ### 12. Persistir preferência de colunas da Visão Geral
 O toggle de ocultar/exibir colunas (engrenagem "Colunas") guarda o estado em
 React state em memória — **não persiste entre sessões** (padrão do projeto: sem

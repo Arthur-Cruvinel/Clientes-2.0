@@ -206,7 +206,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           receita_fee: 0,
           percentual_rebate_anual_onshore: params.taxa_rebate_onshore,
           percentual_rebate_anual_offshore: params.taxa_rebate_offshore,
-          aliquota_impostos_rebate: 0,  // legado inerte — motor usa alíquota GLOBAL
+          // Alíquota de rebate é GLOBAL (parametros) — sem campo por cliente.
           utiliza_servico_juridico: false,
           utiliza_conciliacao: false,
           pacote_servico: 'asset_only',

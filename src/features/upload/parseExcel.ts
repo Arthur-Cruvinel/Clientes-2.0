@@ -141,7 +141,8 @@ export function parseClientes(wb: XLSX.WorkBook): Cliente[] {
       // pela aba poupanca (CLAUDE.md, decisão arquitetural).
       percentual_rebate_anual_onshore: num(row['percentual_rebate_anual_onshore']),
       percentual_rebate_anual_offshore: num(row['percentual_rebate_anual_offshore']),
-      aliquota_impostos_rebate: num(row['aliquota_impostos_rebate']),
+      // aliquota_impostos_rebate APOSENTADO — alíquota de rebate agora é GLOBAL
+      // (parametros). Import não popula mais o campo por cliente.
       custo_contabilidade_dedicado: num(row['custo_contabilidade_dedicado']),
       custo_pagamento_dedicado: num(row['custo_pagamento_dedicado']),
       custo_administrativo_dedicado: num(row['custo_administrativo_dedicado']),

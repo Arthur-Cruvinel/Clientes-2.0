@@ -28,7 +28,6 @@ export function NovoClienteModal({ periodo, onFechar, onCriado }: Props) {
   const [receitaFee, setReceitaFee] = useState(0);
   const [rebateOn, setRebateOn] = useState(0.6);
   const [rebateOff, setRebateOff] = useState(0.6);
-  const [aliqRebate, setAliqRebate] = useState(0);
   const [usaJuridico, setUsaJuridico] = useState(false);
   const [usaConciliacao, setUsaConciliacao] = useState(false);
   // data_entrada: input month YYYY-MM. Default = período atual selecionado.
@@ -66,7 +65,7 @@ export function NovoClienteModal({ periodo, onFechar, onCriado }: Props) {
         receita_fee: receitaFee,
         percentual_rebate_anual_onshore: rebateOn / 100,
         percentual_rebate_anual_offshore: rebateOff / 100,
-        aliquota_impostos_rebate: aliqRebate / 100,
+        // Alíquota de rebate é GLOBAL (Configurações → Rebate) — sem campo aqui.
         utiliza_servico_juridico: usaJuridico,
         utiliza_conciliacao: usaConciliacao,
         pacote_servico: pacote,
@@ -127,10 +126,6 @@ export function NovoClienteModal({ periodo, onFechar, onCriado }: Props) {
           <Field label="Rebate offshore (% a.a.)">
             <input type="number" step="0.01" value={rebateOff}
               onChange={e => setRebateOff(Number(e.target.value))} className={INP} style={BRD} />
-          </Field>
-          <Field label="Alíq. imp. rebate (%)">
-            <input type="number" step="0.01" value={aliqRebate}
-              onChange={e => setAliqRebate(Number(e.target.value))} className={INP} style={BRD} />
           </Field>
         </div>
         <div className="flex flex-wrap gap-4 pt-1">

@@ -58,7 +58,11 @@ export interface Cliente {
   // Não armazenar PL no cadastro do cliente — ele muda todo mês (CLAUDE.md).
   percentual_rebate_anual_onshore: number;
   percentual_rebate_anual_offshore?: number;
-  aliquota_impostos_rebate: number;
+  /** @deprecated A alíquota de retenção do rebate agora é GLOBAL e por perna
+   *  (parametros.aliquota_rebate_onshore/offshore). Este campo por cliente está
+   *  APOSENTADO — o motor não o lê mais. Permanece opcional/inerte no banco até
+   *  uma limpeza dedicada (BACKLOG). Nenhuma UI escreve nele. */
+  aliquota_impostos_rebate?: number;
 
   // Custos dedicados
   custo_contabilidade_dedicado?: number;

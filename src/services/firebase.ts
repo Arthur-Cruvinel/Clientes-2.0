@@ -1456,7 +1456,6 @@ export async function criarClienteNovo(params: {
   pacoteServico: 'full' | 'advanced' | 'light' | 'future' | 'asset_only';
   percentualRebateOnshore: number;
   percentualRebateOffshore: number;
-  aliquotaImpostosRebate: number;
   receitaFee: number;
   utilizaServicoJuridico: boolean;
   utilizaConciliacao: boolean;
@@ -1465,7 +1464,7 @@ export async function criarClienteNovo(params: {
 }): Promise<{ id_estavel: string; slugCliente: string; erros: string[] }> {
   const {
     nomeCompleto, pacoteServico,
-    percentualRebateOnshore, percentualRebateOffshore, aliquotaImpostosRebate,
+    percentualRebateOnshore, percentualRebateOffshore,
     receitaFee, utilizaServicoJuridico, utilizaConciliacao,
     dataEntrada, periodo,
   } = params;
@@ -1492,7 +1491,7 @@ export async function criarClienteNovo(params: {
     receita_fee: pacoteServico === 'asset_only' ? 0 : receitaFee,
     percentual_rebate_anual_onshore: percentualRebateOnshore,
     percentual_rebate_anual_offshore: percentualRebateOffshore,
-    aliquota_impostos_rebate: aliquotaImpostosRebate,
+    // Alíquota de rebate é GLOBAL (parametros) — não há mais campo por cliente.
     utiliza_servico_juridico: utilizaServicoJuridico,
     utiliza_conciliacao: utilizaConciliacao,
     pacote_servico: pacoteServico,

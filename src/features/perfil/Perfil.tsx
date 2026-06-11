@@ -283,7 +283,6 @@ function ConfigTab({ c, vinculos }: { c: import('../../types').DadosCliente; vin
       <Par label="Utiliza conciliação" valor={c.utiliza_conciliacao ? 'Sim' : 'Não'} />
       <Par label="Taxa rebate onshore" valor={`${((c.percentual_rebate_anual_onshore ?? 0) * 100).toFixed(2)}% a.a.`} />
       <Par label="Taxa rebate offshore" valor={`${((c.percentual_rebate_anual_offshore ?? 0) * 100).toFixed(2)}% a.a.`} />
-      <Par label="Alíquota imp. rebate" valor={`${((c.aliquota_impostos_rebate ?? 0) * 100).toFixed(2)}%`} />
       {FUNCOES_ALOCACAO.map(f => <ParFator key={f} funcao={f} fator={fatores[f]} />)}
     </div>
   );

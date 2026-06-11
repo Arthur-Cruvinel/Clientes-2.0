@@ -42,7 +42,6 @@ export type CampoAtribuicaoLote = 'banker' | 'empresario' | FuncaoAlocacao;
 const CAMPOS_MONITORADOS: (keyof Cliente)[] = [
   'receita_fee', 'moeda_fee', 'pacote_servico', 'banker', 'empresario', 'data_entrada',
   'percentual_rebate_anual_onshore', 'percentual_rebate_anual_offshore',
-  'aliquota_impostos_rebate',
   'pct_consultoria_gestao', 'pct_consultoria_planejamento',
   'pct_consultoria_financeira', 'pct_operacional_financeiro',
   'pct_serv_adm', 'pct_serv_aux_adm',

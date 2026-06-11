@@ -51,7 +51,6 @@ const LABEL_CAMPO: Record<string, string> = {
   receita_fee: 'Fee', pacote_servico: 'Pacote', banker: 'Banker', empresario: 'Empresário',
   data_entrada: 'Data entrada', moeda_fee: 'Moeda do fee',
   percentual_rebate_anual_onshore: 'Rebate onshore', percentual_rebate_anual_offshore: 'Rebate offshore',
-  aliquota_impostos_rebate: 'Alíq. imp. rebate',
   pct_consultoria_gestao: '% Gestão', pct_consultoria_planejamento: '% Planejamento',
   pct_consultoria_financeira: '% Financeira', pct_operacional_financeiro: '% Operacional',
   pct_serv_adm: '% Adm.', pct_serv_aux_adm: '% Aux. Adm.',
@@ -72,7 +71,7 @@ const LABEL_CAMPO: Record<string, string> = {
 };
 
 const CAMPOS_MOEDA = new Set(['receita_fee', 'pl_onshore', 'pl_offshore', 'custo_contabilidade_dedicado', 'custo_pagamento_dedicado', 'custo_administrativo_dedicado', 'custo_viagem_dedicado']);
-const CAMPOS_PCT = new Set(['percentual_rebate_anual_onshore', 'percentual_rebate_anual_offshore', 'aliquota_impostos_rebate']);
+const CAMPOS_PCT = new Set(['percentual_rebate_anual_onshore', 'percentual_rebate_anual_offshore']);
 
 function fmtValorHistorico(campo: string, valor: unknown): string {
   if (valor == null) return '—';
@@ -181,7 +180,6 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
     utiliza_conciliacao: cliente.utiliza_conciliacao,
     percentual_rebate_anual_onshore: (cliente.percentual_rebate_anual_onshore ?? 0) * 100,
     percentual_rebate_anual_offshore: (cliente.percentual_rebate_anual_offshore ?? 0) * 100,
-    aliquota_impostos_rebate: (cliente.aliquota_impostos_rebate ?? 0) * 100,
     empresario: cliente.empresario ?? '',
     banker: cliente.banker ?? '',
     // Fee em moeda estrangeira: o input mostra o valor na moeda ORIGINAL
@@ -243,7 +241,6 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
       utiliza_conciliacao: form.utiliza_conciliacao,
       percentual_rebate_anual_onshore: form.percentual_rebate_anual_onshore / 100,
       percentual_rebate_anual_offshore: form.percentual_rebate_anual_offshore / 100,
-      aliquota_impostos_rebate: form.aliquota_impostos_rebate / 100,
       empresario: form.empresario || undefined,
       banker: form.banker || undefined,
       // receita_fee aqui é o valor na moeda selecionada (form.moeda_fee). A
@@ -361,7 +358,6 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
             {[
               ['percentual_rebate_anual_onshore', 'Taxa rebate onshore (%)'],
               ['percentual_rebate_anual_offshore', 'Taxa rebate offshore (%)'],
-              ['aliquota_impostos_rebate', 'Alíquota imp. rebate (%)'],
             ].map(([k, label]) => (
               <div key={k} className="space-y-1">
                 <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>{label}</label>
