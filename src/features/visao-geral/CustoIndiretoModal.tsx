@@ -17,12 +17,6 @@ interface Props {
   onFechar: () => void;
 }
 
-const LABEL_TIPO: Record<string, string> = {
-  geral: 'Geral',
-  juridico: 'Jurídico',
-  conciliacao: 'Conciliação',
-};
-
 export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, custosDiretos, onFechar }: Props) {
   const { dadosPeriodo } = useApp();
   const colaboradores = dadosPeriodo?.colaboradores ?? [];
@@ -32,52 +26,29 @@ export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, cu
   const somaPct = somarPctPorColaborador(
     dadosPeriodo?.clientes ?? [], colaboradores, dadosPeriodo?.vinculos ?? []);
   const ociosidade = calcularOciosidade(colaboradores, somaPct);
-  const poolNaoAlocado = custoInstitucional + ociosidade;
 
-  // Denominador do rateio geral (proporcional ao custo direto).
+  // Denominador do rateio geral (proporcional ao custo direto). % do cliente é
+  // o MESMO para todas as parcelas do pool geral — vem do pipeline (custo direto
+  // do cliente / Σ custo direto), nunca recalculado por via própria.
   const somaCustoDireto = todosClientes.reduce((s, c) => s + (custosDiretos.get(c.nome_cliente) ?? 0), 0);
-
-  // Agrupa custos por tipo. Pool 'geral' soma também o institucional dos
-  // colaboradores — alinhado com financials.custos.ts:99-100.
-  const custosPorTipo = { geral: poolNaoAlocado, juridico: 0, conciliacao: 0 };
-  const descricoesPorTipo: Record<string, CustoIndireto[]> = { geral: [], juridico: [], conciliacao: [] };
-  for (const ci of custosIndiretos) {
-    custosPorTipo[ci.tipo_custo] += ci.valor_mensal;
-    descricoesPorTipo[ci.tipo_custo].push(ci);
-  }
-  if (custoInstitucional > 0) {
-    descricoesPorTipo.geral.push({
-      descricao_custo: 'Custo Institucional (folha)',
-      valor_mensal: custoInstitucional,
-      tipo_custo: 'geral',
-    });
-  }
-  if (ociosidade > 0) {
-    descricoesPorTipo.geral.push({
-      descricao_custo: 'Ociosidade (folha não-alocada)',
-      valor_mensal: ociosidade,
-      tipo_custo: 'geral',
-    });
-  }
-
-  type Linha = { descricao: string; tipo: string; valorTotal: number; baseRateio: string; pctCliente: number; alocado: number };
-  const linhas: Linha[] = [];
-  let somaAlocado = 0;
-
   const custoDiretoCliente = custosDiretos.get(cliente.nome_cliente) ?? 0;
+  const pct = somaCustoDireto > 0 ? custoDiretoCliente / somaCustoDireto : 0;
 
-  // Só 'geral' é custo INDIRETO. Jurídico/conciliação foram reclassificados
-  // como custo DIRETO (compõem o dedicado) — aparecem no CustoDiretoModal.
-  {
-    const total = custosPorTipo.geral;
-    const pct = somaCustoDireto > 0 ? custoDiretoCliente / somaCustoDireto : 0;
-    const alocado = total * pct;
-    somaAlocado += alocado;
-    if (total > 0) {
-      const desc = descricoesPorTipo.geral.map(ci => ci.descricao_custo).join(', ');
-      linhas.push({ descricao: desc, tipo: LABEL_TIPO.geral, valorTotal: total, baseRateio: 'Custo direto', pctCliente: pct, alocado });
-    }
+  // Uma linha POR CATEGORIA do pool geral: as 5 do Firestore + institucional +
+  // ociosidade (folha não-alocada). Jurídico/conciliação NÃO entram — viraram
+  // custo DIRETO (dedicado). Σ alocado = pool geral × pct ≡ custo_indireto_rateado.
+  type Linha = { descricao: string; valorTotal: number; pctCliente: number; alocado: number };
+  const categorias: { descricao: string; valorTotal: number }[] = [];
+  for (const ci of custosIndiretos) {
+    if (ci.tipo_custo === 'geral') categorias.push({ descricao: ci.descricao_custo, valorTotal: ci.valor_mensal });
   }
+  if (custoInstitucional > 0) categorias.push({ descricao: 'Institucional (folha não-alocável)', valorTotal: custoInstitucional });
+  if (ociosidade > 0) categorias.push({ descricao: 'Ociosidade (folha não-alocada)', valorTotal: ociosidade });
+
+  const linhas: Linha[] = categorias
+    .filter(c => c.valorTotal > 0)
+    .map(c => ({ descricao: c.descricao, valorTotal: c.valorTotal, pctCliente: pct, alocado: c.valorTotal * pct }));
+  const somaAlocado = linhas.reduce((s, l) => s + l.alocado, 0);
 
   const TH = 'px-3 py-2 text-xs font-bold uppercase tracking-wider text-left';
   const TD = 'px-3 py-2 text-sm';
@@ -91,10 +62,8 @@ export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, cu
           <table className="min-w-full text-sm">
             <thead style={{ backgroundColor: '#f9f9fb' }}>
               <tr>
-                <th className={TH}>Descrição</th>
-                <th className={TH}>Tipo</th>
+                <th className={TH}>Categoria</th>
                 <th className={`${TH} text-right`}>Valor Total</th>
-                <th className={TH}>Base Rateio</th>
                 <th className={`${TH} text-right`}>% Cliente</th>
                 <th className={`${TH} text-right`}>Alocado</th>
               </tr>
@@ -102,18 +71,16 @@ export function CustoIndiretoModal({ cliente, todosClientes, custosIndiretos, cu
             <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
               {linhas.map((l, i) => (
                 <tr key={i}>
-                  <td className={`${TD} max-w-[200px] truncate`} title={l.descricao}>{l.descricao}</td>
-                  <td className={TD}>{l.tipo}</td>
+                  <td className={TD} title={l.descricao}>{l.descricao}</td>
                   <td className={`${TD} text-right`}>{formatCurrency(l.valorTotal)}</td>
-                  <td className={TD} style={{ color: '#6b6b8a' }}>{l.baseRateio}</td>
-                  <td className={`${TD} text-right`}>{formatPercent(l.pctCliente * 100)}</td>
+                  <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{formatPercent(l.pctCliente * 100)}</td>
                   <td className={`${TD} text-right font-medium`}>{formatCurrency(l.alocado)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr style={{ backgroundColor: '#f3f4f6' }}>
-                <td colSpan={5} className={`${TD} font-bold`}>TOTAL</td>
+                <td colSpan={3} className={`${TD} font-bold`}>TOTAL</td>
                 <td className={`${TD} text-right font-bold`}>{formatCurrency(somaAlocado)}</td>
               </tr>
             </tfoot>
