@@ -59,7 +59,7 @@ export function mesclarClienteResultado(
       administrativo: resultado?.custo_dedicado_administrativo ?? 0,
       viagem: resultado?.custo_dedicado_viagem ?? 0,
       total: resultado?.custo_total ?? 0,
-      linhasMaoDeObra: [],
+      linhasMaoDeObra: resultado?.linhas_mao_de_obra ?? [],
     },
     pl_onshore: poupanca?.pl_onshore,
     pl_offshore: poupanca?.pl_offshore,

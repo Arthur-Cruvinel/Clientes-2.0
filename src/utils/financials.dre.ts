@@ -9,7 +9,7 @@ import type { Vinculo } from '../types/vinculo';
 import { ALIQUOTAS } from './constants';
 import {
   calcularCustoDireto, calcularCustosIndiretos, calcularFatoresEscopo,
-  calcularCustoInstitucional,
+  calcularCustoInstitucional, detalharMaoDeObra,
 } from './financials.custos';
 import { calcularReceita } from './financials.receita';
 
@@ -56,6 +56,9 @@ export function calcularDRE(
   // direto em chamadas isoladas (testes, simulador), preservando idempotência.
   const custo_direto = todosCustosDiretos[cliente.nome_cliente]
     ?? calcularCustoDireto(cliente, colaboradores, vinculos, fatorNorm);
+  // Decomposição por colaborador (exposição; Σ valor ≡ custo_direto). Mesmo
+  // fatorNorm/resolver do custo — nunca uma via paralela.
+  const linhas_mao_de_obra = detalharMaoDeObra(cliente, colaboradores, vinculos, fatorNorm);
 
   // Pool não-alocado pré-computado (institucional + ociosidade). Fallback p/
   // chamadas isoladas: institucional puro (sem ociosidade — não há contexto).
@@ -105,6 +108,7 @@ export function calcularDRE(
     custo_dedicado_contabilidade, custo_dedicado_pagamento, custo_dedicado_administrativo,
     custo_dedicado_viagem, custo_dedicado_juridico, custo_dedicado_conciliacao,
     custo_indireto_rateado, custo_total,
+    linhas_mao_de_obra,
     ebitda,
     margem_ebitda: divisaoSegura(ebitda, receita_bruta),
     lucro_liquido,

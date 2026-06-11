@@ -444,12 +444,9 @@ export interface Parametros {
 
 export interface LinhaMaoDeObra {
   funcao: FuncaoAlocacao;
-  responsavel: string;
-  horasDireito: number;
-  fator: number;
-  horasEfetivas: number;
-  custoHora: number;
-  total: number;
+  responsavel: string;   // colaborador que atende a função
+  pct: number;           // pct EFETIVO (resolvido × fatorNorm) — o que dirige o custo
+  valor: number;         // pct_efetivo × custo_total_mensal (compõe o custo_direto)
 }
 
 export interface DetalhesCustoDireto {
@@ -548,6 +545,9 @@ export interface ResultadoCliente {
   custo_dedicado_conciliacao: number;
   custo_indireto_rateado: number;
   custo_total: number;
+  // Decomposição do custo_direto por colaborador (mesma base/fatorNorm do motor).
+  // Σ linhas_mao_de_obra.valor ≡ custo_direto.
+  linhas_mao_de_obra: LinhaMaoDeObra[];
 
   // Resultado
   ebitda: number;

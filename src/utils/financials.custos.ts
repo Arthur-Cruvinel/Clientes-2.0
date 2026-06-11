@@ -4,7 +4,7 @@
 // via calcularPctDistribuido) — não escalar de novo por percentual_alocavel.
 // Custo institucional entra no pool de indiretos gerais. Pure asset não rateia.
 
-import type { Cliente, Colaborador, CustoIndireto, FuncaoAlocacao, ResultadoFolha, ResultadoReajuste } from '../types';
+import type { Cliente, Colaborador, CustoIndireto, FuncaoAlocacao, LinhaMaoDeObra, ResultadoFolha, ResultadoReajuste } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import {
   FUNCOES_ALOCACAO, HORAS_CLT_MES, HORAS_PACOTE,
@@ -344,6 +344,48 @@ export function calcularCustoDireto(
     );
   }
   return total;
+}
+
+/** Decompõe o custo_direto do cliente por colaborador — EXPOSIÇÃO, não recálculo.
+ *  Espelha EXATAMENTE o laço de calcularCustoDireto (mesmo resolverColaborador-
+ *  ParaFuncao por id_estavel + mesmo fatorNorm do pipeline). Por construção,
+ *  Σ linhas.valor ≡ calcularCustoDireto(...) ao centavo. pct exposto = pct
+ *  EFETIVO (resolvido × fatorNorm); valor = pct_efetivo × custo_total_mensal. */
+export function detalharMaoDeObra(
+  cliente: Cliente,
+  colaboradores: Colaborador[],
+  vinculos: Vinculo[] = [],
+  fatorNormPorColab: Record<string, number> = {},
+): LinhaMaoDeObra[] {
+  if (cliente.pacote_servico === 'asset_only') return [];
+
+  const normalize = (s: string): string =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const mapExato = new Map<string, Colaborador>();
+  const mapNorm = new Map<string, Colaborador>();
+  const mapPorIdEstavel = new Map<string, Colaborador>();
+  for (const c of colaboradores) {
+    mapExato.set(c.nome_colaborador, c);
+    mapNorm.set(normalize(c.nome_colaborador), c);
+    if (c.id_estavel) mapPorIdEstavel.set(c.id_estavel, c);
+  }
+
+  const linhas: LinhaMaoDeObra[] = [];
+  for (const funcao of FUNCOES_ALOCACAO) {
+    const { colaborador: colab, pct } = resolverColaboradorParaFuncao(
+      cliente, funcao, vinculos, mapExato, mapNorm, mapPorIdEstavel, normalize,
+    );
+    if (!colab || pct <= 0) continue;
+    const fatorNorm = fatorNormPorColab[colab.id_estavel ?? ''] ?? 1;
+    const pctEfetivo = pct * fatorNorm;
+    linhas.push({
+      funcao,
+      responsavel: colab.nome_colaborador,
+      pct: pctEfetivo,
+      valor: colab.custo_total_mensal * pctEfetivo,
+    });
+  }
+  return linhas;
 }
 
 /** Σpct por colaborador (id_estavel → soma) com a MESMA atribuição que

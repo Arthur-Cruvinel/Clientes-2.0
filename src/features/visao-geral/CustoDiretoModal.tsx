@@ -6,7 +6,7 @@
 // Cada modal totaliza SÓ o que exibe — nunca custo_total (rótulo honesto).
 
 import { Modal } from '../../components/ui/Modal';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatPercent } from '../../utils/formatters';
 import type { DadosCliente } from '../../types';
 
 interface Props {
@@ -17,6 +17,15 @@ interface Props {
 
 const TH = 'px-3 py-2 text-xs font-bold uppercase tracking-wider text-left';
 const TD = 'px-3 py-2 text-sm';
+
+const LABEL_FUNCAO: Record<string, string> = {
+  consultoria_gestao: 'Consultoria Gestão',
+  consultoria_planejamento: 'Consultoria Planejamento',
+  consultoria_financeira: 'Consultoria Financeira',
+  operacional_financeiro: 'Operacional Financeiro',
+  serv_adm: 'Serviços Administrativos',
+  serv_aux_adm: 'Aux. Administrativo',
+};
 
 export function CustoDiretoModal({ cliente, tipo, onFechar }: Props) {
   const d = cliente.custo_direto_detalhe;
@@ -37,18 +46,33 @@ export function CustoDiretoModal({ cliente, tipo, onFechar }: Props) {
     <Modal aberto onFechar={onFechar} titulo={titulo}>
       <div className="space-y-5">
         {ehDireto ? (
-          /* Custo Direto = mão de obra (salários alocados aos clientes). */
-          <table className="min-w-full text-sm">
-            <thead style={{ backgroundColor: '#f9f9fb' }}>
-              <tr><th className={TH}>Componente</th><th className={`${TH} text-right`}>Valor</th></tr>
-            </thead>
-            <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
-              <tr>
-                <td className={TD}>Mão de obra (salários alocados)</td>
-                <td className={`${TD} text-right font-medium`}>{formatCurrency(cliente.custo_direto)}</td>
-              </tr>
-            </tbody>
-          </table>
+          /* Custo Direto = mão de obra (salários alocados), decomposta por
+             colaborador. Σ valor ≡ custo_direto (mesma base/fatorNorm do motor). */
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6b6b8a' }}>Mão de obra (salários alocados)</p>
+            <table className="min-w-full text-sm">
+              <thead style={{ backgroundColor: '#f9f9fb' }}>
+                <tr>
+                  <th className={TH}>Função</th>
+                  <th className={TH}>Colaborador</th>
+                  <th className={`${TH} text-right`}>% efet.</th>
+                  <th className={`${TH} text-right`}>Valor</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
+                {d.linhasMaoDeObra.length === 0 ? (
+                  <tr><td className={TD} colSpan={4} style={{ color: '#6b6b8a' }}>Sem mão de obra alocada (custo direto via campo legado ou nenhum vínculo).</td></tr>
+                ) : d.linhasMaoDeObra.map((l, i) => (
+                  <tr key={i}>
+                    <td className={TD}>{LABEL_FUNCAO[l.funcao] ?? l.funcao}</td>
+                    <td className={TD}>{l.responsavel}</td>
+                    <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{formatPercent(l.pct * 100)}</td>
+                    <td className={`${TD} text-right font-medium`}>{formatCurrency(l.valor)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <>
             {/* Dedicados manuais. */}
