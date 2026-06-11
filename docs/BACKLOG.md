@@ -158,24 +158,22 @@ este mistura edição live, pode ficar parcial). **Ação:** trocar essas chamad
 inline pelo helper, uma de cada vez, com build entre cada (baixo risco, ganho de
 manutenção). **Gatilho:** quando houver janela; não-urgente (todas já corretas).
 
-### 11. `TabCustos` (Configurações) é input MORTO — remover/redirecionar
-`Configurações → TabCustos` edita os params globais
-`parametros.custo_juridico_mensal` / `custo_conciliacao_mensal`, mas **o motor
-NÃO os lê** — o rateio de jurídico/conciliação agora vem da coleção
-`fechamentos/{periodo}/custosIndiretos` (categorias tipadas, entrada canônica na
-tela de Custos). Editar "Jurídico (mensal)"/"Conciliação (mensal)" no TabCustos
-**não muda nada** no cálculo (provável fonte da confusão original do CFO).
-**Ação:** remover ou redirecionar o tab em etapa própria — **relabelar
-perpetuaria o engano**. **Antes de remover, migrar os valores** para o
-lançamento canônico (por período, na tela de Custos).
-**Valores reais encontrados em `parametros/global` (insumo da migração, não
-lixo):** `custo_conciliacao_mensal = R$ 6.747,65` (plausível — migrar);
-`custo_juridico_mensal = R$ 61,36` (valor estranho/pequeno — **CFO revisar**
-antes de lançar; provável resíduo).
-**Gatilho:** pós-segunda (prazo manda agora); remoção depende da migração dos valores.
-
 ---
 
 ## Resolvidos
 
-_(vazio)_
+### 11. `TabCustos` (Configurações) — REMOVIDO ✓
+Era input MORTO: editava `parametros.custo_juridico_mensal` /
+`custo_conciliacao_mensal` (globais que o motor não lê) e **capturou os
+lançamentos do CFO em paralelo à tela canônica**, gerando ambiguidade. A aba
+"Custos Diretos" ficava só com esses 2 inputs → após removê-los, vazia → aba
+removida (UI órfã). Entrada canônica é a tela de Custos (`fechamentos/{periodo}/
+custosIndiretos`, categorias tipadas). O CFO já migrou os valores reais
+(jurídico R$ 61.100,00 · conciliação R$ 6.747,65 em 2026-01).
+**Sobra de dado morto (opcional):** os campos `custo_juridico_mensal` /
+`custo_conciliacao_mensal` permanecem em `Parametros`/`PARAMETROS_DEFAULT` e em
+`parametros/global` — ninguém os lê. Limpeza de tipo/doc fica para uma faxina
+futura (sem urgência; não afeta cálculo).
+**"Manutenção" nasce com conteúdo:** se no futuro houver ferramentas de
+manutenção que mereçam aba própria (hoje vivem em seções soltas no rodapé de
+Configurações), criar a aba "Manutenção" então — não antes (aba vazia é órfã).

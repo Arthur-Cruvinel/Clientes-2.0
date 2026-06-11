@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Settings, Database, Loader2, Wrench, Tags, FilePen, Eraser, Link2, UserPlus, Copy } from 'lucide-react';
 import { ReplicarAlocacaoModal } from '../perfil/ReplicarAlocacaoModal';
 import { useConfiguracoes } from './useConfiguracoes';
-import { TabCustos } from './TabCustos';
 import { TabRebate } from './TabRebate';
 import { TabPacotes } from './TabPacotes';
 import { ColaboradoresVisao } from '../colaboradores/ColaboradoresVisao';
@@ -24,11 +23,10 @@ const PACOTES: PacoteServico[] = ['full', 'advanced', 'light', 'future', 'asset_
 const FLAG_MAPEAMENTO_MIGRADO = 'mapeamento_migrado';
 
 const ABAS = [
-  { id: 'custos', label: 'Custos Diretos' },
+  { id: 'indiretos', label: 'Custos' },
   { id: 'rebate', label: 'Rebate' },
   { id: 'pacotes', label: 'Pacotes de Serviço' },
   { id: 'colaboradores', label: 'Colaboradores' },
-  { id: 'indiretos', label: 'Custos Indiretos' },
   { id: 'metodologia', label: 'Metodologia' },
 ] as const;
 
@@ -36,7 +34,7 @@ type AbaId = (typeof ABAS)[number]['id'];
 
 export function Configuracoes() {
   const { parametros, salvar, salvando, toast } = useConfiguracoes();
-  const [aba, setAba] = useState<AbaId>('custos');
+  const [aba, setAba] = useState<AbaId>('indiretos');
   const [replicarAberto, setReplicarAberto] = useState(false);
   const { usuario } = useAuth();
   const { periodoSelecionado } = useApp();
@@ -443,7 +441,6 @@ export function Configuracoes() {
 
       {/* Conteúdo da aba */}
       <div className="bg-white rounded-lg border p-6" style={{ borderColor: '#e2e2e8' }}>
-        {aba === 'custos' && <TabCustos parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'rebate' && <TabRebate parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'pacotes' && <TabPacotes parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'colaboradores' && <ColaboradoresVisao />}
