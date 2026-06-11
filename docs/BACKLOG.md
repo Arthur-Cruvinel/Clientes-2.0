@@ -145,6 +145,14 @@ migrar a origem da lista para os vínculos**.
 de (1) esvaziaria as listas das duas telas.
 **Gatilho:** etapa de limpeza dedicada, após validação da ficha religada em produção.
 
+**✅ PRÉ-REQUISITO CUMPRIDO (DESBLOQUEADO):** com `calcularFatoresEscopo` religado
+aos vínculos, **ZERO consumidores de `cliente.pct_*` como FONTE PRIMÁRIA** restam
+(varredura confirmada). Todas as leituras de `pct_*` hoje são apenas FALLBACK
+dentro de dual-reads vínculo-first (helpers `pctEfetivo`/`pctEfetivoFuncao`,
+`resolverColaboradorParaFuncao`, AlocacaoTab, lote, capacidade, exportAlocacao).
+Logo a limpeza do VALOR `pct_*` está liberada — só depende de (1) (migrar a
+origem da LISTA, que usa o campo NOME `{funcao}`, não o `pct_*`).
+
 ### 10. Unificar as cópias inline do dual-read no helper único
 O padrão dual-read (`vínculo.pct>0 ? vínculo : legado`) tem hoje uma fonte
 canônica: `pctEfetivo` / `ocupacaoConsolidada` em `utils/financials.alocacao.ts`.

@@ -159,7 +159,7 @@ export function Perfil() {
             <div className="rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
               {aba === 'Resumo' && <ResumoTab c={c} />}
               {aba === 'Alocação' && <AlocacaoTab c={c} hp={parametros.horas_pacote} vinculos={dadosPeriodo?.vinculos ?? []} />}
-              {aba === 'Configuração' && <ConfigTab c={c} />}
+              {aba === 'Configuração' && <ConfigTab c={c} vinculos={dadosPeriodo?.vinculos ?? []} />}
               {aba === 'Cadastral' && <CadastralTab c={c} poupanca={poupancaCliente} />}
             </div>
           </div>
@@ -272,8 +272,8 @@ function ParFator({ funcao, fator }: { funcao: FuncaoAlocacao; fator: number }) 
   );
 }
 
-function ConfigTab({ c }: { c: import('../../types').DadosCliente }) {
-  const fatores = calcularFatoresEscopo(c);
+function ConfigTab({ c, vinculos }: { c: import('../../types').DadosCliente; vinculos: Vinculo[] }) {
+  const fatores = calcularFatoresEscopo(c, vinculos);
   return (
     <div>
       <Par label="Pacote de serviço" valor={c.pacote_servico} />

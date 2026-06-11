@@ -94,7 +94,7 @@ export function calcularDRE(
     : Math.max(0, ebitda) * ALIQUOTAS.real.lucro;
 
   const lucro_liquido = ebitda - impostos_lucro;
-  const fatores_escopo = calcularFatoresEscopo(cliente);
+  const fatores_escopo = calcularFatoresEscopo(cliente, vinculos);
   const algum_fator_acima_limite = Object.values(fatores_escopo).some(f => f > 1.0);
 
   return {

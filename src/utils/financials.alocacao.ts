@@ -38,6 +38,19 @@ export function pctEfetivo(
   return (v && v.pct > 0) ? v.pct : legado;
 }
 
+/** pct efetivo de uma FUNÇÃO do cliente, SEM fixar colaborador: o vínculo do par
+ *  (cliente, função) com pct>0 vence; senão o legado cliente.pct_{funcao}. Sibling
+ *  per-função do pctEfetivo — mesma regra vínculo-first da ficha de Alocação
+ *  (AlocacaoTab) e do pipeline. Fonte única dos fatores de escopo. */
+export function pctEfetivoFuncao(
+  cliente: Cliente, funcao: FuncaoAlocacao, vinculos: Vinculo[],
+): number {
+  const v = cliente.id_estavel
+    ? vinculos.find(x => x.id_estavel_cliente === cliente.id_estavel && x.funcao === funcao && x.pct > 0)
+    : undefined;
+  return v ? v.pct : ((cliente[`pct_${funcao}` as keyof Cliente] as number | undefined) ?? 0);
+}
+
 /** Ocupação CONSOLIDADA do colaborador — Σ pctEfetivo nas 6 funções, sobre os
  *  clientes que ele atende em cada uma (membership pelo campo cliente[funcao],
  *  até a migração da lista — BACKLOG #9). Retorna o total (fração) e o detalhe

@@ -12,7 +12,7 @@ import {
   TABELA_INSS, TABELA_IRRF, REDUTOR_IR_2026, DEDUCAO_DEPENDENTE_IRRF,
   ANO_FOLHA_VIGENTE,
 } from './constants';
-import { horasEfetivasMensais } from './financials.alocacao';
+import { horasEfetivasMensais, pctEfetivoFuncao } from './financials.alocacao';
 
 // ============================================================
 // Tabelas progressivas — INSS e IRRF
@@ -430,8 +430,13 @@ export function somarPctPorColaborador(
 }
 
 
-/** Indicador de escopo por função: pct_real / pct_normativo. Não entra no custo. */
-export function calcularFatoresEscopo(cliente: Cliente): Record<FuncaoAlocacao, number> {
+/** Indicador de escopo por função: pct_real / pct_normativo. Não entra no custo.
+ *  pct_real = pct EFETIVO (vínculo-first via pctEfetivoFuncao; legado só fallback)
+ *  — mesma fonte do custo e da ficha de Alocação. Sem vínculos → legado puro
+ *  (retrocompat). Só a FONTE do pct muda; a fórmula é a mesma. */
+export function calcularFatoresEscopo(
+  cliente: Cliente, vinculos: Vinculo[] = [],
+): Record<FuncaoAlocacao, number> {
   const fatores = {} as Record<FuncaoAlocacao, number>;
   // Mesmo gate de calcularCustoDireto: pure asset genuíno não tem fatores.
   // fee_isento (fee=0 mas pacote real) ainda consome estrutura → calcula fatores.
@@ -442,7 +447,7 @@ export function calcularFatoresEscopo(cliente: Cliente): Record<FuncaoAlocacao, 
   const horasPacote = HORAS_PACOTE[cliente.pacote_servico];
   for (const funcao of FUNCOES_ALOCACAO) {
     const pctNormativo = (horasPacote?.[funcao] ?? 0) / HORAS_CLT_MES;
-    const pctReal = (cliente[`pct_${funcao}` as keyof Cliente] as number | undefined) ?? 0;
+    const pctReal = pctEfetivoFuncao(cliente, funcao, vinculos);
     fatores[funcao] = pctNormativo > 0 ? pctReal / pctNormativo : 0;
   }
   return fatores;
