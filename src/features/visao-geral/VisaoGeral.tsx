@@ -314,12 +314,15 @@ export function VisaoGeral() {
       )}
 
       {loading ? <SkeletonKpis /> : totais && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <KpiCard titulo="Receita Total" valor={formatCurrency(totais.receita_bruta)} />
           <KpiCard titulo={isMC ? 'Margem Contrib.' : 'EBITDA'} valor={formatCurrency(kpiValor)}
             cor={kpiValor >= 0 ? 'text-green-700' : 'text-red-700'} />
           <KpiCard titulo={isMC ? 'Mg. Contribuição' : 'Margem EBITDA'} valor={formatPercent(kpiMargemPct)}
             cor={kpiMargemPct >= 0 ? 'text-green-700' : 'text-red-700'} />
+          <KpiCard titulo="Lucro Líquido" valor={formatCurrency(totais.lucro_liquido)}
+            subtitulo={`Margem líq.: ${formatPercent((totais.margem_liquida ?? 0) * 100)} · após IRPJ/CSLL`}
+            cor={totais.lucro_liquido >= 0 ? 'text-green-700' : 'text-red-700'} />
           <KpiCard titulo="Clientes Ativos" valor={String(clientesAtivos)} />
         </div>
       )}

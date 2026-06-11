@@ -134,6 +134,7 @@ export function exportVisaoGeralPdf(
   const head = [[
     'Cliente', 'Receita Bruta', 'Impostos Fat.', 'Custo Direto',
     'Custo Indireto', 'Custo Dedicado', 'EBITDA', 'Margem %',
+    'IRPJ/CSLL', 'Lucro Líq.', 'Mg. Líq. %',
     'Receita Rebate', 'Regime',
   ]];
 
@@ -147,6 +148,9 @@ export function exportVisaoGeralPdf(
     brl(c.custo_dedicado),
     brl(c.ebitda),
     pct(c.margem),
+    brl(c.impostos_lucro),
+    brl(c.lucro_liquido),
+    pct(c.margem_liquida),
     brl(c.receita_rebate),
     regime,
   ]);
@@ -156,6 +160,9 @@ export function exportVisaoGeralPdf(
     dados.reduce((acc, c) => acc + (Number(c[campo]) || 0), 0);
   const margemMedia = dados.length > 0
     ? dados.reduce((acc, c) => acc + c.margem, 0) / dados.length
+    : 0;
+  const margemLiqMedia = dados.length > 0
+    ? dados.reduce((acc, c) => acc + c.margem_liquida, 0) / dados.length
     : 0;
 
   const foot = [[
@@ -167,6 +174,9 @@ export function exportVisaoGeralPdf(
     brl(soma('custo_dedicado')),
     brl(soma('ebitda')),
     pct(margemMedia),
+    brl(soma('impostos_lucro')),
+    brl(soma('lucro_liquido')),
+    pct(margemLiqMedia),
     brl(soma('receita_rebate')),
     '',
   ]];
@@ -204,6 +214,10 @@ export function exportVisaoGeralPdf(
         // Margem % (col 7)
         if (colIdx === 7) {
           data.cell.styles.textColor = valor.margem >= 0 ? COR_POSITIVO : COR_NEGATIVO;
+        }
+        // Lucro Líquido (col 9) e Mg. Líq. % (col 10)
+        if (colIdx === 9 || colIdx === 10) {
+          data.cell.styles.textColor = valor.lucro_liquido >= 0 ? COR_POSITIVO : COR_NEGATIVO;
         }
       }
     },

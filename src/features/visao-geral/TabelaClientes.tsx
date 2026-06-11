@@ -22,7 +22,7 @@ interface Props {
 /** Calcula totais dinamicamente a partir dos clientes visíveis (filtrados). */
 function calcularTotais(clientes: DadosCliente[], isMC: boolean): Record<string, string> {
   let fee = 0, rebate = 0, custoDireto = 0, custoDedicado = 0, custoIndireto = 0;
-  let impostosFat = 0, impostosLucro = 0, mc = 0, ebitda = 0, receita = 0;
+  let impostosFat = 0, impostosLucro = 0, mc = 0, ebitda = 0, lucroLiquido = 0, receita = 0;
 
   for (const c of clientes) {
     fee += c.receita_fee_mensal;
@@ -35,10 +35,12 @@ function calcularTotais(clientes: DadosCliente[], isMC: boolean): Record<string,
     impostosLucro += c.impostos_lucro;
     mc += c.margem_contribuicao;
     ebitda += c.ebitda;
+    lucroLiquido += c.lucro_liquido;
   }
 
   const valorPrincipal = isMC ? mc : ebitda;
   const margemPct = receita > 0 ? (valorPrincipal / receita) * 100 : 0;
+  const margemLiqPct = receita > 0 ? (lucroLiquido / receita) * 100 : 0;
 
   return {
     nome_cliente: `${clientes.length} clientes`,
@@ -47,10 +49,12 @@ function calcularTotais(clientes: DadosCliente[], isMC: boolean): Record<string,
     custo_direto: formatCurrency(custoDireto),
     custo_dedicado: custoDedicado > 0 ? formatCurrency(custoDedicado) : '-',
     custo_indireto_rateado: isMC ? '—' : formatCurrency(custoIndireto),
-    impostos_faturamento: formatCurrency(impostosFat + impostosLucro),
+    impostos_faturamento: formatCurrency(impostosFat),
+    impostos_lucro: formatCurrency(impostosLucro),
     margem_contribuicao: formatCurrency(mc),
     ebitda: formatCurrency(ebitda),
     margem: formatPercent(margemPct),
+    lucro_liquido: `${formatCurrency(lucroLiquido)} · ${formatPercent(margemLiqPct)}`,
   };
 }
 

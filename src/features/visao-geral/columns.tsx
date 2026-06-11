@@ -159,10 +159,11 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
 
   cols.push(
     {
-      chave: 'impostos_faturamento', titulo: 'Impostos', alinhamento: 'right', ordenavel: true,
+      // Imposto SOBRE FATURAMENTO (PIS/COFINS/ISS) — acima do EBITDA na DRE.
+      chave: 'impostos_faturamento', titulo: 'Imp. Fat.', alinhamento: 'right', ordenavel: true,
       render: (c) => (
         <span className="cursor-pointer hover:underline" onClick={() => cb.onClickImpostos(c)}>
-          {formatCurrency(c.impostos_faturamento + c.impostos_lucro)}
+          {formatCurrency(c.impostos_faturamento)}
         </span>
       ),
     },
@@ -181,6 +182,25 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
         const m = margemResultado(c);
         return <span style={{ color: m >= 0 ? '#166534' : '#991b1b' }}>{formatPercent(m * 100)}</span>;
       },
+    },
+    {
+      // IRPJ/CSLL (imposto sobre o lucro) — ABAIXO do EBITDA na DRE.
+      chave: 'impostos_lucro', titulo: 'IRPJ/CSLL', alinhamento: 'right', ordenavel: true,
+      render: (c) => (
+        <span className="cursor-pointer hover:underline" onClick={() => cb.onClickImpostos(c)} style={{ color: '#6b6b8a' }}>
+          {formatCurrency(c.impostos_lucro)}
+        </span>
+      ),
+    },
+    {
+      // Lucro líquido = EBITDA − IRPJ/CSLL (com margem líquida no subtítulo).
+      chave: 'lucro_liquido', titulo: 'Lucro Líq.', alinhamento: 'right', ordenavel: true,
+      render: (c) => (
+        <div className="text-right">
+          <div style={{ color: c.lucro_liquido >= 0 ? '#166534' : '#991b1b' }}>{formatCurrency(c.lucro_liquido)}</div>
+          <div className="text-[10px]" style={{ color: '#6b6b8a' }}>{formatPercent(c.margem_liquida * 100)}</div>
+        </div>
+      ),
     },
     {
       chave: 'resultado', titulo: 'Resultado', alinhamento: 'center',
@@ -209,7 +229,9 @@ export function valorTextoColuna(c: DadosCliente, chave: string, isMC: boolean):
     case 'custo_direto': return formatCurrency(c.custo_direto);
     case 'custo_dedicado': return formatCurrency(c.custo_dedicado);
     case 'custo_indireto_rateado': return isMC ? '—' : formatCurrency(c.custo_indireto_rateado);
-    case 'impostos_faturamento': return formatCurrency(c.impostos_faturamento + c.impostos_lucro);
+    case 'impostos_faturamento': return formatCurrency(c.impostos_faturamento);
+    case 'impostos_lucro': return formatCurrency(c.impostos_lucro);
+    case 'lucro_liquido': return formatCurrency(c.lucro_liquido);
     case 'margem_contribuicao': return formatCurrency(c.margem_contribuicao);
     case 'ebitda': return formatCurrency(c.ebitda);
     case 'margem': {
