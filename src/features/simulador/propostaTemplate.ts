@@ -1,35 +1,53 @@
 // --- Template da proposta institucional (HTML autossuficiente) ---
-// Fiel ao modelo do CFO (docs/Modelos/Proposta_JoaoVictor.html): tema Galáticos
-// em CSS vars, Poppins, Tailwind CDN, Font Awesome, 9 seções. Parametrizado.
-// Não busca nada externo além de fontes/Tailwind/FA CDN e a imagem da capa
-// (só se o usuário informar URL). Logo embutida inline (autossuficiente).
+// Identidade visual Galáticos. Capa-fallback espelha o modelo Adriana Carneiro
+// (fundo escuro + overlay preto + LOGO CENTRAL sem caixa + título leve). Logo =
+// traçado FIEL do asset da marca (logoGalaticos.svg, importado ?raw), SEM fundo
+// próprio, cor adaptável: branca sobre fundo escuro (capa), institucional
+// (#160F41) sobre fundo claro (fechamento).
+//
+// PRINCÍPIO (Parte 3): O ESCOPO ESCRITO = A VOLUMETRIA PRECIFICADA. Os blocos de
+// "Alinhamento" são GERADOS dos inputs (limites quantitativos por pilar
+// contratado) + cláusula de excedente + ativação dos não-contratados + texto
+// livre opcional. Não é texto fixo do modelo.
+
+import logoRaw from './logoGalaticos.svg?raw';
 
 export interface DadosPropostaTemplate {
   nome: string;
   tipo: 'prospect' | 'cliente_existente';
-  data: string;                 // "12 de Junho de 2026"
-  textoIntroducao: string;      // vazio → default por nome
-  imagemCapaUrl: string;        // vazio → capa em gradiente institucional
+  data: string;
+  textoIntroducao: string;
+  imagemCapaUrl: string;
   valorProposto: number;
-  feeAtual: number;             // composição aditiva (cliente_existente)
-  usaJuridico: boolean;
-  usaConciliacao: boolean;
-  planejamentoTributario: boolean;
-  revisaoContratos: boolean;
-  temInvestimentos: boolean;    // PL informado > 0
+  feeAtual: number;
   pacote: string;
+  // Volumetria (escopo) + serviços.
+  usaJuridico: boolean; usaConciliacao: boolean;
+  planejamentoTributario: boolean; revisaoContratos: boolean;
+  qtdVeiculos: number; qtdImoveis: number; gruposFinanceiros: number; qtdFuncionariosDomesticos: number;
+  volumeMovimentos: number; qtdContasBancarias: number; qtdRecebiveis: number; qtdContratacoes: number;
+  plTotal: number;
+  textoEscopoAdicional: string;
 }
 
 const brl = (n: number) => 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-// Logo Galáticos (texto branco + marca em gradiente) — para fundo escuro da capa.
-const LOGO_SVG = `<svg width="160" height="40" viewBox="0 0 180 45" xmlns="http://www.w3.org/2000/svg" style="display:block"><defs><linearGradient x1="0" y1="21" x2="43" y2="21" gradientUnits="userSpaceOnUse" id="lg"><stop offset="0" stop-color="#005FFF"/><stop offset="0.31" stop-color="#453FE7"/><stop offset="0.82" stop-color="#D100B9"/></linearGradient></defs><text x="52" y="30" font-family="Poppins,sans-serif" font-weight="700" font-size="22" fill="#fff" letter-spacing="0.5">galáticos</text><path d="M0.21 20.77c0.37 0.52 1.09 0.64 1.61 0.28L24.41 5.04 4.71 40.44c-0.31 0.56-0.11 1.26 0.45 1.57 0.56 0.31 1.26 0.11 1.57-0.45L27.42 4.39 32.63 28.19c0.14 0.62 0.75 1.02 1.38 0.88 0.62-0.14 1.01-0.76 0.88-1.38L29.44 2.82 41.91 6.51c0.61 0.18 1.25-0.17 1.44-0.78 0.18-0.61-0.17-1.26-0.78-1.43L28.22 0.05c-0.04-0.01-0.07 0-0.1-0.01-0.04-0.01-0.08-0.01-0.13 0L10.46 2.3c-0.63 0.08-1.07 0.66-0.99 1.3 0.08 0.63 0.66 1.07 1.3 0.99L23.4 2.92 0.49 19.15c-0.52 0.37-0.64 1.09-0.27 1.61Z" fill="url(#lg)"/></svg>`;
+/** Logo fiel parametrizada por cor (sem fundo). cor = '#FFFFFF' (sobre escuro)
+ *  ou '#160F41' (sobre claro). suffix = ids únicos por instância. */
+function logoSVG(cor: string, suffix: string): string {
+  return logoRaw
+    .replace(/<\?xml[^>]*\?>/, '')
+    .replace(/<clipPath id="clip0h">[\s\S]*?<\/clipPath>/, '')
+    .replace(/ clip-path="url\(#clip0h\)"/, '')
+    .replace(/ width="180" height="45"/, ' width="100%" height="100%" viewBox="0 0 180 46" preserveAspectRatio="xMidYMid meet" style="display:block"')
+    .replace(/fill="white"/g, `fill="${cor}"`)
+    .replace(/id="fill1h"/g, `id="fill1${suffix}"`).replace(/url\(#fill1h\)/g, `url(#fill1${suffix})`);
+}
 
 function pilarHTML(numero: number, titulo: string, descricao: string, contratado: boolean, servicos: { texto: string; contratado: boolean }[]): string {
-  const ativos = servicos.filter(s => s.contratado);
+  const ativos = servicos.filter(s => s.contratado).map(s => `<li><span>✓</span><span>${esc(s.texto)}</span></li>`).join('');
   const extras = servicos.filter(s => !s.contratado);
-  const liAtivos = ativos.map(s => `<li><span>✓</span><span>${esc(s.texto)}</span></li>`).join('');
   const liExtras = extras.length
     ? `<li class="text-gray-400 mt-2 pt-2 border-t border-gray-100 text-[10px] uppercase font-semibold">Disponível / Extra:</li>`
       + extras.map(s => `<li class="text-gray-400"><span>+</span><span>${esc(s.texto)}</span></li>`).join('')
@@ -40,42 +58,84 @@ function pilarHTML(numero: number, titulo: string, descricao: string, contratado
       <span class="text-sm font-semibold text-primario uppercase">Pilar ${numero}</span>
       <h3 class="text-xl font-bold text-principal mt-1 mb-3">${esc(titulo)}</h3>
       <p class="text-secundario mb-4 leading-relaxed text-xs">${esc(descricao)}</p>
-      <ul class="service-list flex-grow mt-auto">${liAtivos}${liExtras}</ul></div>`;
+      <ul class="service-list flex-grow mt-auto">${ativos}${liExtras}</ul></div>`;
   }
   return `<div class="flex flex-col service-card-inactive rounded-lg p-6 relative">
       <span class="text-sm font-semibold text-gray-400 uppercase">Pilar ${numero}</span>
       <h3 class="text-xl font-bold text-gray-500 mt-1 mb-3">${esc(titulo)}</h3>
       <p class="text-secundario mb-4 leading-relaxed text-xs">${esc(descricao)}</p>
-      <ul class="service-list service-list-inactive flex-grow mt-auto">${liExtras || liAtivos}</ul></div>`;
+      <ul class="service-list service-list-inactive flex-grow mt-auto">${liExtras || ativos}</ul></div>`;
+}
+
+/** Blocos de escopo GERADOS da volumetria — limites quantitativos por pilar
+ *  contratado + cláusula de excedente; não-contratados → ativação; + texto livre. */
+function blocosEscopo(d: DadosPropostaTemplate, contr: { adm: boolean; fin: boolean; jur: boolean; inv: boolean }): string {
+  const EXC = 'Volumes excedentes ou aumento significativo de complexidade serão objeto de renegociação de honorários.';
+  const blocos: { titulo: string; texto: string }[] = [];
+
+  if (contr.adm) {
+    const it: string[] = [];
+    if (d.qtdImoveis || d.qtdVeiculos || d.gruposFinanceiros) it.push(`patrimônio (${d.qtdImoveis} imóveis, ${d.qtdVeiculos} veículos, ${d.gruposFinanceiros} grupo(s) financeiro(s))`);
+    if (d.qtdFuncionariosDomesticos) it.push(`${d.qtdFuncionariosDomesticos} funcionário(s) doméstico(s)`);
+    if (d.qtdContratacoes) it.push(`${d.qtdContratacoes} contratação(ões) de serviço/mês`);
+    blocos.push({ titulo: 'Escopo Administrativo', texto: `Gestão de ${it.join('; ') || 'rotina e bens'}. ${EXC}` });
+  }
+  if (contr.fin) {
+    const it: string[] = [];
+    if (d.volumeMovimentos) it.push(`${d.volumeMovimentos} movimentação(ões)/mês`);
+    if (d.qtdContasBancarias) it.push(`${d.qtdContasBancarias} conta(s) bancária(s)`);
+    if (d.qtdRecebiveis) it.push(`${d.qtdRecebiveis} recebível(is)/mês`);
+    blocos.push({ titulo: 'Escopo do Pilar Financeiro', texto: `Pagamentos, conciliação bancária e fluxo de caixa${it.length ? ` — ${it.join('; ')}` : ''}. ${EXC}` });
+  }
+  if (contr.jur) {
+    const it: string[] = [];
+    if (d.revisaoContratos) it.push('revisão de contratos');
+    if (d.planejamentoTributario) it.push('planejamento tributário');
+    blocos.push({ titulo: 'Escopo Jurídico', texto: `Apoio consultivo contínuo${it.length ? `: ${it.join(', ')}` : ''}. ${EXC}` });
+  }
+  if (contr.inv) {
+    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Gestão de carteira${d.plTotal > 0 ? ` sobre patrimônio estimado de ${brl(d.plTotal)}` : ''}. ${EXC}` });
+  }
+  const naoContr = [!contr.fin && 'Financeiro', !contr.jur && 'Jurídico', !contr.inv && 'Investimentos'].filter(Boolean) as string[];
+  if (naoContr.length) blocos.push({ titulo: 'Ativação de Novos Serviços', texto: `Serviços adicionais (${naoContr.join(', ')}, M&A, entre outros) podem ser ativados a qualquer momento mediante orçamento pontual.` });
+  if (d.textoEscopoAdicional.trim()) blocos.push({ titulo: 'Observações', texto: esc(d.textoEscopoAdicional) });
+
+  return blocos.map(b => `<div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">${b.titulo}</strong><p class="text-secundario text-base mt-1">${b.texto}</p></div>`).join('');
 }
 
 export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   const ehAditivo = d.tipo === 'cliente_existente';
-  const subtitulo = ehAditivo ? 'Aditivo de Escopo — Gestão Financeira' : 'Proposta de Gestão Patrimonial';
-  const introDefault = `${esc(d.nome)}, é essencial que a gestão financeira acompanhe o nível da sua trajetória. ${ehAditivo ? 'Hoje já cuidamos da sua rotina — propomos ampliar o escopo para o <strong>Pilar Financeiro completo</strong>.' : 'Propomos uma estrutura completa de gestão patrimonial e performance financeira, sob medida para o seu momento.'}`;
+  const subtitulo = ehAditivo ? 'Aditivo de Escopo — Gestão Financeira' : 'Gestão Patrimonial e Performance Financeira';
+  const introDefault = `${esc(d.nome)}, nosso objetivo é garantir que toda a sua rotina financeira tenha o nível de profissionalismo, segurança e controle que você espera. ${ehAditivo ? 'Hoje já cuidamos da sua operação — propomos ampliar o escopo para o <strong>Pilar Financeiro completo</strong>.' : 'Abaixo, a estrutura completa desenhada para a sua operação e o ecossistema de serviços disponíveis.'}`;
   const intro = d.textoIntroducao.trim() ? esc(d.textoIntroducao) : introDefault;
   const novo = Math.max(0, d.valorProposto - d.feeAtual);
 
-  const capa = d.imagemCapaUrl.trim()
-    ? `<img src="${esc(d.imagemCapaUrl)}" alt="${esc(d.nome)}" class="w-full h-full object-cover object-top">
+  const contr = {
+    adm: d.pacote !== 'asset_only',
+    fin: d.pacote === 'full' || d.pacote === 'advanced' || d.usaConciliacao,
+    jur: d.usaJuridico,
+    inv: d.plTotal > 0,
+  };
+
+  const fundoCapa = d.imagemCapaUrl.trim()
+    ? `<div class="absolute inset-0"><img src="${esc(d.imagemCapaUrl)}" alt="${esc(d.nome)}" class="w-full h-full object-cover object-top"></div>
        <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>`
-    : `<div class="absolute inset-0" style="background: linear-gradient(135deg, #160F41 0%, #2F49EE 45%, #732AD8 75%, #D100B9 100%);"></div>
-       <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>`;
+    : `<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>`;
 
   const pilares = [
-    pilarHTML(1, 'Administrativo', 'Gestão completa da rotina e bens.', d.pacote !== 'asset_only',
+    pilarHTML(1, 'Administrativo', 'Gestão completa da rotina e bens.', contr.adm,
       [{ texto: 'Gestão de Imóveis', contratado: true }, { texto: 'Gestão de Veículos', contratado: true },
        { texto: 'Contratação de Serviços', contratado: true }, { texto: 'Gestão de Funcionários', contratado: true },
        { texto: 'Organização de Viagens', contratado: true }]),
-    pilarHTML(2, 'Financeiro', 'Operação e planejamento financeiro.', d.pacote === 'full' || d.pacote === 'advanced' || d.usaConciliacao,
+    pilarHTML(2, 'Financeiro', 'Operação e planejamento financeiro.', contr.fin,
       [{ texto: 'Planejamento Financeiro', contratado: d.pacote === 'full' || d.pacote === 'advanced' },
        { texto: 'Pagamento de Contas', contratado: d.pacote === 'full' || d.pacote === 'advanced' },
        { texto: 'Conciliação Bancária', contratado: d.usaConciliacao }, { texto: 'Fluxo de Caixa', contratado: d.pacote === 'full' }]),
-    pilarHTML(3, 'Jurídico', 'Apoio consultivo contínuo.', d.usaJuridico,
+    pilarHTML(3, 'Jurídico', 'Apoio consultivo contínuo.', contr.jur,
       [{ texto: 'Jurídico Consultivo', contratado: d.usaJuridico }, { texto: 'Revisão de Contratos', contratado: d.revisaoContratos },
        { texto: 'Planejamento Tributário', contratado: d.planejamentoTributario }, { texto: 'Direitos de Imagem', contratado: false }]),
-    pilarHTML(4, 'Investimentos', 'Gestão de patrimônio e futuro.', d.temInvestimentos,
-      [{ texto: 'Gestão de Investimentos', contratado: d.temInvestimentos }, { texto: 'M&A e Novos Negócios', contratado: false },
+    pilarHTML(4, 'Investimentos', 'Gestão de patrimônio e futuro.', contr.inv,
+      [{ texto: 'Gestão de Investimentos', contratado: contr.inv }, { texto: 'M&A e Novos Negócios', contratado: false },
        { texto: 'Estudos de Viabilidade', contratado: false }]),
   ].join('');
 
@@ -109,21 +169,19 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
 <div class="w-full max-w-6xl mx-auto my-12 bg-white shadow-2xl rounded-lg overflow-hidden">
 
   <section id="capa" class="h-[700px] relative flex flex-col justify-end text-center text-white bg-gray-900">
-    <div class="absolute inset-0">${capa}</div>
-    <div class="relative z-10 p-8 pb-16 flex flex-col h-full">
-      <div class="self-start mb-auto" style="background:rgba(17,24,39,0.85);padding:10px 16px;border-radius:8px">${LOGO_SVG}</div>
-      <div class="mt-auto">
-        <div class="inline-block border border-white/30 px-6 py-2 rounded-full bg-black/30 backdrop-blur-sm mb-6"><span class="text-xs font-bold text-white uppercase tracking-widest">Proposta Comercial</span></div>
-        <h1 class="text-4xl md:text-6xl font-extrabold uppercase tracking-tight mb-2 text-white" style="text-shadow:0 4px 20px rgba(0,0,0,0.8)">Plano de Gestão <span class="text-primario">${esc(d.nome)}</span></h1>
-        <h2 class="text-lg md:text-xl font-light text-gray-200 tracking-wider uppercase mt-4 max-w-2xl mx-auto">${subtitulo}</h2>
-        <p class="text-xs text-gray-300 uppercase tracking-widest mt-4">${esc(d.data)}</p>
-        <div class="w-24 h-1 mx-auto rounded-full mt-8" style="background:linear-gradient(90deg,#2F49EE,#732AD8,#D100B9)"></div>
-      </div>
-    </div>
+    ${fundoCapa}
+    <div class="absolute inset-0 flex justify-center" style="bottom:55%"><div style="width:36%;max-height:100%">${logoSVG('#FFFFFF', 'capa')}</div></div>
+    <div class="relative z-10 p-8 pb-16 flex flex-col h-full"><div class="mt-auto">
+      <div class="inline-block border border-white/30 px-6 py-2 rounded-full bg-black/30 backdrop-blur-sm mb-6"><span class="text-xs font-bold text-white uppercase tracking-widest">Proposta Comercial</span></div>
+      <h1 class="text-2xl md:text-4xl font-light uppercase mb-2 text-white" style="letter-spacing:0.18em;text-shadow:0 2px 10px rgba(0,0,0,0.5)">Plano de Gestão <span class="text-primario font-normal">${esc(d.nome)}</span></h1>
+      <h2 class="text-lg md:text-xl font-light text-gray-200 tracking-wider uppercase mt-4 max-w-2xl mx-auto">${subtitulo}</h2>
+      <p class="text-xs text-gray-300 uppercase tracking-widest mt-4">${esc(d.data)}</p>
+      <div class="w-24 h-1 mx-auto rounded-full mt-8" style="background:linear-gradient(90deg,#2F49EE,#732AD8,#D100B9)"></div>
+    </div></div>
   </section>
 
   <section id="intro" class="p-12 md:p-20 text-center bg-white">
-    <h2 class="text-4xl md:text-5xl font-bold text-principal mb-6">Mais Controle para a Sua Vida Financeira.</h2>
+    <h2 class="text-4xl md:text-5xl font-bold text-principal mb-6">Sua Operação Financeira em Boas Mãos.</h2>
     <p class="text-xl md:text-2xl text-secundario leading-relaxed font-light max-w-4xl mx-auto">${intro}</p>
   </section>
   <div class="w-11/12 mx-auto border-t border-gray-200"></div>
@@ -187,13 +245,9 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
       </div>
       <div class="lg:col-span-2 service-card rounded-lg p-8">
         <h3 class="text-lg font-semibold text-secundario uppercase">ALINHAMENTO</h3>
-        <h4 class="text-3xl font-bold text-principal mt-1 mb-4">Transparência e Evolução</h4>
-        <p class="text-secundario leading-relaxed mb-6">Você paga pelo escopo que precisa hoje, com a segurança de ter um escritório completo para o amanhã.</p>
-        <div class="space-y-4 mt-6">
-          <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Escopo Contratado</strong><p class="text-secundario text-base mt-1">Volumes excedentes ou aumento significativo de complexidade serão objeto de renegociação de honorários.</p></div>
-          <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Ajuste por Volume</strong><p class="text-secundario text-base mt-1">Caso o volume de ativos, contas bancárias ou a complexidade aumente significativamente, renegociaremos os honorários.</p></div>
-          <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Ativação de Novos Serviços</strong><p class="text-secundario text-base mt-1">Serviços adicionais (Jurídico, M&amp;A, entre outros) podem ser ativados mediante orçamento pontual.</p></div>
-        </div>
+        <h4 class="text-3xl font-bold text-principal mt-1 mb-4">Escopo Contratado e Limites</h4>
+        <p class="text-secundario leading-relaxed mb-6">O escopo descrito reflete exatamente a volumetria precificada — você paga pelo esforço dimensionado, com renegociação transparente se os volumes crescerem.</p>
+        <div class="space-y-4 mt-6">${blocosEscopo(d, contr)}</div>
       </div>
     </div>
   </section>
@@ -214,7 +268,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   </section>
 
   <section id="fechamento" class="p-20 text-center bg-white">
-    <h1 class="text-5xl font-bold text-principal">Galáticos Capital</h1>
+    <div class="mx-auto mb-2" style="width:240px;color:#160F41">${logoSVG('#160F41', 'fim')}</div>
     <div class="w-24 h-1.5 mx-auto my-6 rounded-full" style="background:linear-gradient(90deg,#2F49EE,#732AD8,#D100B9)"></div>
     <p class="mt-4 text-3xl text-secundario font-light max-w-2xl mx-auto">Gestão Patrimonial e Performance Financeira.</p>
     <p class="text-sm text-gray-400 mt-6">Proposta válida por 30 dias a partir da data de apresentação.</p>

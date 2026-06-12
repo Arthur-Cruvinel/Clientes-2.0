@@ -444,12 +444,14 @@ export interface PropostaInputs {
   planejamento_tributario: boolean; revisao_contratos: boolean; gestao_obra: boolean;
   utiliza_servico_juridico: boolean; utiliza_conciliacao: boolean;
   volume_movimentos_mes: number; qtd_contratacoes_mes: number; qtd_recebiveis_mes: number;
+  qtd_contas_bancarias: number;                                // nº de contas (escopo financeiro)
   pl_onshore: number; pl_offshore: number;
   taxa_rebate_onshore: number; taxa_rebate_offshore: number;   // % a.a.
   dedic_contabilidade: number; dedic_pagamento: number; dedic_administrativo: number; dedic_viagem: number;
   // Campos do template HTML.
   texto_introducao: string;
   imagem_capa_url: string;
+  texto_escopo_adicional: string;   // ressalvas específicas do cliente (após blocos gerados)
   valor_proposto: number;   // preço comercial (editável; âncora = fee sugerido)
   fee_atual: number;        // composição aditiva (cliente_existente)
 }

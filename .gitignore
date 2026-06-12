@@ -46,3 +46,6 @@ audit-results/
 # permanente e o repo vive em OneDrive sem remoto privado adequado. Backups são
 # segurança LOCAL apenas.
 backups/firestore/
+
+# Materiais de referência (modelos de proposta, guia de identidade) — não versionar
+docs/Modelos/

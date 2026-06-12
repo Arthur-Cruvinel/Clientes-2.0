@@ -63,6 +63,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [planTrib, setPlanTrib] = useState(false); const [revContr, setRevContr] = useState(false); const [obra, setObra] = useState(false);
   const [usaJur, setUsaJur] = useState(false); const [usaConc, setUsaConc] = useState(false);
   const [volMov, setVolMov] = useState(0); const [contratacoes, setContratacoes] = useState(0); const [recebiveis, setRecebiveis] = useState(0);
+  const [contas, setContas] = useState(0);
   const [plOn, setPlOn] = useState(0); const [plOff, setPlOff] = useState(0);
   const [taxaOn, setTaxaOn] = useState((parametros.taxa_rebate_onshore ?? 0) * 100);
   const [taxaOff, setTaxaOff] = useState((parametros.taxa_rebate_offshore ?? 0) * 100);
@@ -73,6 +74,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [idEstavelCliente, setIdEstavelCliente] = useState<string | undefined>();
   const [textoIntro, setTextoIntro] = useState('');
   const [imagemCapa, setImagemCapa] = useState('');
+  const [textoEscopo, setTextoEscopo] = useState('');
   const [valorProposto, setValorProposto] = useState(0);
   const [feeAtual, setFeeAtual] = useState(0);
   const [editId, setEditId] = useState<string | undefined>();
@@ -85,9 +87,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     planejamento_tributario: planTrib, revisao_contratos: revContr, gestao_obra: obra,
     utiliza_servico_juridico: usaJur, utiliza_conciliacao: usaConc,
     volume_movimentos_mes: volMov, qtd_contratacoes_mes: contratacoes, qtd_recebiveis_mes: recebiveis,
+    qtd_contas_bancarias: contas,
     pl_onshore: plOn, pl_offshore: plOff, taxa_rebate_onshore: taxaOn, taxa_rebate_offshore: taxaOff,
     dedic_contabilidade: dContab, dedic_pagamento: dPgto, dedic_administrativo: dAdm, dedic_viagem: dViagem,
-    texto_introducao: textoIntro, imagem_capa_url: imagemCapa, valor_proposto: valorProposto, fee_atual: feeAtual,
+    texto_introducao: textoIntro, imagem_capa_url: imagemCapa, texto_escopo_adicional: textoEscopo,
+    valor_proposto: valorProposto, fee_atual: feeAtual,
   });
   const aplicarInputs = (i: Partial<PropostaInputs>) => {
     if (i.pacote) setPacote(i.pacote); if (i.regime) setRegime(i.regime);
@@ -95,10 +99,12 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     setPlanTrib(!!i.planejamento_tributario); setRevContr(!!i.revisao_contratos); setObra(!!i.gestao_obra);
     setUsaJur(!!i.utiliza_servico_juridico); setUsaConc(!!i.utiliza_conciliacao);
     setVolMov(i.volume_movimentos_mes ?? 0); setContratacoes(i.qtd_contratacoes_mes ?? 0); setRecebiveis(i.qtd_recebiveis_mes ?? 0);
+    setContas(i.qtd_contas_bancarias ?? 0);
     setPlOn(i.pl_onshore ?? 0); setPlOff(i.pl_offshore ?? 0);
     if (i.taxa_rebate_onshore != null) setTaxaOn(i.taxa_rebate_onshore); if (i.taxa_rebate_offshore != null) setTaxaOff(i.taxa_rebate_offshore);
     setDContab(i.dedic_contabilidade ?? 0); setDPgto(i.dedic_pagamento ?? 0); setDAdm(i.dedic_administrativo ?? 0); setDViagem(i.dedic_viagem ?? 0);
-    setTextoIntro(i.texto_introducao ?? ''); setImagemCapa(i.imagem_capa_url ?? ''); setValorProposto(i.valor_proposto ?? 0); setFeeAtual(i.fee_atual ?? 0);
+    setTextoIntro(i.texto_introducao ?? ''); setImagemCapa(i.imagem_capa_url ?? ''); setTextoEscopo(i.texto_escopo_adicional ?? '');
+    setValorProposto(i.valor_proposto ?? 0); setFeeAtual(i.fee_atual ?? 0);
   };
 
   useEffect(() => { buscarPropostas().then(setPropostas).catch(() => {}); }, []);
@@ -198,9 +204,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       nome: nomeProspect.trim() || 'Cliente', tipo, data,
       textoIntroducao: textoIntro, imagemCapaUrl: imagemCapa,
       valorProposto: valorProposto > 0 ? valorProposto : Math.round((prop?.feeSugerido ?? 0) / 50) * 50,
-      feeAtual,
+      feeAtual, pacote,
       usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
-      temInvestimentos: (plOn + plOff) > 0, pacote,
+      qtdVeiculos: veic, qtdImoveis: imov, gruposFinanceiros: grupos, qtdFuncionariosDomesticos: domest,
+      volumeMovimentos: volMov, qtdContasBancarias: contas, qtdRecebiveis: recebiveis, qtdContratacoes: contratacoes,
+      plTotal: plOn + plOff, textoEscopoAdicional: textoEscopo,
     });
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     window.open(url, '_blank');
@@ -237,8 +245,13 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
               placeholder="Default gerado por nome/contexto se vazio." />
           </label>
           <label className="block">
-            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Imagem da capa (URL — vazio = capa em gradiente)</span>
+            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Imagem da capa (URL — vazio = capa-padrão escura com logo central)</span>
             <input value={imagemCapa} onChange={e => setImagemCapa(e.target.value)} className={INP} style={BRD} placeholder="https://…" />
+          </label>
+          <label className="block">
+            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Escopo — observações adicionais (opcional; entra como bloco na pág. de investimento)</span>
+            <textarea value={textoEscopo} onChange={e => setTextoEscopo(e.target.value)} rows={2} className={INP} style={BRD}
+              placeholder="Ex.: ressalvas, exceções, condições específicas deste cliente." />
           </label>
           <div className="flex gap-2 pt-1">
             <button onClick={salvar} disabled={salvando}
@@ -276,7 +289,8 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
         </div>
 
         <Secao titulo="Volumetria mensal — alimenta: mov.→pagamentos/fluxo; contratações→indicação; recebíveis→conciliação">
-          <Num label="Movimentos / mês" v={volMov} set={setVolMov} /><Num label="Contratações / mês" v={contratacoes} set={setContratacoes} /><Num label="Recebíveis / mês" v={recebiveis} set={setRecebiveis} />
+          <Num label="Movimentos / mês" v={volMov} set={setVolMov} /><Num label="Contratações / mês" v={contratacoes} set={setContratacoes} />
+          <Num label="Recebíveis / mês" v={recebiveis} set={setRecebiveis} /><Num label="Contas bancárias" v={contas} set={setContas} />
         </Secao>
 
         <Secao titulo="Patrimônio (rebate) e taxas">
