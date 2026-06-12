@@ -16,6 +16,7 @@ import { useApp } from '../../state/AppContext';
 import { calcularHorasReais } from '../../utils/financials';
 import { custoHoraMedioPorFuncao, overheadRatioPeriodo, custoDiretoDemanda } from './precificacaoBase';
 import { salvarProposta, buscarPropostas, atualizarPropostaStatus, excluirProposta } from '../../services/firebase';
+import { gerarPropostaHTML } from './propostaTemplate';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import type { Cliente, FuncaoAlocacao, PacoteServico, RegimeTributario, DadosProposta, PropostaInputs, PropostaOutputs } from '../../types';
@@ -191,6 +192,21 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   }
   function novo() { setEditId(undefined); setNomeProspect(''); setIdEstavelCliente(undefined); aplicarInputs({}); }
 
+  function gerar() {
+    const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const html = gerarPropostaHTML({
+      nome: nomeProspect.trim() || 'Cliente', tipo, data,
+      textoIntroducao: textoIntro, imagemCapaUrl: imagemCapa,
+      valorProposto: valorProposto > 0 ? valorProposto : Math.round((prop?.feeSugerido ?? 0) / 50) * 50,
+      feeAtual,
+      usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
+      temInvestimentos: (plOn + plOff) > 0, pacote,
+    });
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* FORM */}
@@ -230,6 +246,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
               {salvando ? 'Salvando…' : editId ? 'Atualizar proposta' : 'Salvar proposta'}
             </button>
             <button onClick={novo} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>Nova</button>
+            <button onClick={gerar} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ border: '1px solid #0065FF', color: '#0065FF' }}>Gerar proposta ↗</button>
             {toast && <span className="text-xs self-center" style={{ color: '#166534' }}>{toast}</span>}
           </div>
         </div>

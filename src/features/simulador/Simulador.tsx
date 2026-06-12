@@ -4,13 +4,14 @@ import { Calculator } from 'lucide-react';
 import { useApp } from '../../state/AppContext';
 import { formatPeriodo } from '../../utils/formatters';
 import { Reajustes } from './Reajustes';
-import { GeradorProposta } from './GeradorProposta';
+import { GeradorProposta, type PrefillProposta } from './GeradorProposta';
 
 const ABAS = ['Reajustes', 'Gerador de Propostas'] as const;
 
 export function Simulador() {
   const { periodoSelecionado } = useApp();
   const [aba, setAba] = useState<(typeof ABAS)[number]>('Reajustes');
+  const [prefill, setPrefill] = useState<PrefillProposta | undefined>();
 
   return (
     <div className="space-y-5">
@@ -27,8 +28,8 @@ export function Simulador() {
         ))}
       </div>
 
-      {aba === 'Reajustes' && <Reajustes />}
-      {aba === 'Gerador de Propostas' && <GeradorProposta />}
+      {aba === 'Reajustes' && <Reajustes onUpsell={(p) => { setPrefill(p); setAba('Gerador de Propostas'); }} />}
+      {aba === 'Gerador de Propostas' && <GeradorProposta prefill={prefill} />}
     </div>
   );
 }

@@ -166,9 +166,9 @@ este mistura edição live, pode ficar parcial). **Ação:** trocar essas chamad
 inline pelo helper, uma de cada vez, com build entre cada (baixo risco, ganho de
 manutenção). **Gatilho:** quando houver janela; não-urgente (todas já corretas).
 
-### 14. Precificação — persistir propostas + decidir a base do custo do gerador
-**Persistir propostas:** o Gerador de Propostas (Precificação → aba Gerador) é
-EFÊMERO — nada é salvo. Persistir (ex.: `propostas/{id}`) para histórico/comparação.
+### 14. Precificação — decidir a base do custo do gerador
+**Persistir propostas: ✅ RESOLVIDO** (coleção `propostas/`, snapshot imutável —
+salvar/reabrir/duplicar/status na aba Gerador).
 **Base do custo (decisão do CFO):** o gerador estima `custo_direto = Σ horas_reais
 × custo_hora MÉDIO da função` (taxa nominal, único caminho sem vínculos). A aba
 Reajustes usa o custo REALIZADO (`pct × custo do colaborador`). Validação cruzada

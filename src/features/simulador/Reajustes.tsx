@@ -7,6 +7,8 @@ import { Modal } from '../../components/ui/Modal';
 import { Badge } from '../../components/ui/Badge';
 import { HeaderOrdenavel, type OrdenacaoState } from '../../components/ui/HeaderOrdenavel';
 import { useReajustes, type ReajusteRow, type PerfilStatus } from './useReajustes';
+import type { PrefillProposta } from './GeradorProposta';
+import type { PropostaInputs } from '../../types';
 
 type ChaveOrd = 'nome' | 'feeAtual' | 'custoTotal' | 'rebateLiquido' | 'receitaNecessaria' | 'feeSugerido' | 'gap' | 'deltaAtendimento';
 const SEL = 'rounded px-2 py-1.5 text-xs';
@@ -40,8 +42,28 @@ function atendView(r: ReajusteRow) {
   return <Badge variante="sucesso">Alinhado {txt}</Badge>;
 }
 
-export function Reajustes() {
-  const { parametros, setParametros } = useApp();
+export function Reajustes({ onUpsell }: { onUpsell?: (p: PrefillProposta) => void }) {
+  const { parametros, setParametros, dadosPeriodo } = useApp();
+
+  function gerarProposta(r: ReajusteRow) {
+    const cli = dadosPeriodo?.clientes.find(c => c.nome_cliente === r.nome);
+    const pp = dadosPeriodo?.registrosPoupanca.find(p => p.nome_cliente === r.nome);
+    const perfil = cli?.perfil_complexidade;
+    const inputs: Partial<PropostaInputs> = {
+      pacote: cli?.pacote_servico,
+      qtd_veiculos: perfil?.qtd_veiculos, qtd_imoveis: perfil?.qtd_imoveis, grupos_financeiros: perfil?.grupos_financeiros, qtd_funcionarios_domesticos: perfil?.qtd_funcionarios_domesticos,
+      planejamento_tributario: perfil?.planejamento_tributario, revisao_contratos: perfil?.revisao_contratos, gestao_obra: perfil?.gestao_obra,
+      utiliza_servico_juridico: cli?.utiliza_servico_juridico, utiliza_conciliacao: cli?.utiliza_conciliacao,
+      volume_movimentos_mes: cli?.volume_movimentos_mes, qtd_contratacoes_mes: cli?.qtd_contratacoes_mes, qtd_recebiveis_mes: cli?.qtd_recebiveis_mes,
+      pl_onshore: pp?.pl_onshore ?? 0, pl_offshore: pp?.pl_offshore ?? 0,
+      taxa_rebate_onshore: (cli?.percentual_rebate_anual_onshore ?? 0) * 100, taxa_rebate_offshore: (cli?.percentual_rebate_anual_offshore ?? 0) * 100,
+      dedic_contabilidade: cli?.custo_contabilidade_dedicado ?? 0, dedic_pagamento: cli?.custo_pagamento_dedicado ?? 0,
+      dedic_administrativo: cli?.custo_administrativo_dedicado ?? 0, dedic_viagem: cli?.custo_viagem_dedicado ?? 0,
+      fee_atual: r.feeAtual,
+      valor_proposto: r.feeSugerido > 0 ? Math.round(r.feeSugerido / 50) * 50 : 0,
+    };
+    onUpsell?.({ tipo: 'cliente_existente', nome: r.nome, id_estavel_cliente: cli?.id_estavel, inputs });
+  }
   const [materialidade, setMaterialidade] = useState(10); // % editável
   const { rows, dinheiroNaMesa, nSubatendidos, nSobreatendidos, margemAlvo, aliqImpFat, denomInvalido, periodoSelecionado, loading } = useReajustes(materialidade / 100);
   const [sel, setSel] = useState<ReajusteRow | null>(null);
@@ -233,6 +255,14 @@ export function Reajustes() {
                 </>
               )}
             </div>
+            {onUpsell && (
+              <div className="border-t pt-3 mt-3 flex justify-end" style={{ borderColor: '#e2e2e8' }}>
+                <button onClick={() => { gerarProposta(sel); setSel(null); }}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand">
+                  Gerar proposta (upsell) ↗
+                </button>
+              </div>
+            )}
           </div>
         </Modal>
       )}
