@@ -157,6 +157,21 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
       ),
   });
 
+  // Mg. Contribuição — coluna de LEITURA (não método): contribuição antes do
+  // overhead rateado. Posicionada após Custo Indireto e antes de Imp. Fat.
+  // Só no modo EBITDA: na visão margem_contribuicao a coluna-resultado já é a
+  // MC (mesma chave) — evita duplicar chave/coluna.
+  if (!isMC) {
+    cols.push({
+      chave: 'margem_contribuicao', titulo: 'Mg. Contribuição', alinhamento: 'right', ordenavel: true,
+      tooltip: 'Contribuição antes do overhead rateado',
+      render: (c) => {
+        const v = c.margem_contribuicao;
+        return <span style={{ color: v >= 0 ? '#166534' : '#991b1b' }}>{formatCurrency(v)}</span>;
+      },
+    });
+  }
+
   cols.push(
     {
       // Imposto SOBRE FATURAMENTO (PIS/COFINS/ISS) — acima do EBITDA na DRE.

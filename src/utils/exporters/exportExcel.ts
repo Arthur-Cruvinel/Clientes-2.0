@@ -73,7 +73,7 @@ export function exportVisaoGeralExcel(
 
   const headers = [
     'CLIENTE', 'RECEITA BRUTA', 'IMPOSTOS FAT.', 'CUSTO DIRETO',
-    'CUSTO INDIRETO', 'CUSTO DEDICADO', 'EBITDA', 'MARGEM %',
+    'CUSTO INDIRETO', 'CUSTO DEDICADO', 'MARGEM CONTRIB.', 'EBITDA', 'MARGEM %',
     'IRPJ/CSLL', 'LUCRO LÍQUIDO',
     'RECEITA REBATE', 'REGIME',
   ];
@@ -95,6 +95,7 @@ export function exportVisaoGeralExcel(
       c.custo_direto,
       c.custo_indireto_rateado,
       c.custo_dedicado,
+      c.margem_contribuicao,
       c.ebitda,
       c.margem / 100,  // decimal pra Excel (5.5% → 0.055 → exibe "5.50%")
       c.impostos_lucro,
@@ -118,6 +119,7 @@ export function exportVisaoGeralExcel(
     soma('custo_direto'),
     soma('custo_indireto_rateado'),
     soma('custo_dedicado'),
+    soma('margem_contribuicao'),
     soma('ebitda'),
     margemMedia / 100,
     soma('impostos_lucro'),
@@ -128,9 +130,9 @@ export function exportVisaoGeralExcel(
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   autoWidth(ws, headers);
-  // Margem % = coluna 7 (0-based); Texto = colunas 0 (nome) e 11 (regime).
-  // IRPJ/CSLL (8) e Lucro Líquido (9) deslocam Receita Rebate→10 e Regime→11.
-  formatarCelulas(ws, 4, new Set([7]), new Set([0, 11]));
+  // Margem % = coluna 8 (0-based) após inserir MARGEM CONTRIB. (6); EBITDA→7.
+  // Texto = colunas 0 (nome) e 12 (regime). Demais deslocadas +1.
+  formatarCelulas(ws, 4, new Set([8]), new Set([0, 12]));
 
   XLSX.utils.book_append_sheet(wb, ws, 'Visão Geral');
   salvarWorkbook(wb, `visao-geral_${periodo}_${Date.now()}.xlsx`);

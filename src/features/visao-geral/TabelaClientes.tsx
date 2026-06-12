@@ -85,7 +85,7 @@ export function TabelaClientes({
                   } ${col.ordenavel ? 'cursor-pointer select-none hover:bg-gray-100' : ''}`}
                   style={{ color: '#6b6b8a', backgroundColor: '#f9f9fb', ...(i === 0 ? { ...stickyCol, zIndex: 15 } : {}) }}
                   onClick={() => col.ordenavel && onOrdenar(col.chave)}>
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1" title={col.tooltip}>
                     {col.titulo}
                     {col.ordenavel && <ArrowUpDown size={10} style={{ color: colunaOrdenada === col.chave ? '#0065FF' : '#d1d5db' }} />}
                     {uv.length > 0 && (

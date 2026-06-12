@@ -133,7 +133,7 @@ export function exportVisaoGeralPdf(
   // Cabeçalhos da tabela
   const head = [[
     'Cliente', 'Receita Bruta', 'Impostos Fat.', 'Custo Direto',
-    'Custo Indireto', 'Custo Dedicado', 'EBITDA', 'Margem %',
+    'Custo Indireto', 'Custo Dedicado', 'Mg. Contrib.', 'EBITDA', 'Margem %',
     'IRPJ/CSLL', 'Lucro Líq.', 'Mg. Líq. %',
     'Receita Rebate', 'Regime',
   ]];
@@ -146,6 +146,7 @@ export function exportVisaoGeralPdf(
     brl(c.custo_direto),
     brl(c.custo_indireto_rateado),
     brl(c.custo_dedicado),
+    brl(c.margem_contribuicao),
     brl(c.ebitda),
     pct(c.margem),
     brl(c.impostos_lucro),
@@ -172,6 +173,7 @@ export function exportVisaoGeralPdf(
     brl(soma('custo_direto')),
     brl(soma('custo_indireto_rateado')),
     brl(soma('custo_dedicado')),
+    brl(soma('margem_contribuicao')),
     brl(soma('ebitda')),
     pct(margemMedia),
     brl(soma('impostos_lucro')),
@@ -207,16 +209,20 @@ export function exportVisaoGeralPdf(
         const valor = dados[data.row.index];
         if (!valor) return;
 
-        // EBITDA (col 6)
+        // Mg. Contribuição (col 6) — inserida antes do EBITDA, desloca as demais +1
         if (colIdx === 6) {
+          data.cell.styles.textColor = valor.margem_contribuicao >= 0 ? COR_POSITIVO : COR_NEGATIVO;
+        }
+        // EBITDA (col 7)
+        if (colIdx === 7) {
           data.cell.styles.textColor = valor.ebitda >= 0 ? COR_POSITIVO : COR_NEGATIVO;
         }
-        // Margem % (col 7)
-        if (colIdx === 7) {
+        // Margem % (col 8)
+        if (colIdx === 8) {
           data.cell.styles.textColor = valor.margem >= 0 ? COR_POSITIVO : COR_NEGATIVO;
         }
-        // Lucro Líquido (col 9) e Mg. Líq. % (col 10)
-        if (colIdx === 9 || colIdx === 10) {
+        // Lucro Líquido (col 10) e Mg. Líq. % (col 11)
+        if (colIdx === 10 || colIdx === 11) {
           data.cell.styles.textColor = valor.lucro_liquido >= 0 ? COR_POSITIVO : COR_NEGATIVO;
         }
       }

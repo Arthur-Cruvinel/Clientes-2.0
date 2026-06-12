@@ -89,6 +89,8 @@ export function calcularDRE(
   const custo_indireto_rateado = rateios.geral;
 
   const custo_total = custo_direto + custo_dedicado + custo_indireto_rateado;
+  // Margem de contribuição: ANTES do overhead rateado (≡ ebitda + custo_indireto_rateado).
+  const margem_contribuicao = receita_bruta - impostos_faturamento - custo_direto - custo_dedicado;
   const ebitda = receita_bruta - impostos_faturamento - custo_total;
 
   // Presumido: imposto sobre receita. Real: 34% sobre EBITDA positivo.
@@ -112,6 +114,7 @@ export function calcularDRE(
     custo_dedicado_viagem, custo_dedicado_juridico, custo_dedicado_conciliacao,
     custo_indireto_rateado, custo_total,
     linhas_mao_de_obra,
+    margem_contribuicao,
     ebitda,
     margem_ebitda: divisaoSegura(ebitda, receita_bruta),
     lucro_liquido,

@@ -607,6 +607,12 @@ export interface ResultadoCliente {
   // Σ linhas_mao_de_obra.valor ≡ custo_direto.
   linhas_mao_de_obra: LinhaMaoDeObra[];
 
+  // Margem de contribuição — receita − imp.fat − custo_direto − custo_dedicado,
+  // ANTES do overhead rateado. Leitura (não método): MC > 0 = cliente cobre o
+  // próprio custo direto/dedicado e contribui p/ o pool; o déficit (se houver)
+  // vem do rateio. Identidade: margem_contribuicao ≡ ebitda + custo_indireto_rateado.
+  margem_contribuicao: number;
+
   // Resultado
   ebitda: number;
   margem_ebitda: number;

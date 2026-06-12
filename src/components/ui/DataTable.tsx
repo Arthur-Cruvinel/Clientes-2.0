@@ -6,6 +6,7 @@ export interface ColunaConfig<T> {
   render: (item: T) => React.ReactNode;
   alinhamento?: 'left' | 'right' | 'center';
   ordenavel?: boolean;
+  tooltip?: string;   // legenda curta exibida no header (title nativo)
 }
 
 interface DataTableProps<T> {

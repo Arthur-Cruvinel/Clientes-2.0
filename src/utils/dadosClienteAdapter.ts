@@ -40,10 +40,8 @@ export function mesclarClienteResultado(
     custo_total: resultado?.custo_total ?? 0,
     impostos_faturamento: resultado?.impostos_faturamento ?? 0,
     impostos_lucro: resultado?.impostos_lucro ?? 0,
-    margem_contribuicao: resultado
-      ? resultado.receita_bruta - resultado.impostos_faturamento
-        - resultado.custo_direto - resultado.custo_dedicado
-      : 0,
+    // Fonte única: motor (calcularDRE) já expõe margem_contribuicao.
+    margem_contribuicao: resultado?.margem_contribuicao ?? 0,
     ebitda: resultado?.ebitda ?? 0,
     margem: resultado?.margem_ebitda ?? 0,
     lucro_liquido: resultado?.lucro_liquido ?? 0,
