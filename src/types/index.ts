@@ -490,6 +490,10 @@ export interface Parametros {
   // Margem EBITDA alvo sobre a receita total — base do fee sugerido (Precificação).
   margem_alvo: number;
   split_plataforma: number;
+  // Razão de overhead de REFERÊNCIA (pool geral ÷ Σ custo direto) de um período
+  // validado. A precificação usa SEMPRE esta razão (não a do período corrente),
+  // que é hiper-sensível à completude da alocação. Recalculável via UI.
+  overhead_ratio_referencia: number;
   horas_pacote: Record<PacoteServico, Record<FuncaoAlocacao, number>>;
 }
 

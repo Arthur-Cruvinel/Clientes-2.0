@@ -14,7 +14,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../../state/AppContext';
 import { calcularHorasReais } from '../../utils/financials';
-import { custoHoraMedioPorFuncao, overheadRatioPeriodo, custoDiretoDemanda } from './precificacaoBase';
+import { custoHoraMedioPorFuncao, custoDiretoDemanda } from './precificacaoBase';
 import { salvarProposta, buscarPropostas, atualizarPropostaStatus, excluirProposta } from '../../services/firebase';
 import { gerarPropostaHTML } from './propostaTemplate';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
@@ -121,11 +121,12 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
 
   const prop = useMemo(() => {
     if (!dadosPeriodo) return null;
-    const { colaboradores, custosIndiretos, resultados, clientes, vinculos } = dadosPeriodo;
+    const { colaboradores } = dadosPeriodo;
 
     // Mesma base do diagnóstico da Parte 1 (motor único — precificacaoBase).
     const custoHoraMedio = custoHoraMedioPorFuncao(colaboradores);
-    const overheadRatio = overheadRatioPeriodo(colaboradores, custosIndiretos, clientes, vinculos, resultados);
+    // Overhead SEMPRE da razão de referência (parametros/global).
+    const overheadRatio = parametros.overhead_ratio_referencia;
 
     const cliente: Cliente = {
       nome_cliente: 'Proposta', pacote_servico: pacote, receita_fee: 0,
@@ -348,7 +349,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             <div className="space-y-1 text-sm rounded-lg p-3" style={{ backgroundColor: '#f3f4f6' }}>
               <L label={`Custo direto (${prop.totalHoras.toFixed(1)}h)`} v={formatCurrency(prop.custoDireto)} />
               <L label="+ Dedicados" v={formatCurrency(prop.dedicados)} />
-              <L label={`+ Overhead (×${(prop.overheadRatio).toFixed(3)} do direto)`} v={formatCurrency(prop.overhead)} />
+              <L label={`+ Overhead (×${prop.overheadRatio.toFixed(2)} — razão de referência)`} v={formatCurrency(prop.overhead)} />
               <L label="= Custo total" v={formatCurrency(prop.custoTotal)} forte />
               <L label="Receita necessária" v={formatCurrency(prop.receitaNecessaria)} />
               <L label="− Rebate líquido estimado" v={formatCurrency(prop.rebate)} />

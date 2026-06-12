@@ -237,6 +237,11 @@ export const ALIQUOTA_REBATE_OFFSHORE_DEFAULT = 0.21;    // 21,00%
 // Placeholder; o CFO ajusta na tela de Precificação. Editável (parametros/global).
 export const MARGEM_ALVO_DEFAULT = 0.25;                 // 25%
 
+// Razão de overhead de REFERÊNCIA (pool geral ÷ Σ custo direto) — seed do
+// período validado 2026-01 (190.057,99 ÷ 144.900,43). A precificação usa
+// sempre esta razão; recalculável via UI a partir do período corrente.
+export const OVERHEAD_RATIO_REFERENCIA_DEFAULT = 1.3116;
+
 // ── PARÂMETROS GLOBAIS DEFAULT ─────────────────────────────────────────
 export const PARAMETROS_DEFAULT: Parametros = {
   custo_juridico_mensal: 0,
@@ -247,6 +252,7 @@ export const PARAMETROS_DEFAULT: Parametros = {
   aliquota_rebate_offshore: ALIQUOTA_REBATE_OFFSHORE_DEFAULT,
   margem_alvo: MARGEM_ALVO_DEFAULT,
   split_plataforma: 0.5,
+  overhead_ratio_referencia: OVERHEAD_RATIO_REFERENCIA_DEFAULT,
   horas_pacote: HORAS_PACOTE as Record<PacoteServico, Record<FuncaoAlocacao, number>>,
 };
 

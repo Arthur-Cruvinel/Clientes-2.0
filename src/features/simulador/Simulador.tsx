@@ -5,6 +5,7 @@ import { useApp } from '../../state/AppContext';
 import { formatPeriodo } from '../../utils/formatters';
 import { Reajustes } from './Reajustes';
 import { GeradorProposta, type PrefillProposta } from './GeradorProposta';
+import { BarraOverheadRef } from './BarraOverheadRef';
 
 const ABAS = ['Reajustes', 'Gerador de Propostas'] as const;
 
@@ -27,6 +28,8 @@ export function Simulador() {
             style={{ color: aba === a ? '#160F41' : '#6b6b8a' }}>{a}</button>
         ))}
       </div>
+
+      <BarraOverheadRef />
 
       {aba === 'Reajustes' && <Reajustes onUpsell={(p) => { setPrefill(p); setAba('Gerador de Propostas'); }} />}
       {aba === 'Gerador de Propostas' && <GeradorProposta prefill={prefill} />}

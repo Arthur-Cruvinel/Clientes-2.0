@@ -7,7 +7,7 @@ import { getAuth } from 'firebase/auth';
 import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao, DadosProposta } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO, CATEGORIAS_CUSTO_INDIRETO } from '../utils/constants';
-import { PARAMETROS_DEFAULT, ALIQUOTA_REBATE_ONSHORE_DEFAULT, ALIQUOTA_REBATE_OFFSHORE_DEFAULT, MARGEM_ALVO_DEFAULT } from '../utils/constants';
+import { PARAMETROS_DEFAULT, ALIQUOTA_REBATE_ONSHORE_DEFAULT, ALIQUOTA_REBATE_OFFSHORE_DEFAULT, MARGEM_ALVO_DEFAULT, OVERHEAD_RATIO_REFERENCIA_DEFAULT } from '../utils/constants';
 import { buscarTetoPorPeriodo, calcularFolhaColaborador } from '../utils/financials.custos';
 import { slug } from '../utils/slug';
 
@@ -1290,6 +1290,7 @@ export async function semearAliquotasRebate(): Promise<void> {
     if (data.aliquota_rebate_onshore == null) patch.aliquota_rebate_onshore = ALIQUOTA_REBATE_ONSHORE_DEFAULT;
     if (data.aliquota_rebate_offshore == null) patch.aliquota_rebate_offshore = ALIQUOTA_REBATE_OFFSHORE_DEFAULT;
     if (data.margem_alvo == null) patch.margem_alvo = MARGEM_ALVO_DEFAULT;
+    if (data.overhead_ratio_referencia == null) patch.overhead_ratio_referencia = OVERHEAD_RATIO_REFERENCIA_DEFAULT;
     if (Object.keys(patch).length > 0) {
       await setDoc(ref, patch, { merge: true });
       console.log('[Firebase] Parâmetros globais semeados (ausentes):', patch);
@@ -1297,6 +1298,11 @@ export async function semearAliquotasRebate(): Promise<void> {
   } catch (error) {
     console.error('[Firebase] Erro ao semear parâmetros globais:', error);
   }
+}
+
+/** Persiste a razão de overhead de referência (merge — não toca outros campos). */
+export async function salvarOverheadRatioReferencia(valor: number): Promise<void> {
+  await setDoc(doc(db, 'parametros', 'global'), { overhead_ratio_referencia: valor }, { merge: true });
 }
 
 // ── Propostas (Precificação) — snapshot imutável, docId = id_estavel (uuid) ──

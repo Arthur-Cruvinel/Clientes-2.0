@@ -20,7 +20,7 @@ import { useMemo } from 'react';
 import { useApp } from '../../state/AppContext';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
 import { calcularHorasReais } from '../../utils/financials';
-import { custoHoraMedioPorFuncao, overheadRatioPeriodo, custoDiretoDemanda } from './precificacaoBase';
+import { custoHoraMedioPorFuncao, custoDiretoDemanda } from './precificacaoBase';
 import type { Cliente, FuncaoAlocacao } from '../../types';
 
 export type PerfilStatus = 'completo' | 'parcial' | 'ausente';
@@ -69,10 +69,12 @@ export function useReajustes(materialidadePct: number) {
 
   const rows = useMemo<ReajusteRow[]>(() => {
     if (!dadosPeriodo || denom <= 0) return [];
-    const { resultados, clientes, colaboradores, custosIndiretos, vinculos } = dadosPeriodo;
+    const { resultados, clientes, colaboradores } = dadosPeriodo;
     const cliByNome = new Map(clientes.map(c => [c.nome_cliente, c]));
     const custoHoraMedio = custoHoraMedioPorFuncao(colaboradores);
-    const overheadRatio = overheadRatioPeriodo(colaboradores, custosIndiretos, clientes, vinculos, resultados);
+    // Razão de overhead SEMPRE da referência (parametros/global), não a do
+    // período corrente — esta é hiper-sensível à completude da alocação.
+    const overheadRatio = parametros.overhead_ratio_referencia;
 
     return resultados.map(r => {
       const custoTotal = r.custo_total;
@@ -126,7 +128,7 @@ export function useReajustes(materialidadePct: number) {
         horasDemanda, horasAlocadas, deltaAtendimento, atendimento, feeCenario, staffing,
       };
     });
-  }, [dadosPeriodo, denom, materialidadePct]);
+  }, [dadosPeriodo, denom, materialidadePct, parametros.overhead_ratio_referencia]);
 
   const dinheiroNaMesa = useMemo(
     () => rows.filter(r => r.badge === 'subprecificado').reduce((s, r) => s + Math.max(0, r.gap), 0),
