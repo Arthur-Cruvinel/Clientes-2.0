@@ -220,7 +220,7 @@ function AlocacaoTab({ c, hp, vinculos }: { c: import('../../types').DadosClient
   return (
     <table className="min-w-full text-sm">
       <thead style={{ backgroundColor: '#f9f9fb' }}>
-        <tr><th className={TH}>Função</th><th className={TH}>Responsável</th><th className={`${TH} text-right`}>H. Dir.</th>
+        <tr><th className={TH}>Função</th><th className={TH}>Responsável</th><th className={`${TH} text-right`} title="Horas normativas do pacote (HORAS_PACOTE) — não é hora alocada">H. Pacote</th>
           <th className={`${TH} text-right`} title="pct alocado ÷ pct normativo do pacote">Escopo</th><th className={`${TH} text-right`}>H. Efet.</th></tr>
       </thead>
       <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
