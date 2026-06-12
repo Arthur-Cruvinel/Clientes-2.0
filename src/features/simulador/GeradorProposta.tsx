@@ -76,6 +76,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [imagemCapa, setImagemCapa] = useState('');
   const [textoEscopo, setTextoEscopo] = useState('');
   const [validadeDias, setValidadeDias] = useState(15);
+  const [diaVencimento, setDiaVencimento] = useState(10);
   const [valorProposto, setValorProposto] = useState(0);
   const [feeAtual, setFeeAtual] = useState(0);
   const [editId, setEditId] = useState<string | undefined>();
@@ -92,7 +93,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     pl_onshore: plOn, pl_offshore: plOff, taxa_rebate_onshore: taxaOn, taxa_rebate_offshore: taxaOff,
     dedic_contabilidade: dContab, dedic_pagamento: dPgto, dedic_administrativo: dAdm, dedic_viagem: dViagem,
     texto_introducao: textoIntro, imagem_capa_url: imagemCapa, texto_escopo_adicional: textoEscopo,
-    validade_dias: validadeDias, valor_proposto: valorProposto, fee_atual: feeAtual,
+    validade_dias: validadeDias, dia_vencimento: diaVencimento, valor_proposto: valorProposto, fee_atual: feeAtual,
   });
   const aplicarInputs = (i: Partial<PropostaInputs>) => {
     if (i.pacote) setPacote(i.pacote); if (i.regime) setRegime(i.regime);
@@ -106,6 +107,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     setDContab(i.dedic_contabilidade ?? 0); setDPgto(i.dedic_pagamento ?? 0); setDAdm(i.dedic_administrativo ?? 0); setDViagem(i.dedic_viagem ?? 0);
     setTextoIntro(i.texto_introducao ?? ''); setImagemCapa(i.imagem_capa_url ?? ''); setTextoEscopo(i.texto_escopo_adicional ?? '');
     setValidadeDias(i.validade_dias ?? 15);   // snapshots velhos → 15
+    setDiaVencimento(i.dia_vencimento ?? 10);  // snapshots velhos → 10
     setValorProposto(i.valor_proposto ?? 0); setFeeAtual(i.fee_atual ?? 0);
   };
 
@@ -210,8 +212,9 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
       qtdVeiculos: veic, qtdImoveis: imov, gruposFinanceiros: grupos, qtdFuncionariosDomesticos: domest,
       volumeMovimentos: volMov, qtdContasBancarias: contas, qtdRecebiveis: recebiveis, qtdContratacoes: contratacoes,
-      dedicViagem: dViagem, plTotal: plOn + plOff, textoEscopoAdicional: textoEscopo,
+      dedicViagem: dViagem, plTotal: plOn + plOff, plOffshore: plOff, textoEscopoAdicional: textoEscopo,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
+      diaVencimento: diaVencimento >= 1 && diaVencimento <= 28 ? diaVencimento : 10,
     });
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     window.open(url, '_blank');
@@ -259,6 +262,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           </label>
           <div className="grid grid-cols-2 gap-3">
             <Num label="Validade da proposta (dias)" v={validadeDias} set={setValidadeDias} />
+            <Num label="Dia do vencimento (1–28)" v={diaVencimento} set={setDiaVencimento} />
           </div>
           <div className="flex gap-2 pt-1">
             <button onClick={salvar} disabled={salvando}

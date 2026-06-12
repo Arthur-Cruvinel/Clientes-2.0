@@ -30,10 +30,11 @@ export interface DadosPropostaTemplate {
   planejamentoTributario: boolean; revisaoContratos: boolean;
   qtdVeiculos: number; qtdImoveis: number; gruposFinanceiros: number; qtdFuncionariosDomesticos: number;
   volumeMovimentos: number; qtdContasBancarias: number; qtdRecebiveis: number; qtdContratacoes: number;
-  dedicViagem: number;   // > 0 → Organização de Viagens contratada
-  plTotal: number;
+  dedicViagem: number;
+  plTotal: number; plOffshore: number;   // plOffshore > 0 → Estrutura Offshore contratada
   textoEscopoAdicional: string;
   validadeDias: number;  // validade da proposta (default 15)
+  diaVencimento: number; // dia do vencimento do boleto, 1–28 (default 10)
 }
 
 // Cláusula de excedente — fonte única (escopo + condições gerais não divergem).
@@ -41,29 +42,35 @@ const CLAUSULA_EXCEDENTE = 'Os volumes indicados refletem o escopo precificado n
 
 // Fonte única dos drivers → contratado/não. Pilares e escopo leem daqui.
 interface Ticks {
-  imoveis: boolean; veiculos: boolean; domesticos: boolean; contratacoes: boolean; viagens: boolean;
+  imoveis: boolean; veiculos: boolean; domesticos: boolean; contratacoes: boolean; viagens: boolean; eventos: boolean;
   planejamentoFin: boolean; movimentos: boolean;
   juridico: boolean; revisao: boolean; planTrib: boolean;
-  investimentos: boolean;
+  investimentos: boolean; consolidacao: boolean; relatorios: boolean; offshore: boolean; liquidez: boolean;
 }
 function ticks(d: DadosPropostaTemplate): Ticks {
   return {
-    // PILAR 1 (Administrativo) — cada item segue o seu próprio driver.
+    // PILAR 1 (Administrativo) — contratação de serviços e viagens são pacote
+    // básico (sempre ✓); imóveis/veículos/funcionários seguem a quantidade.
     imoveis: d.qtdImoveis > 0,
     veiculos: d.qtdVeiculos > 0,
     domesticos: d.qtdFuncionariosDomesticos > 0,
-    contratacoes: d.qtdContratacoes > 0,     // PREMISSA: contratação de serviços ↔ qtd_contratacoes_mes
-    viagens: d.dedicViagem > 0,              // PREMISSA: organização de viagens ↔ dedic_viagem
+    contratacoes: true,
+    viagens: true,
+    eventos: false,                          // serviço extra — nunca ✓ nesta versão
     // PILAR 2 (Financeiro) — Planejamento é chamariz de poupança, sempre incluído.
     planejamentoFin: true,
     movimentos: d.volumeMovimentos > 0,      // pagamento/conciliação/fluxo
     // PILAR 3 (Jurídico) — flags (tiers virão em obra própria).
     juridico: d.usaJuridico, revisao: d.revisaoContratos, planTrib: d.planejamentoTributario,
-    // PILAR 4 (Investimentos) — atração de PL, sempre incluído; nunca extra.
+    // PILAR 4 (Investimentos) — núcleo da casa, sempre incluído; offshore por PL.
     investimentos: true,
+    consolidacao: true,                      // multi-custódia (BTG/XP/Galápagos)
+    relatorios: true,
+    offshore: d.plOffshore > 0,
+    liquidez: false,                         // extra
   };
 }
-// Pilar contratado = tem ≥1 item ✓. fin/inv são sempre contratados por definição.
+// Pilar contratado = tem ≥1 item ✓. adm/fin/inv sempre contratados por definição.
 function contratacao(t: Ticks) {
   return {
     adm: t.imoveis || t.veiculos || t.domesticos || t.contratacoes || t.viagens,
@@ -123,7 +130,7 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
     if (t.imoveis) it.push(`${d.qtdImoveis} imóvel(is)`);
     if (t.veiculos) it.push(`${d.qtdVeiculos} veículo(s)`);
     if (t.domesticos) it.push(`${d.qtdFuncionariosDomesticos} funcionário(s) doméstico(s)`);
-    if (t.contratacoes) it.push(`${d.qtdContratacoes} contratação(ões) de serviço/mês`);
+    if (t.contratacoes) it.push('contratação de serviços');
     if (t.viagens) it.push('organização de viagens');
     blocos.push({ titulo: 'Escopo Administrativo', texto: `Gestão de ${it.join('; ')}. ${EXC}` });
   }
@@ -142,14 +149,21 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
     blocos.push({ titulo: 'Escopo Jurídico', texto: `Apoio consultivo contínuo${it.length ? `: ${it.join(', ')}` : ''}. ${EXC}` });
   }
   if (contr.inv) {
-    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Gestão de carteira de investimentos${d.plTotal > 0 ? `, com patrimônio estimado de ${brl(d.plTotal)}` : ''}. ${EXC}` });
+    const inc = ['gestão de carteira', 'consolidação multi-custódia (BTG/XP/Galápagos)', 'relatórios de performance'];
+    if (t.offshore) inc.push('estrutura offshore');
+    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Inclui ${inc.join(', ')}${d.plTotal > 0 ? `; patrimônio estimado de ${brl(d.plTotal)}` : ''}. ${EXC}` });
   }
-  // fin/inv são sempre contratados → só adm/jur podem cair em ativação.
-  const naoContr = [!contr.adm && 'Administrativo', !contr.jur && 'Jurídico'].filter(Boolean) as string[];
-  if (naoContr.length) blocos.push({ titulo: 'Ativação de Novos Serviços', texto: `Serviços adicionais (${naoContr.join(', ')}) e soluções sob demanda (M&A, valuation, estudos de viabilidade) podem ser ativados a qualquer momento mediante orçamento pontual.` });
-  if (d.textoEscopoAdicional.trim()) blocos.push({ titulo: 'Observações', texto: esc(d.textoEscopoAdicional) });
+  // adm/fin/inv são sempre contratados → só jur pode cair em ativação.
+  const naoContr = [!contr.jur && 'Jurídico'].filter(Boolean) as string[];
+  blocos.push({ titulo: 'Ativação de Novos Serviços', texto: `${naoContr.length ? `Serviços adicionais (${naoContr.join(', ')}) e s` : 'S'}oluções sob demanda (M&A, valuation, estudos de viabilidade) podem ser ativados a qualquer momento mediante orçamento pontual.` });
 
-  return blocos.map(b => `<div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">${b.titulo}</strong><p class="text-secundario text-base mt-1">${b.texto}</p></div>`).join('');
+  return blocos.map(b => `<div class="escopo-card bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">${b.titulo}</strong><p class="text-secundario text-base mt-1">${b.texto}</p></div>`).join('');
+}
+
+/** Texto livre do escopo — full-width, fora do grid (após os blocos). */
+function observacoesHTML(d: DadosPropostaTemplate): string {
+  if (!d.textoEscopoAdicional.trim()) return '';
+  return `<div class="escopo-card bg-white p-5 rounded-md border border-gray-200 mt-4"><strong class="text-principal text-lg">Observações</strong><p class="text-secundario text-base mt-1">${esc(d.textoEscopoAdicional)}</p></div>`;
 }
 
 export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
@@ -175,9 +189,9 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
 
   const pilares = [
     pilarHTML(1, 'Administrativo', 'Gestão completa da rotina e bens.',
-      [{ texto: 'Gestão de Imóveis', contratado: t.imoveis }, { texto: 'Gestão de Veículos', contratado: t.veiculos },
-       { texto: 'Gestão de Funcionários', contratado: t.domesticos }, { texto: 'Contratação de Serviços', contratado: t.contratacoes },
-       { texto: 'Organização de Viagens', contratado: t.viagens }]),
+      [{ texto: 'Contratação de Serviços', contratado: t.contratacoes }, { texto: 'Organização de Viagens', contratado: t.viagens },
+       { texto: 'Gestão de Imóveis', contratado: t.imoveis }, { texto: 'Gestão de Veículos', contratado: t.veiculos },
+       { texto: 'Gestão de Funcionários', contratado: t.domesticos }, { texto: 'Organização de Eventos', contratado: t.eventos }]),
     pilarHTML(2, 'Financeiro', 'Operação e planejamento financeiro.',
       [{ texto: 'Planejamento Financeiro', contratado: t.planejamentoFin },
        { texto: 'Pagamento de Contas', contratado: t.movimentos },
@@ -188,15 +202,17 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
        { texto: 'Planejamento Tributário', contratado: t.planTrib }, { texto: 'Direitos de Imagem', contratado: false }]),
     // M&A e Estudos de Viabilidade NÃO entram aqui — vivem em "Soluções Sob Demanda".
     pilarHTML(4, 'Investimentos', 'Gestão de patrimônio e futuro.',
-      [{ texto: 'Gestão de Investimentos', contratado: t.investimentos }]),
+      [{ texto: 'Gestão de Investimentos', contratado: t.investimentos },
+       { texto: 'Consolidação de Ativos (multi-custódia)', contratado: t.consolidacao },
+       { texto: 'Relatórios de Performance', contratado: t.relatorios },
+       { texto: 'Estrutura Offshore', contratado: t.offshore },
+       { texto: 'Planejamento de Liquidez', contratado: t.liquidez }]),
   ].join('');
 
-  const composicao = ehAditivo
-    ? `<div class="space-y-2 mb-4 text-sm">
-         <div class="flex justify-between items-center text-secundario"><span>Escopo atual</span><span class="font-medium">${brl(d.feeAtual)}</span></div>
-         <div class="flex justify-between items-center text-secundario"><span>Novo escopo (Financeiro)</span><span class="font-medium">${brl(novo)}</span></div>
-       </div>`
-    : `<div class="space-y-2 mb-4 text-sm"><div class="flex justify-between items-center text-secundario"><span>Gestão completa (mensal)</span><span class="font-medium">${brl(d.valorProposto)}</span></div></div>`;
+  // Faixa de investimento (resumo): composição enxuta para a linha secundária.
+  const composicaoLinha = ehAditivo
+    ? `Escopo atual ${brl(d.feeAtual)} + novo escopo ${brl(novo)}`
+    : 'Gestão patrimonial completa, em um plano único';
 
   return `<!DOCTYPE html>
 <html lang="pt-br" class="scroll-smooth"><head>
@@ -228,7 +244,10 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
     #capa{box-shadow:none!important;border-radius:0!important}
     .backdrop-blur-sm{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
     section{break-inside:avoid} #capa{break-after:page}
-    .service-card,.service-card-white,.service-card-inactive{break-inside:avoid}
+    .service-card,.service-card-white,.service-card-inactive,.escopo-card{break-inside:avoid}
+    /* faixa de investimento: gradiente é background (já print-safe); garante que
+       não quebre no meio e que a cor seja impressa. */
+    #faixa-investimento{break-inside:avoid}
   }
   #barra-print{position:fixed;right:20px;bottom:20px;z-index:50}
 </style></head>
@@ -298,29 +317,28 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
     </div>
   </section>
 
-  <section id="parceria" class="p-12 md:p-20" style="background:var(--cor-fundo-alternativo)">
-    <h2 class="text-center text-4xl font-bold text-principal mb-12">Nossa Parceria Estratégica</h2>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
-      <div class="lg:col-span-1 self-start service-card rounded-lg p-8 border-2 border-primario shadow-lg flex flex-col bg-white">
-        <h3 class="text-sm font-semibold text-primario uppercase tracking-wide">Investimento</h3>
-        <p class="mt-2 leading-none"><span class="text-5xl font-bold text-principal">${brl(d.valorProposto)}</span><span class="text-lg font-medium text-secundario"> /mês</span></p>
-        <p class="text-secundario text-sm mt-3">${ehAditivo ? 'Operação atual ampliada com o novo escopo.' : 'Gestão patrimonial completa, em um plano único.'}</p>
-        <div class="mt-6 bg-gray-50 p-5 rounded-md border border-gray-200">
-          <h5 class="font-bold text-xs mb-3 uppercase text-gray-500 tracking-wide">Composição do Investimento</h5>
-          ${composicao}
-          <div class="border-t border-gray-300 pt-3 flex justify-between items-end"><span class="text-xs text-gray-500 uppercase font-bold mb-1">Total Mensal</span><p class="text-2xl font-bold text-primario leading-none whitespace-nowrap">${brl(d.valorProposto)}</p></div>
-        </div>
-        <div class="mt-5 space-y-2.5 text-sm text-secundario">
-          <div class="flex items-start gap-2"><i class="fas fa-barcode text-primario mt-0.5"></i><span>Pagamento mensal via boleto, com vencimento todo dia 10.</span></div>
-          <div class="flex items-start gap-2"><i class="fas fa-clock text-primario mt-0.5"></i><span>Proposta válida por ${d.validadeDias} dias a partir da apresentação.</span></div>
-          <div class="flex items-start gap-2"><i class="fas fa-calendar-day text-primario mt-0.5"></i><span>${esc(d.data)}</span></div>
+  <section id="investimento">
+    <!-- FAIXA: valor elegante (premium sóbrio). Gradiente como background (sem
+         box-shadow/blur) → não rasteriza a página na impressão. -->
+    <div id="faixa-investimento" class="px-12 md:px-20 py-14 text-white" style="background:linear-gradient(120deg,#160F41 0%,#2F49EE 60%,#732AD8 100%)">
+      <div class="max-w-5xl mx-auto">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/60">Investimento Mensal</p>
+        <p class="mt-3"><span class="text-5xl font-extralight tracking-tight">${brl(d.valorProposto)}</span><span class="text-base font-light text-white/60"> /mês</span></p>
+        <div class="mt-6 flex flex-wrap gap-x-10 gap-y-2 text-sm font-light text-white/75">
+          <span><i class="fas fa-layer-group text-white/40 mr-2"></i>${composicaoLinha}</span>
+          <span><i class="fas fa-barcode text-white/40 mr-2"></i>Boleto · vencimento dia ${d.diaVencimento}</span>
+          <span><i class="fas fa-clock text-white/40 mr-2"></i>Válida por ${d.validadeDias} dias</span>
         </div>
       </div>
-      <div class="lg:col-span-2 service-card rounded-lg p-8">
-        <h3 class="text-lg font-semibold text-secundario uppercase">ALINHAMENTO</h3>
-        <h4 class="text-3xl font-bold text-principal mt-1 mb-4">Escopo Contratado e Limites</h4>
-        <p class="text-secundario leading-relaxed mb-6">O escopo descrito reflete exatamente a volumetria precificada — você paga pelo esforço dimensionado, com renegociação transparente se os volumes crescerem.</p>
-        <div class="space-y-4 mt-6">${blocosEscopo(d, t, contr)}</div>
+    </div>
+    <!-- ESCOPO: largura total, cards lado a lado (grid 2 colunas). -->
+    <div class="p-12 md:p-20" style="background:var(--cor-fundo-alternativo)">
+      <div class="max-w-5xl mx-auto">
+        <h3 class="text-sm font-semibold text-secundario uppercase tracking-wide">Alinhamento</h3>
+        <h2 class="text-3xl font-bold text-principal mt-1 mb-3">Escopo Contratado e Limites</h2>
+        <p class="text-secundario leading-relaxed mb-8 max-w-3xl">O escopo descrito reflete exatamente a volumetria precificada — você paga pelo esforço dimensionado, com renegociação transparente se os volumes crescerem.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">${blocosEscopo(d, t, contr)}</div>
+        ${observacoesHTML(d)}
       </div>
     </div>
   </section>
@@ -329,6 +347,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
     <h2 class="text-center text-3xl font-bold text-principal mb-10">Condições Gerais</h2>
     <div class="max-w-4xl mx-auto space-y-4">
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Validade</strong><p class="text-secundario text-base mt-1">Esta proposta é válida por ${d.validadeDias} dias a partir da data de apresentação.</p></div>
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Pagamento</strong><p class="text-secundario text-base mt-1">Pagamento mensal via boleto, com vencimento todo dia ${d.diaVencimento}.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Rescisão</strong><p class="text-secundario text-base mt-1">O contrato pode ser rescindido por qualquer das partes mediante aviso prévio de 30 (trinta) dias. Nos 3 (três) primeiros meses de vigência — período de experiência — a rescisão pode ser solicitada a qualquer momento, sem necessidade de aviso prévio.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Excedentes</strong><p class="text-secundario text-base mt-1">${CLAUSULA_EXCEDENTE}</p></div>
     </div>

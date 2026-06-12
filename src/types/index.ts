@@ -453,6 +453,7 @@ export interface PropostaInputs {
   imagem_capa_url: string;
   texto_escopo_adicional: string;   // ressalvas específicas do cliente (após blocos gerados)
   validade_dias: number;            // validade da proposta em dias (default 15)
+  dia_vencimento: number;           // dia do vencimento do boleto, 1–28 (default 10)
   valor_proposto: number;   // preço comercial (editável; âncora = fee sugerido)
   fee_atual: number;        // composição aditiva (cliente_existente)
 }
