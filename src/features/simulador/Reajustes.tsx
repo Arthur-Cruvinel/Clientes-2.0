@@ -5,7 +5,12 @@ import { salvarParametros } from '../../services/firebase';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { Modal } from '../../components/ui/Modal';
 import { Badge } from '../../components/ui/Badge';
+import { HeaderOrdenavel, type OrdenacaoState } from '../../components/ui/HeaderOrdenavel';
 import { useReajustes, type ReajusteRow, type PerfilStatus } from './useReajustes';
+
+type ChaveOrd = 'nome' | 'feeAtual' | 'custoTotal' | 'rebateLiquido' | 'receitaNecessaria' | 'feeSugerido' | 'gap' | 'deltaAtendimento';
+const SEL = 'rounded px-2 py-1.5 text-xs';
+const SELBRD = { border: '1px solid #e2e2e8', color: '#160F41' };
 
 const TH = 'px-3 py-2 text-[10px] font-bold uppercase tracking-wider';
 const TD = 'px-3 py-2 text-sm';
@@ -42,11 +47,30 @@ export function Reajustes() {
   const [sel, setSel] = useState<ReajusteRow | null>(null);
   const [margemInput, setMargemInput] = useState(margemAlvo * 100);
   const [salvando, setSalvando] = useState(false);
+  const [ord, setOrd] = useState<OrdenacaoState<ChaveOrd>>({ coluna: 'gap', direcao: 'desc' });
+  const [fPreco, setFPreco] = useState('todos');
+  const [fStaff, setFStaff] = useState('todos');
+  const [fPacote, setFPacote] = useState('todos');
+  const [fPerfil, setFPerfil] = useState('todos');
+
+  const pacotes = useMemo(() => [...new Set(rows.map(r => r.pacote))].sort(), [rows]);
 
   const visiveis = useMemo(() => {
-    const filtradas = rows.filter(r => r.badge !== 'ok' || (r.gapPct != null && Math.abs(r.gapPct) >= materialidade / 100));
-    return [...filtradas].sort((a, b) => b.gap - a.gap);
-  }, [rows, materialidade]);
+    let arr = rows.filter(r => r.badge !== 'ok' || (r.gapPct != null && Math.abs(r.gapPct) >= materialidade / 100));
+    if (fPreco !== 'todos') arr = arr.filter(r => r.badge === fPreco);
+    if (fStaff !== 'todos') arr = arr.filter(r => (r.atendimento ?? 'sem') === fStaff);
+    if (fPacote !== 'todos') arr = arr.filter(r => r.pacote === fPacote);
+    if (fPerfil !== 'todos') arr = arr.filter(r => r.perfilStatus === fPerfil);
+    const dir = ord.direcao === 'asc' ? 1 : -1;
+    const val = (r: ReajusteRow): number | string => ord.coluna === 'nome' ? r.nome : ((r[ord.coluna] as number | null) ?? -Infinity);
+    return [...arr].sort((a, b) => {
+      const va = val(a), vb = val(b);
+      return typeof va === 'string' ? (va as string).localeCompare(vb as string, 'pt-BR') * dir : ((va as number) - (vb as number)) * dir;
+    });
+  }, [rows, materialidade, fPreco, fStaff, fPacote, fPerfil, ord]);
+
+  const Ord = ({ chave, titulo, align }: { chave: ChaveOrd; titulo: string; align: 'left' | 'right' | 'center' }) =>
+    <HeaderOrdenavel titulo={titulo} chave={chave} alinhamento={align} ordenacao={ord} onOrdenar={setOrd} />;
 
   async function salvarMargem() {
     if (!confirm(`Margem alvo GLOBAL = ${margemInput.toFixed(2)}% — afeta o fee sugerido de TODOS os clientes. Confirmar?`)) return;
@@ -90,22 +114,43 @@ export function Reajustes() {
         <p className="text-sm" style={{ color: '#6b6b8a' }}>Carregando…</p>
       ) : (
         <>
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={fPreco} onChange={e => setFPreco(e.target.value)} className={SEL} style={SELBRD}>
+              <option value="todos">Preço: todos</option>
+              <option value="subprecificado">Subprecificado</option><option value="ok">OK</option>
+              <option value="sobreprecificado">Sobreprecificado</option><option value="rebate_cobre">Rebate cobre</option>
+            </select>
+            <select value={fStaff} onChange={e => setFStaff(e.target.value)} className={SEL} style={SELBRD}>
+              <option value="todos">Staffing: todos</option>
+              <option value="subatendido">Subatendido</option><option value="alinhado">Alinhado</option>
+              <option value="sobreatendido">Sobreatendido</option><option value="sem">Sem perfil</option>
+            </select>
+            <select value={fPacote} onChange={e => setFPacote(e.target.value)} className={SEL} style={SELBRD}>
+              <option value="todos">Pacote: todos</option>
+              {pacotes.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select value={fPerfil} onChange={e => setFPerfil(e.target.value)} className={SEL} style={SELBRD}>
+              <option value="todos">Perfil: todos</option>
+              <option value="completo">Completo</option><option value="parcial">Parcial</option><option value="ausente">Ausente</option>
+            </select>
+            <span className="text-xs" style={{ color: '#6b6b8a' }}>{visiveis.length} de {rows.length}</span>
+          </div>
           <div className="w-full overflow-x-auto rounded-lg border" style={{ borderColor: '#e2e2e8' }}>
             <table className="w-full">
               <thead style={{ backgroundColor: '#f9f9fb' }}>
                 <tr style={{ color: '#6b6b8a' }}>
-                  <th className={`${TH} text-left`}>Cliente</th>
+                  <th className={`${TH} text-left`}><Ord chave="nome" titulo="Cliente" align="left" /></th>
                   <th className={`${TH} text-left`}>Pacote</th>
                   <th className={`${TH} text-center`} title={PERFIL_TIP}>Perfil</th>
-                  <th className={`${TH} text-right`}>Fee atual</th>
-                  <th className={`${TH} text-right`}>Custo total</th>
-                  <th className={`${TH} text-right`}>Rebate líq.</th>
-                  <th className={`${TH} text-right`}>Receita nec.</th>
-                  <th className={`${TH} text-right`}>Fee sugerido</th>
-                  <th className={`${TH} text-right`}>Gap</th>
+                  <th className={`${TH} text-right`}><Ord chave="feeAtual" titulo="Fee atual" align="right" /></th>
+                  <th className={`${TH} text-right`}><Ord chave="custoTotal" titulo="Custo total" align="right" /></th>
+                  <th className={`${TH} text-right`}><Ord chave="rebateLiquido" titulo="Rebate líq." align="right" /></th>
+                  <th className={`${TH} text-right`}><Ord chave="receitaNecessaria" titulo="Receita nec." align="right" /></th>
+                  <th className={`${TH} text-right`}><Ord chave="feeSugerido" titulo="Fee sugerido" align="right" /></th>
+                  <th className={`${TH} text-right`}><Ord chave="gap" titulo="Gap" align="right" /></th>
                   <th className={`${TH} text-center`}>Status</th>
-                  <th className={`${TH} text-center`} title="Horas alocadas (realizado) vs horas de demanda (perfil). Diagnóstico de staffing — não muda o custo.">Atend.</th>
-                  <th className={`${TH} text-right`} title="Fee hipotético SE a mão de obra fosse refeita conforme a demanda (horas demanda × custo/h médio). Cenário, não ação.">Fee cenário</th>
+                  <th className={`${TH} text-center`} title="Horas alocadas vs demanda — diagnóstico de staffing, não muda o custo."><Ord chave="deltaAtendimento" titulo="Atend." align="center" /></th>
+                  <th className={`${TH} text-right`} title="Fee hipotético SE a mão de obra fosse refeita conforme a demanda. Cenário, não ação.">Fee cenário</th>
                 </tr>
               </thead>
               <tbody>
