@@ -11,13 +11,14 @@
 //  - rebate = regra por perna do motor (taxas + alíquotas + split globais).
 //  - jurídico/conciliação NÃO são estimados nesta v1 (dependem de peso/volume).
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../../state/AppContext';
 import { calcularHorasReais } from '../../utils/financials';
 import { custoHoraMedioPorFuncao, overheadRatioPeriodo, custoDiretoDemanda } from './precificacaoBase';
+import { salvarProposta, buscarPropostas, atualizarPropostaStatus, excluirProposta } from '../../services/firebase';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
-import type { Cliente, FuncaoAlocacao, PacoteServico, RegimeTributario } from '../../types';
+import type { Cliente, FuncaoAlocacao, PacoteServico, RegimeTributario, DadosProposta, PropostaInputs, PropostaOutputs } from '../../types';
 
 const LABEL_F: Record<FuncaoAlocacao, string> = {
   consultoria_gestao: 'Gestão', consultoria_planejamento: 'Planejamento',
@@ -44,7 +45,14 @@ function Chk({ label, v, set }: { label: string; v: boolean; set: (b: boolean) =
   );
 }
 
-export function GeradorProposta() {
+export interface PrefillProposta {
+  tipo: 'prospect' | 'cliente_existente';
+  nome: string;
+  id_estavel_cliente?: string;
+  inputs: Partial<PropostaInputs>;
+}
+
+export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const { dadosPeriodo, regime: regimeGlobal, parametros } = useApp();
 
   const [pacote, setPacote] = useState<PacoteServico>('full');
@@ -58,6 +66,47 @@ export function GeradorProposta() {
   const [taxaOn, setTaxaOn] = useState((parametros.taxa_rebate_onshore ?? 0) * 100);
   const [taxaOff, setTaxaOff] = useState((parametros.taxa_rebate_offshore ?? 0) * 100);
   const [dContab, setDContab] = useState(0); const [dPgto, setDPgto] = useState(0); const [dAdm, setDAdm] = useState(0); const [dViagem, setDViagem] = useState(0);
+  // Meta + campos do template + persistência.
+  const [tipo, setTipo] = useState<'prospect' | 'cliente_existente'>('prospect');
+  const [nomeProspect, setNomeProspect] = useState('');
+  const [idEstavelCliente, setIdEstavelCliente] = useState<string | undefined>();
+  const [textoIntro, setTextoIntro] = useState('');
+  const [imagemCapa, setImagemCapa] = useState('');
+  const [valorProposto, setValorProposto] = useState(0);
+  const [feeAtual, setFeeAtual] = useState(0);
+  const [editId, setEditId] = useState<string | undefined>();
+  const [propostas, setPropostas] = useState<DadosProposta[]>([]);
+  const [salvando, setSalvando] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const buildInputs = (): PropostaInputs => ({
+    pacote, regime, qtd_veiculos: veic, qtd_imoveis: imov, grupos_financeiros: grupos, qtd_funcionarios_domesticos: domest,
+    planejamento_tributario: planTrib, revisao_contratos: revContr, gestao_obra: obra,
+    utiliza_servico_juridico: usaJur, utiliza_conciliacao: usaConc,
+    volume_movimentos_mes: volMov, qtd_contratacoes_mes: contratacoes, qtd_recebiveis_mes: recebiveis,
+    pl_onshore: plOn, pl_offshore: plOff, taxa_rebate_onshore: taxaOn, taxa_rebate_offshore: taxaOff,
+    dedic_contabilidade: dContab, dedic_pagamento: dPgto, dedic_administrativo: dAdm, dedic_viagem: dViagem,
+    texto_introducao: textoIntro, imagem_capa_url: imagemCapa, valor_proposto: valorProposto, fee_atual: feeAtual,
+  });
+  const aplicarInputs = (i: Partial<PropostaInputs>) => {
+    if (i.pacote) setPacote(i.pacote); if (i.regime) setRegime(i.regime);
+    setVeic(i.qtd_veiculos ?? 0); setImov(i.qtd_imoveis ?? 0); setGrupos(i.grupos_financeiros ?? 1); setDomest(i.qtd_funcionarios_domesticos ?? 0);
+    setPlanTrib(!!i.planejamento_tributario); setRevContr(!!i.revisao_contratos); setObra(!!i.gestao_obra);
+    setUsaJur(!!i.utiliza_servico_juridico); setUsaConc(!!i.utiliza_conciliacao);
+    setVolMov(i.volume_movimentos_mes ?? 0); setContratacoes(i.qtd_contratacoes_mes ?? 0); setRecebiveis(i.qtd_recebiveis_mes ?? 0);
+    setPlOn(i.pl_onshore ?? 0); setPlOff(i.pl_offshore ?? 0);
+    if (i.taxa_rebate_onshore != null) setTaxaOn(i.taxa_rebate_onshore); if (i.taxa_rebate_offshore != null) setTaxaOff(i.taxa_rebate_offshore);
+    setDContab(i.dedic_contabilidade ?? 0); setDPgto(i.dedic_pagamento ?? 0); setDAdm(i.dedic_administrativo ?? 0); setDViagem(i.dedic_viagem ?? 0);
+    setTextoIntro(i.texto_introducao ?? ''); setImagemCapa(i.imagem_capa_url ?? ''); setValorProposto(i.valor_proposto ?? 0); setFeeAtual(i.fee_atual ?? 0);
+  };
+
+  useEffect(() => { buscarPropostas().then(setPropostas).catch(() => {}); }, []);
+  // Prefill vindo do upsell (aba Reajustes → "Gerar proposta").
+  useEffect(() => {
+    if (!prefill) return;
+    setTipo(prefill.tipo); setNomeProspect(prefill.nome); setIdEstavelCliente(prefill.id_estavel_cliente);
+    setEditId(undefined); aplicarInputs(prefill.inputs);
+  }, [prefill]);
 
   const prop = useMemo(() => {
     if (!dadosPeriodo) return null;
@@ -101,10 +150,90 @@ export function GeradorProposta() {
     return { porFuncao, custoDireto, dedicados, overhead, overheadRatio, custoTotal, rebate, receitaNecessaria, feeSugerido, margem, aliqFat, denomInvalido: denom <= 0, alertas: horas.alertas, totalHoras: horas.total };
   }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
 
+  const buildOutputs = (): PropostaOutputs => ({
+    porFuncao: (prop?.porFuncao ?? []).map(x => ({ funcao: x.f, horas: x.horas, custoHora: x.custoHora, custo: x.custo })),
+    custoDireto: prop?.custoDireto ?? 0, dedicados: prop?.dedicados ?? 0, overhead: prop?.overhead ?? 0,
+    custoTotal: prop?.custoTotal ?? 0, rebate: prop?.rebate ?? 0, receitaNecessaria: prop?.receitaNecessaria ?? 0, feeSugerido: prop?.feeSugerido ?? 0,
+  });
+
+  async function salvar() {
+    if (!nomeProspect.trim()) { setToast('Informe o nome do prospect/cliente.'); return; }
+    setSalvando(true);
+    try {
+      const now = new Date().toISOString();
+      const idEst = editId ?? crypto.randomUUID();
+      const ant = editId ? propostas.find(p => p.id_estavel === editId) : undefined;
+      const dados: DadosProposta = {
+        id_estavel: idEst, criado_em: ant?.criado_em ?? now, atualizado_em: now,
+        status: ant?.status ?? 'rascunho', tipo, nome_prospect: nomeProspect.trim(), id_estavel_cliente: idEstavelCliente,
+        inputs: buildInputs(), outputs: buildOutputs(), valor_proposto: valorProposto,
+      };
+      await salvarProposta(dados);
+      setEditId(idEst);
+      setPropostas(await buscarPropostas());
+      setToast('Proposta salva (snapshot da época).'); setTimeout(() => setToast(null), 3500);
+    } finally { setSalvando(false); }
+  }
+  function reabrir(p: DadosProposta) {
+    setTipo(p.tipo); setNomeProspect(p.nome_prospect); setIdEstavelCliente(p.id_estavel_cliente);
+    setEditId(p.id_estavel); aplicarInputs(p.inputs);
+  }
+  function duplicar(p: DadosProposta) {
+    setTipo(p.tipo); setNomeProspect(`${p.nome_prospect} (cópia)`); setIdEstavelCliente(p.id_estavel_cliente);
+    setEditId(undefined); aplicarInputs(p.inputs);
+  }
+  async function mudarStatus(p: DadosProposta, status: DadosProposta['status']) {
+    await atualizarPropostaStatus(p.id_estavel, status); setPropostas(await buscarPropostas());
+  }
+  async function remover(p: DadosProposta) {
+    if (!confirm(`Excluir a proposta de ${p.nome_prospect}?`)) return;
+    await excluirProposta(p.id_estavel); if (editId === p.id_estavel) setEditId(undefined); setPropostas(await buscarPropostas());
+  }
+  function novo() { setEditId(undefined); setNomeProspect(''); setIdEstavelCliente(undefined); aplicarInputs({}); }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* FORM */}
       <div className="space-y-4">
+        {/* Meta + persistência */}
+        <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: '#e2e2e8' }}>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Tipo</span>
+              <select value={tipo} onChange={e => setTipo(e.target.value as typeof tipo)} className={INP} style={BRD}>
+                <option value="prospect">Prospect</option><option value="cliente_existente">Cliente existente</option>
+              </select>
+            </label>
+            <Num label="Valor proposto (R$/mês)" v={valorProposto} set={setValorProposto} step={50} />
+          </div>
+          <label className="block">
+            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Nome do {tipo === 'prospect' ? 'prospect' : 'cliente'}</span>
+            <input value={nomeProspect} onChange={e => setNomeProspect(e.target.value)} className={INP} style={BRD} />
+          </label>
+          {prop && valorProposto <= 0 && prop.feeSugerido > 0 && (
+            <button type="button" onClick={() => setValorProposto(Math.round(prop.feeSugerido / 50) * 50)}
+              className="text-[11px] underline" style={{ color: '#0065FF' }}>↑ usar fee sugerido arredondado ({formatCurrency(prop.feeSugerido)})</button>
+          )}
+          {tipo === 'cliente_existente' && <Num label="Fee atual (composição aditiva)" v={feeAtual} set={setFeeAtual} step={50} />}
+          <label className="block">
+            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Texto de introdução (editável)</span>
+            <textarea value={textoIntro} onChange={e => setTextoIntro(e.target.value)} rows={3} className={INP} style={BRD}
+              placeholder="Default gerado por nome/contexto se vazio." />
+          </label>
+          <label className="block">
+            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Imagem da capa (URL — vazio = capa em gradiente)</span>
+            <input value={imagemCapa} onChange={e => setImagemCapa(e.target.value)} className={INP} style={BRD} placeholder="https://…" />
+          </label>
+          <div className="flex gap-2 pt-1">
+            <button onClick={salvar} disabled={salvando}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-gradient-brand disabled:opacity-50">
+              {salvando ? 'Salvando…' : editId ? 'Atualizar proposta' : 'Salvar proposta'}
+            </button>
+            <button onClick={novo} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>Nova</button>
+            {toast && <span className="text-xs self-center" style={{ color: '#166534' }}>{toast}</span>}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Pacote</span>
@@ -184,8 +313,46 @@ export function GeradorProposta() {
               <L label="= Fee sugerido" v={prop.feeSugerido > 0 ? formatCurrency(prop.feeSugerido) : formatCurrency(prop.feeSugerido)} forte />
             </div>
             {prop.alertas.map((a, i) => <p key={i} className="text-xs px-2 py-1 rounded" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>⚠ {a}</p>)}
-            <p className="text-[11px]" style={{ color: '#9ca3af' }}>Proposta efêmera — não é salva. Custo direto via hora média da função (aproximação: prospect não tem vínculos).</p>
+            <p className="text-[11px]" style={{ color: '#9ca3af' }}>Custo direto via hora média da função (aproximação: prospect não tem vínculos). Salvar grava um snapshot imutável.</p>
           </>
+        )}
+      </div>
+
+      {/* Propostas salvas (snapshot imutável da época) */}
+      <div className="lg:col-span-2 rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
+        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#6b6b8a' }}>Propostas salvas ({propostas.length})</p>
+        {propostas.length === 0 ? (
+          <p className="text-xs" style={{ color: '#9ca3af' }}>Nenhuma proposta salva ainda.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead style={{ color: '#6b6b8a' }}>
+                <tr><th className="text-left py-1">Nome</th><th className="text-left py-1">Tipo</th><th className="text-left py-1">Criada</th><th className="text-right py-1">Valor</th><th className="text-left py-1">Status</th><th className="text-right py-1">Ações</th></tr>
+              </thead>
+              <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
+                {propostas.map(p => (
+                  <tr key={p.id_estavel} style={{ backgroundColor: editId === p.id_estavel ? '#f0f6ff' : undefined }}>
+                    <td className="py-1.5 font-medium" style={{ color: '#160F41' }}>{p.nome_prospect}</td>
+                    <td className="py-1.5" style={{ color: '#6b6b8a' }}>{p.tipo === 'prospect' ? 'Prospect' : 'Existente'}</td>
+                    <td className="py-1.5" style={{ color: '#6b6b8a' }}>{(p.criado_em ?? '').slice(0, 10)}</td>
+                    <td className="py-1.5 text-right">{formatCurrency(p.valor_proposto)}</td>
+                    <td className="py-1.5">
+                      <select value={p.status} onChange={e => mudarStatus(p, e.target.value as DadosProposta['status'])}
+                        className="rounded px-1 py-0.5 text-[11px]" style={{ border: '1px solid #e2e2e8', color: '#160F41' }}>
+                        <option value="rascunho">Rascunho</option><option value="enviada">Enviada</option>
+                        <option value="aceita">Aceita</option><option value="recusada">Recusada</option>
+                      </select>
+                    </td>
+                    <td className="py-1.5 text-right space-x-2">
+                      <button onClick={() => reabrir(p)} className="underline" style={{ color: '#0065FF' }}>Reabrir</button>
+                      <button onClick={() => duplicar(p)} className="underline" style={{ color: '#6b6b8a' }}>Duplicar</button>
+                      <button onClick={() => remover(p)} className="underline" style={{ color: '#991b1b' }}>Excluir</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

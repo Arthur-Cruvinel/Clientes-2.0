@@ -4,7 +4,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, writeBatch, deleteField } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao } from '../types';
+import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao, DadosProposta } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO, CATEGORIAS_CUSTO_INDIRETO } from '../utils/constants';
 import { PARAMETROS_DEFAULT, ALIQUOTA_REBATE_ONSHORE_DEFAULT, ALIQUOTA_REBATE_OFFSHORE_DEFAULT, MARGEM_ALVO_DEFAULT } from '../utils/constants';
@@ -1297,6 +1297,24 @@ export async function semearAliquotasRebate(): Promise<void> {
   } catch (error) {
     console.error('[Firebase] Erro ao semear parâmetros globais:', error);
   }
+}
+
+// ── Propostas (Precificação) — snapshot imutável, docId = id_estavel (uuid) ──
+export async function salvarProposta(p: DadosProposta): Promise<void> {
+  const { id: _ignora, ...dados } = p;
+  void _ignora;
+  await setDoc(doc(db, 'propostas', p.id_estavel), dados, { merge: true });
+}
+export async function buscarPropostas(): Promise<DadosProposta[]> {
+  const snap = await getDocs(collection(db, 'propostas'));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }) as DadosProposta)
+    .sort((a, b) => (b.criado_em ?? '').localeCompare(a.criado_em ?? ''));
+}
+export async function atualizarPropostaStatus(idEstavel: string, status: DadosProposta['status']): Promise<void> {
+  await updateDoc(doc(db, 'propostas', idEstavel), { status, atualizado_em: new Date().toISOString() });
+}
+export async function excluirProposta(idEstavel: string): Promise<void> {
+  await deleteDoc(doc(db, 'propostas', idEstavel));
 }
 
 export async function buscarParametros(): Promise<Parametros> {

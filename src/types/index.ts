@@ -433,6 +433,48 @@ export interface RegistroPoupanca {
 // Parâmetros globais configuráveis
 // ============================================================
 
+// ── PROPOSTAS (Precificação) ────────────────────────────────────────────────
+// Snapshot IMUTÁVEL de uma proposta — inputs do formulário + outputs calculados
+// DA ÉPOCA. Reabrir mostra os valores de quando foi salva; recalcular só por
+// ação explícita do usuário. Persistido em propostas/{id_estavel}.
+export interface PropostaInputs {
+  pacote: PacoteServico;
+  regime: RegimeTributario;
+  qtd_veiculos: number; qtd_imoveis: number; grupos_financeiros: number; qtd_funcionarios_domesticos: number;
+  planejamento_tributario: boolean; revisao_contratos: boolean; gestao_obra: boolean;
+  utiliza_servico_juridico: boolean; utiliza_conciliacao: boolean;
+  volume_movimentos_mes: number; qtd_contratacoes_mes: number; qtd_recebiveis_mes: number;
+  pl_onshore: number; pl_offshore: number;
+  taxa_rebate_onshore: number; taxa_rebate_offshore: number;   // % a.a.
+  dedic_contabilidade: number; dedic_pagamento: number; dedic_administrativo: number; dedic_viagem: number;
+  // Campos do template HTML.
+  texto_introducao: string;
+  imagem_capa_url: string;
+  valor_proposto: number;   // preço comercial (editável; âncora = fee sugerido)
+  fee_atual: number;        // composição aditiva (cliente_existente)
+}
+
+export interface PropostaLinhaFuncao { funcao: FuncaoAlocacao; horas: number; custoHora: number; custo: number; }
+export interface PropostaOutputs {
+  porFuncao: PropostaLinhaFuncao[];
+  custoDireto: number; dedicados: number; overhead: number; custoTotal: number;
+  rebate: number; receitaNecessaria: number; feeSugerido: number;
+}
+
+export interface DadosProposta {
+  id?: string;
+  id_estavel: string;
+  criado_em: string;
+  atualizado_em: string;
+  status: 'rascunho' | 'enviada' | 'aceita' | 'recusada';
+  tipo: 'prospect' | 'cliente_existente';
+  nome_prospect: string;
+  id_estavel_cliente?: string;
+  inputs: PropostaInputs;
+  outputs: PropostaOutputs;
+  valor_proposto: number;
+}
+
 export interface Parametros {
   custo_juridico_mensal: number;
   custo_conciliacao_mensal: number;
