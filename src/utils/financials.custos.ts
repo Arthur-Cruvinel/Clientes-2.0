@@ -430,6 +430,42 @@ export function somarPctPorColaborador(
 }
 
 
+/** Σpct por (função, colaborador) — MESMA atribuição do custo realizado
+ *  (resolverColaboradorParaFuncao: vínculo-first por id_estavel, senão legado
+ *  por nome). Keyed [funcao][id_estavel]. Usado pela média de custo/hora por
+ *  função ponderada pelos vínculos REAIS (precificacaoBase). Aditivo — não
+ *  altera o caminho do custo realizado. */
+export function somarPctPorFuncaoColaborador(
+  clientes: Cliente[],
+  colaboradores: Colaborador[],
+  vinculos: Vinculo[],
+): Record<FuncaoAlocacao, Record<string, number>> {
+  const normalize = (s: string): string =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const mapExato = new Map<string, Colaborador>();
+  const mapNorm = new Map<string, Colaborador>();
+  const mapPorIdEstavel = new Map<string, Colaborador>();
+  for (const c of colaboradores) {
+    mapExato.set(c.nome_colaborador, c);
+    mapNorm.set(normalize(c.nome_colaborador), c);
+    if (c.id_estavel) mapPorIdEstavel.set(c.id_estavel, c);
+  }
+  const out = {} as Record<FuncaoAlocacao, Record<string, number>>;
+  for (const f of FUNCOES_ALOCACAO) out[f] = {};
+  for (const cliente of clientes) {
+    if (cliente.pacote_servico === 'asset_only') continue;
+    for (const funcao of FUNCOES_ALOCACAO) {
+      const { colaborador: colab, pct } = resolverColaboradorParaFuncao(
+        cliente, funcao, vinculos, mapExato, mapNorm, mapPorIdEstavel, normalize,
+      );
+      if (!colab || pct <= 0) continue;
+      const key = colab.id_estavel ?? '';
+      out[funcao][key] = (out[funcao][key] ?? 0) + pct;
+    }
+  }
+  return out;
+}
+
 /** Indicador de escopo por função: pct_real / pct_normativo. Não entra no custo.
  *  pct_real = pct EFETIVO (vínculo-first via pctEfetivoFuncao; legado só fallback)
  *  — mesma fonte do custo e da ficha de Alocação. Sem vínculos → legado puro

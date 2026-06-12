@@ -9,14 +9,34 @@
 import type { Colaborador, CustoIndireto, Cliente, FuncaoAlocacao, ResultadoCliente } from '../../types';
 import type { Vinculo } from '../../types/vinculo';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
-import { somarPctPorColaborador, calcularCustoInstitucional } from '../../utils/financials.custos';
+import { somarPctPorColaborador, somarPctPorFuncaoColaborador, calcularCustoInstitucional } from '../../utils/financials.custos';
 import { calcularOciosidade } from '../../utils/financials.alocacao';
 
-/** Custo/hora MÉDIO por função — média ponderada por percentual_alocavel dos
- *  colaboradores alocáveis da função. Base do custo de DEMANDA (proposta/cenário). */
-export function custoHoraMedioPorFuncao(colaboradores: Colaborador[]): Record<FuncaoAlocacao, number> {
+/** Custo/hora MÉDIO por função — ponderado pelos VÍNCULOS reais: peso = Σpct dos
+ *  colaboradores que ATENDEM a função no período (mesma atribuição do custo
+ *  realizado). Reflete quem de fato exerce a função, inclusive multi-função.
+ *  Fallback: função sem nenhum vínculo no período → média por funcao_principal
+ *  (comportamento legado), garantindo custo/hora não-zero para a demanda. */
+export function custoHoraMedioPorFuncao(
+  colaboradores: Colaborador[], clientes: Cliente[] = [], vinculos: Vinculo[] = [],
+): Record<FuncaoAlocacao, number> {
+  const pctMap = somarPctPorFuncaoColaborador(clientes, colaboradores, vinculos);
+  const porId = new Map<string, Colaborador>();
+  for (const c of colaboradores) if (c.id_estavel) porId.set(c.id_estavel, c);
+
   const out = {} as Record<FuncaoAlocacao, number>;
   for (const f of FUNCOES_ALOCACAO) {
+    const pesos = pctMap[f] ?? {};
+    const ids = Object.keys(pesos);
+    let num = 0, den = 0;
+    for (const id of ids) {
+      const c = porId.get(id);
+      if (!c) continue;
+      num += (c.custo_hora ?? 0) * pesos[id];
+      den += pesos[id];
+    }
+    if (den > 0) { out[f] = num / den; continue; }
+    // Fallback legado: nenhuma alocação por vínculo na função.
     const aloc = colaboradores.filter(c => c.alocavel && c.funcao_principal === f && (c.percentual_alocavel ?? 0) > 0);
     const peso = aloc.reduce((s, c) => s + (c.percentual_alocavel ?? 0), 0);
     out[f] = peso > 0 ? aloc.reduce((s, c) => s + (c.custo_hora ?? 0) * (c.percentual_alocavel ?? 0), 0) / peso : 0;

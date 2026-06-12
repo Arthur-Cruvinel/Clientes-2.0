@@ -121,10 +121,10 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
 
   const prop = useMemo(() => {
     if (!dadosPeriodo) return null;
-    const { colaboradores } = dadosPeriodo;
+    const { colaboradores, clientes, vinculos } = dadosPeriodo;
 
     // Mesma base do diagnóstico da Parte 1 (motor único — precificacaoBase).
-    const custoHoraMedio = custoHoraMedioPorFuncao(colaboradores);
+    const custoHoraMedio = custoHoraMedioPorFuncao(colaboradores, clientes, vinculos);
     // Overhead SEMPRE da razão de referência (parametros/global).
     const overheadRatio = parametros.overhead_ratio_referencia;
 

@@ -69,9 +69,9 @@ export function useReajustes(materialidadePct: number) {
 
   const rows = useMemo<ReajusteRow[]>(() => {
     if (!dadosPeriodo || denom <= 0) return [];
-    const { resultados, clientes, colaboradores } = dadosPeriodo;
+    const { resultados, clientes, colaboradores, vinculos } = dadosPeriodo;
     const cliByNome = new Map(clientes.map(c => [c.nome_cliente, c]));
-    const custoHoraMedio = custoHoraMedioPorFuncao(colaboradores);
+    const custoHoraMedio = custoHoraMedioPorFuncao(colaboradores, clientes, vinculos);
     // Razão de overhead SEMPRE da referência (parametros/global), não a do
     // período corrente — esta é hiper-sensível à completude da alocação.
     const overheadRatio = parametros.overhead_ratio_referencia;
