@@ -33,7 +33,11 @@ export interface DadosPropostaTemplate {
   dedicViagem: number;   // > 0 → Organização de Viagens contratada
   plTotal: number;
   textoEscopoAdicional: string;
+  validadeDias: number;  // validade da proposta (default 15)
 }
+
+// Cláusula de excedente — fonte única (escopo + condições gerais não divergem).
+const CLAUSULA_EXCEDENTE = 'Os volumes indicados refletem o escopo precificado nesta proposta. Excedentes recorrentes ou aumento significativo de complexidade serão objeto de renegociação de honorários.';
 
 // Fonte única dos drivers → contratado/não. Pilares e escopo leem daqui.
 interface Ticks {
@@ -111,7 +115,7 @@ function pilarHTML(numero: number, titulo: string, descricao: string, servicos: 
  *  corresponde a um ✓ (e vice-versa). Cláusula de excedente contratual;
  *  não-contratados → ativação; + texto livre. */
 function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean; fin: boolean; jur: boolean; inv: boolean }): string {
-  const EXC = 'Os volumes indicados refletem o escopo precificado nesta proposta. Excedentes recorrentes ou aumento significativo de complexidade serão objeto de renegociação de honorários.';
+  const EXC = CLAUSULA_EXCEDENTE;
   const blocos: { titulo: string; texto: string }[] = [];
 
   if (contr.adm) {
@@ -297,16 +301,20 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   <section id="parceria" class="p-12 md:p-20" style="background:var(--cor-fundo-alternativo)">
     <h2 class="text-center text-4xl font-bold text-principal mb-12">Nossa Parceria Estratégica</h2>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
-      <div class="lg:col-span-1 service-card rounded-lg p-8 border-2 border-primario shadow-lg flex flex-col bg-white">
-        <h3 class="text-lg font-semibold text-primario uppercase">INVESTIMENTO</h3>
-        <h4 class="text-3xl font-bold text-principal mt-1 mb-4">O Plano</h4>
-        <p class="text-secundario leading-relaxed mb-6 text-sm">Estrutura ${ehAditivo ? 'ampliada: operação atual + novo escopo' : 'completa de gestão patrimonial'}.</p>
-        <div class="mt-auto"><div class="bg-gray-50 p-6 rounded-md border border-gray-200">
-          <h5 class="font-bold text-xs mb-3 uppercase text-gray-500 tracking-wide text-left">Composição do Investimento:</h5>
+      <div class="lg:col-span-1 self-start service-card rounded-lg p-8 border-2 border-primario shadow-lg flex flex-col bg-white">
+        <h3 class="text-sm font-semibold text-primario uppercase tracking-wide">Investimento</h3>
+        <p class="mt-2 leading-none"><span class="text-5xl font-bold text-principal">${brl(d.valorProposto)}</span><span class="text-lg font-medium text-secundario"> /mês</span></p>
+        <p class="text-secundario text-sm mt-3">${ehAditivo ? 'Operação atual ampliada com o novo escopo.' : 'Gestão patrimonial completa, em um plano único.'}</p>
+        <div class="mt-6 bg-gray-50 p-5 rounded-md border border-gray-200">
+          <h5 class="font-bold text-xs mb-3 uppercase text-gray-500 tracking-wide">Composição do Investimento</h5>
           ${composicao}
-          <div class="border-t border-gray-300 pt-3 flex justify-between items-end"><span class="text-xs text-gray-500 uppercase font-bold mb-1">Total Mensal</span><div class="text-right"><p class="text-2xl font-bold text-primario leading-none whitespace-nowrap">${brl(d.valorProposto)}</p></div></div>
-          <p class="text-xs text-gray-500 mt-3 text-center">Pagamento mensal via boleto bancário, com vencimento todo dia 10.</p>
-        </div></div>
+          <div class="border-t border-gray-300 pt-3 flex justify-between items-end"><span class="text-xs text-gray-500 uppercase font-bold mb-1">Total Mensal</span><p class="text-2xl font-bold text-primario leading-none whitespace-nowrap">${brl(d.valorProposto)}</p></div>
+        </div>
+        <div class="mt-5 space-y-2.5 text-sm text-secundario">
+          <div class="flex items-start gap-2"><i class="fas fa-barcode text-primario mt-0.5"></i><span>Pagamento mensal via boleto, com vencimento todo dia 10.</span></div>
+          <div class="flex items-start gap-2"><i class="fas fa-clock text-primario mt-0.5"></i><span>Proposta válida por ${d.validadeDias} dias a partir da apresentação.</span></div>
+          <div class="flex items-start gap-2"><i class="fas fa-calendar-day text-primario mt-0.5"></i><span>${esc(d.data)}</span></div>
+        </div>
       </div>
       <div class="lg:col-span-2 service-card rounded-lg p-8">
         <h3 class="text-lg font-semibold text-secundario uppercase">ALINHAMENTO</h3>
@@ -314,6 +322,15 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
         <p class="text-secundario leading-relaxed mb-6">O escopo descrito reflete exatamente a volumetria precificada — você paga pelo esforço dimensionado, com renegociação transparente se os volumes crescerem.</p>
         <div class="space-y-4 mt-6">${blocosEscopo(d, t, contr)}</div>
       </div>
+    </div>
+  </section>
+
+  <section id="condicoes" class="p-12 md:p-20" style="background:var(--cor-fundo-alternativo)">
+    <h2 class="text-center text-3xl font-bold text-principal mb-10">Condições Gerais</h2>
+    <div class="max-w-4xl mx-auto space-y-4">
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Validade</strong><p class="text-secundario text-base mt-1">Esta proposta é válida por ${d.validadeDias} dias a partir da data de apresentação.</p></div>
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Rescisão</strong><p class="text-secundario text-base mt-1">O contrato pode ser rescindido por qualquer das partes mediante aviso prévio de 30 (trinta) dias. Nos 3 (três) primeiros meses de vigência — período de experiência — a rescisão pode ser solicitada a qualquer momento, sem necessidade de aviso prévio.</p></div>
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Excedentes</strong><p class="text-secundario text-base mt-1">${CLAUSULA_EXCEDENTE}</p></div>
     </div>
   </section>
 
@@ -336,7 +353,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
     <div class="mx-auto mb-2" style="width:240px;color:#160F41">${logoSVG('#160F41', 'fim')}</div>
     <div class="w-24 h-1.5 mx-auto my-6 rounded-full" style="background:linear-gradient(90deg,#2F49EE,#732AD8,#D100B9)"></div>
     <p class="mt-4 text-3xl text-secundario font-light max-w-2xl mx-auto">Gestão Patrimonial e Performance Financeira.</p>
-    <p class="text-sm text-gray-400 mt-6">Proposta válida por 30 dias a partir da data de apresentação.</p>
+    <p class="text-sm text-gray-400 mt-6">Proposta válida por ${d.validadeDias} dias a partir da data de apresentação.</p>
   </section>
 
 </div></body></html>`;

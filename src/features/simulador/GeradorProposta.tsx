@@ -75,6 +75,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [textoIntro, setTextoIntro] = useState('');
   const [imagemCapa, setImagemCapa] = useState('');
   const [textoEscopo, setTextoEscopo] = useState('');
+  const [validadeDias, setValidadeDias] = useState(15);
   const [valorProposto, setValorProposto] = useState(0);
   const [feeAtual, setFeeAtual] = useState(0);
   const [editId, setEditId] = useState<string | undefined>();
@@ -91,7 +92,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     pl_onshore: plOn, pl_offshore: plOff, taxa_rebate_onshore: taxaOn, taxa_rebate_offshore: taxaOff,
     dedic_contabilidade: dContab, dedic_pagamento: dPgto, dedic_administrativo: dAdm, dedic_viagem: dViagem,
     texto_introducao: textoIntro, imagem_capa_url: imagemCapa, texto_escopo_adicional: textoEscopo,
-    valor_proposto: valorProposto, fee_atual: feeAtual,
+    validade_dias: validadeDias, valor_proposto: valorProposto, fee_atual: feeAtual,
   });
   const aplicarInputs = (i: Partial<PropostaInputs>) => {
     if (i.pacote) setPacote(i.pacote); if (i.regime) setRegime(i.regime);
@@ -104,6 +105,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     if (i.taxa_rebate_onshore != null) setTaxaOn(i.taxa_rebate_onshore); if (i.taxa_rebate_offshore != null) setTaxaOff(i.taxa_rebate_offshore);
     setDContab(i.dedic_contabilidade ?? 0); setDPgto(i.dedic_pagamento ?? 0); setDAdm(i.dedic_administrativo ?? 0); setDViagem(i.dedic_viagem ?? 0);
     setTextoIntro(i.texto_introducao ?? ''); setImagemCapa(i.imagem_capa_url ?? ''); setTextoEscopo(i.texto_escopo_adicional ?? '');
+    setValidadeDias(i.validade_dias ?? 15);   // snapshots velhos → 15
     setValorProposto(i.valor_proposto ?? 0); setFeeAtual(i.fee_atual ?? 0);
   };
 
@@ -209,6 +211,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       qtdVeiculos: veic, qtdImoveis: imov, gruposFinanceiros: grupos, qtdFuncionariosDomesticos: domest,
       volumeMovimentos: volMov, qtdContasBancarias: contas, qtdRecebiveis: recebiveis, qtdContratacoes: contratacoes,
       dedicViagem: dViagem, plTotal: plOn + plOff, textoEscopoAdicional: textoEscopo,
+      validadeDias: validadeDias > 0 ? validadeDias : 15,
     });
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     window.open(url, '_blank');
@@ -254,6 +257,9 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             <textarea value={textoEscopo} onChange={e => setTextoEscopo(e.target.value)} rows={2} className={INP} style={BRD}
               placeholder="Ex.: ressalvas, exceções, condições específicas deste cliente." />
           </label>
+          <div className="grid grid-cols-2 gap-3">
+            <Num label="Validade da proposta (dias)" v={validadeDias} set={setValidadeDias} />
+          </div>
           <div className="flex gap-2 pt-1">
             <button onClick={salvar} disabled={salvando}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-gradient-brand disabled:opacity-50">
