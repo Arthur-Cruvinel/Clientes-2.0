@@ -5,10 +5,14 @@
 // próprio, cor adaptável: branca sobre fundo escuro (capa), institucional
 // (#160F41) sobre fundo claro (fechamento).
 //
-// PRINCÍPIO (Parte 3): O ESCOPO ESCRITO = A VOLUMETRIA PRECIFICADA. Os blocos de
-// "Alinhamento" são GERADOS dos inputs (limites quantitativos por pilar
-// contratado) + cláusula de excedente + ativação dos não-contratados + texto
-// livre opcional. Não é texto fixo do modelo.
+// PRINCÍPIO CENTRAL: pilares ticados, escopo escrito e preço derivam DO MESMO
+// dado da proposta. A função `ticks()` é a fonte ÚNICA: ela define cada item
+// como contratado/não a partir de um driver da volumetria; tanto os pilares
+// (✓/+) quanto blocosEscopo() leem dela — tick e texto nunca divergem.
+//   - Item contratado  → aparece com "✓".
+//   - Item NÃO contratado → aparece com "+" (vitrine: o cliente sabe que existe).
+//   - Pilar com ≥1 item ✓ = CONTRATADO (badge derivado dos itens, não fixo).
+// O ESCOPO ESCRITO = A VOLUMETRIA PRECIFICADA.
 
 import logoRaw from './logoGalaticos.svg?raw';
 
@@ -26,8 +30,43 @@ export interface DadosPropostaTemplate {
   planejamentoTributario: boolean; revisaoContratos: boolean;
   qtdVeiculos: number; qtdImoveis: number; gruposFinanceiros: number; qtdFuncionariosDomesticos: number;
   volumeMovimentos: number; qtdContasBancarias: number; qtdRecebiveis: number; qtdContratacoes: number;
+  dedicViagem: number;   // > 0 → Organização de Viagens contratada
   plTotal: number;
   textoEscopoAdicional: string;
+}
+
+// Fonte única dos drivers → contratado/não. Pilares e escopo leem daqui.
+interface Ticks {
+  imoveis: boolean; veiculos: boolean; domesticos: boolean; contratacoes: boolean; viagens: boolean;
+  planejamentoFin: boolean; movimentos: boolean;
+  juridico: boolean; revisao: boolean; planTrib: boolean;
+  investimentos: boolean;
+}
+function ticks(d: DadosPropostaTemplate): Ticks {
+  return {
+    // PILAR 1 (Administrativo) — cada item segue o seu próprio driver.
+    imoveis: d.qtdImoveis > 0,
+    veiculos: d.qtdVeiculos > 0,
+    domesticos: d.qtdFuncionariosDomesticos > 0,
+    contratacoes: d.qtdContratacoes > 0,     // PREMISSA: contratação de serviços ↔ qtd_contratacoes_mes
+    viagens: d.dedicViagem > 0,              // PREMISSA: organização de viagens ↔ dedic_viagem
+    // PILAR 2 (Financeiro) — Planejamento é chamariz de poupança, sempre incluído.
+    planejamentoFin: true,
+    movimentos: d.volumeMovimentos > 0,      // pagamento/conciliação/fluxo
+    // PILAR 3 (Jurídico) — flags (tiers virão em obra própria).
+    juridico: d.usaJuridico, revisao: d.revisaoContratos, planTrib: d.planejamentoTributario,
+    // PILAR 4 (Investimentos) — atração de PL, sempre incluído; nunca extra.
+    investimentos: true,
+  };
+}
+// Pilar contratado = tem ≥1 item ✓. fin/inv são sempre contratados por definição.
+function contratacao(t: Ticks) {
+  return {
+    adm: t.imoveis || t.veiculos || t.domesticos || t.contratacoes || t.viagens,
+    fin: t.planejamentoFin || t.movimentos,
+    jur: t.juridico || t.revisao || t.planTrib,
+    inv: t.investimentos,
+  };
 }
 
 const brl = (n: number) => 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
@@ -45,7 +84,8 @@ function logoSVG(cor: string, suffix: string): string {
     .replace(/id="fill1h"/g, `id="fill1${suffix}"`).replace(/url\(#fill1h\)/g, `url(#fill1${suffix})`);
 }
 
-function pilarHTML(numero: number, titulo: string, descricao: string, contratado: boolean, servicos: { texto: string; contratado: boolean }[]): string {
+function pilarHTML(numero: number, titulo: string, descricao: string, servicos: { texto: string; contratado: boolean }[]): string {
+  const contratado = servicos.some(s => s.contratado);   // ≥1 item ✓ = pilar CONTRATADO
   const ativos = servicos.filter(s => s.contratado).map(s => `<li><span>✓</span><span>${esc(s.texto)}</span></li>`).join('');
   const extras = servicos.filter(s => !s.contratado);
   const liExtras = extras.length
@@ -67,37 +107,42 @@ function pilarHTML(numero: number, titulo: string, descricao: string, contratado
       <ul class="service-list service-list-inactive flex-grow mt-auto">${liExtras || ativos}</ul></div>`;
 }
 
-/** Blocos de escopo GERADOS da volumetria — limites quantitativos por pilar
- *  contratado + cláusula de excedente; não-contratados → ativação; + texto livre. */
-function blocosEscopo(d: DadosPropostaTemplate, contr: { adm: boolean; fin: boolean; jur: boolean; inv: boolean }): string {
-  const EXC = 'Volumes excedentes ou aumento significativo de complexidade serão objeto de renegociação de honorários.';
+/** Blocos de escopo GERADOS dos MESMOS ticks dos pilares — cada item escrito
+ *  corresponde a um ✓ (e vice-versa). Cláusula de excedente contratual;
+ *  não-contratados → ativação; + texto livre. */
+function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean; fin: boolean; jur: boolean; inv: boolean }): string {
+  const EXC = 'Os volumes indicados refletem o escopo precificado nesta proposta. Excedentes recorrentes ou aumento significativo de complexidade serão objeto de renegociação de honorários.';
   const blocos: { titulo: string; texto: string }[] = [];
 
   if (contr.adm) {
     const it: string[] = [];
-    if (d.qtdImoveis || d.qtdVeiculos || d.gruposFinanceiros) it.push(`patrimônio (${d.qtdImoveis} imóveis, ${d.qtdVeiculos} veículos, ${d.gruposFinanceiros} grupo(s) financeiro(s))`);
-    if (d.qtdFuncionariosDomesticos) it.push(`${d.qtdFuncionariosDomesticos} funcionário(s) doméstico(s)`);
-    if (d.qtdContratacoes) it.push(`${d.qtdContratacoes} contratação(ões) de serviço/mês`);
-    blocos.push({ titulo: 'Escopo Administrativo', texto: `Gestão de ${it.join('; ') || 'rotina e bens'}. ${EXC}` });
+    if (t.imoveis) it.push(`${d.qtdImoveis} imóvel(is)`);
+    if (t.veiculos) it.push(`${d.qtdVeiculos} veículo(s)`);
+    if (t.domesticos) it.push(`${d.qtdFuncionariosDomesticos} funcionário(s) doméstico(s)`);
+    if (t.contratacoes) it.push(`${d.qtdContratacoes} contratação(ões) de serviço/mês`);
+    if (t.viagens) it.push('organização de viagens');
+    blocos.push({ titulo: 'Escopo Administrativo', texto: `Gestão de ${it.join('; ')}. ${EXC}` });
   }
   if (contr.fin) {
-    const it: string[] = [];
-    if (d.volumeMovimentos) it.push(`${d.volumeMovimentos} movimentação(ões)/mês`);
-    if (d.qtdContasBancarias) it.push(`${d.qtdContasBancarias} conta(s) bancária(s)`);
-    if (d.qtdRecebiveis) it.push(`${d.qtdRecebiveis} recebível(is)/mês`);
-    blocos.push({ titulo: 'Escopo do Pilar Financeiro', texto: `Pagamentos, conciliação bancária e fluxo de caixa${it.length ? ` — ${it.join('; ')}` : ''}. ${EXC}` });
+    const det: string[] = [];
+    if (t.movimentos) det.push(`${d.volumeMovimentos} movimentação(ões)/mês`);
+    if (d.qtdContasBancarias) det.push(`${d.qtdContasBancarias} conta(s) bancária(s)`);
+    if (d.qtdRecebiveis) det.push(`${d.qtdRecebiveis} recebível(is)/mês`);
+    const operacao = t.movimentos ? `; pagamentos, conciliação bancária e fluxo de caixa${det.length ? ` (${det.join('; ')})` : ''}` : '';
+    blocos.push({ titulo: 'Escopo do Pilar Financeiro', texto: `Planejamento financeiro e poupança incluídos${operacao}. ${EXC}` });
   }
   if (contr.jur) {
     const it: string[] = [];
-    if (d.revisaoContratos) it.push('revisão de contratos');
-    if (d.planejamentoTributario) it.push('planejamento tributário');
+    if (t.revisao) it.push('revisão de contratos');
+    if (t.planTrib) it.push('planejamento tributário');
     blocos.push({ titulo: 'Escopo Jurídico', texto: `Apoio consultivo contínuo${it.length ? `: ${it.join(', ')}` : ''}. ${EXC}` });
   }
   if (contr.inv) {
-    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Gestão de carteira${d.plTotal > 0 ? ` sobre patrimônio estimado de ${brl(d.plTotal)}` : ''}. ${EXC}` });
+    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Gestão de carteira de investimentos${d.plTotal > 0 ? `, com patrimônio estimado de ${brl(d.plTotal)}` : ''}. ${EXC}` });
   }
-  const naoContr = [!contr.fin && 'Financeiro', !contr.jur && 'Jurídico', !contr.inv && 'Investimentos'].filter(Boolean) as string[];
-  if (naoContr.length) blocos.push({ titulo: 'Ativação de Novos Serviços', texto: `Serviços adicionais (${naoContr.join(', ')}, M&A, entre outros) podem ser ativados a qualquer momento mediante orçamento pontual.` });
+  // fin/inv são sempre contratados → só adm/jur podem cair em ativação.
+  const naoContr = [!contr.adm && 'Administrativo', !contr.jur && 'Jurídico'].filter(Boolean) as string[];
+  if (naoContr.length) blocos.push({ titulo: 'Ativação de Novos Serviços', texto: `Serviços adicionais (${naoContr.join(', ')}) e soluções sob demanda (M&A, valuation, estudos de viabilidade) podem ser ativados a qualquer momento mediante orçamento pontual.` });
   if (d.textoEscopoAdicional.trim()) blocos.push({ titulo: 'Observações', texto: esc(d.textoEscopoAdicional) });
 
   return blocos.map(b => `<div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">${b.titulo}</strong><p class="text-secundario text-base mt-1">${b.texto}</p></div>`).join('');
@@ -106,37 +151,40 @@ function blocosEscopo(d: DadosPropostaTemplate, contr: { adm: boolean; fin: bool
 export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   const ehAditivo = d.tipo === 'cliente_existente';
   const subtitulo = ehAditivo ? 'Aditivo de Escopo — Gestão Financeira' : 'Gestão Patrimonial e Performance Financeira';
-  const introDefault = `${esc(d.nome)}, nosso objetivo é garantir que toda a sua rotina financeira tenha o nível de profissionalismo, segurança e controle que você espera. ${ehAditivo ? 'Hoje já cuidamos da sua operação — propomos ampliar o escopo para o <strong>Pilar Financeiro completo</strong>.' : 'Abaixo, a estrutura completa desenhada para a sua operação e o ecossistema de serviços disponíveis.'}`;
+  // Tom sóbrio: (1) momento do cliente, (2) o que fazemos/propomos, (3) ganho em controle e visão.
+  const introDefault = ehAditivo
+    ? `${esc(d.nome)}, hoje já cuidamos da sua operação financeira no dia a dia. Esta proposta amplia o escopo para o <strong>Pilar Financeiro completo</strong> — consolidando pagamentos, conciliação e fluxo de caixa sob a mesma estrutura. O resultado é direto: mais controle sobre a rotina e visão consolidada do seu patrimônio em um único painel.`
+    : `${esc(d.nome)}, a gestão de um patrimônio em crescimento exige estrutura, método e visão de longo prazo. Propomos assumir a sua operação financeira e administrativa de ponta a ponta — patrimônio, pagamentos, conciliação, fluxo de caixa e investimentos. O resultado é direto: você acompanha cada número com clareza e decide com base em informação organizada, de qualquer lugar.`;
   const intro = d.textoIntroducao.trim() ? esc(d.textoIntroducao) : introDefault;
   const novo = Math.max(0, d.valorProposto - d.feeAtual);
 
-  const contr = {
-    adm: d.pacote !== 'asset_only',
-    fin: d.pacote === 'full' || d.pacote === 'advanced' || d.usaConciliacao,
-    jur: d.usaJuridico,
-    inv: d.plTotal > 0,
-  };
+  // Fonte única: ticks → contratação. Pilares e escopo derivam daqui (coerência).
+  const t = ticks(d);
+  const contr = contratacao(t);
 
+  // Imagem da capa em ALTA resolução: object-cover preenche sem limitar a
+  // resolução-fonte; sem max-width/height artificial, sem filtros que degradem.
   const fundoCapa = d.imagemCapaUrl.trim()
-    ? `<div class="absolute inset-0"><img src="${esc(d.imagemCapaUrl)}" alt="${esc(d.nome)}" class="w-full h-full object-cover object-top"></div>
+    ? `<div class="absolute inset-0"><img src="${esc(d.imagemCapaUrl)}" alt="${esc(d.nome)}" decoding="sync" loading="eager" class="w-full h-full object-cover object-top" style="image-rendering:auto"></div>
        <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>`
     : `<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>`;
 
   const pilares = [
-    pilarHTML(1, 'Administrativo', 'Gestão completa da rotina e bens.', contr.adm,
-      [{ texto: 'Gestão de Imóveis', contratado: true }, { texto: 'Gestão de Veículos', contratado: true },
-       { texto: 'Contratação de Serviços', contratado: true }, { texto: 'Gestão de Funcionários', contratado: true },
-       { texto: 'Organização de Viagens', contratado: true }]),
-    pilarHTML(2, 'Financeiro', 'Operação e planejamento financeiro.', contr.fin,
-      [{ texto: 'Planejamento Financeiro', contratado: d.pacote === 'full' || d.pacote === 'advanced' },
-       { texto: 'Pagamento de Contas', contratado: d.pacote === 'full' || d.pacote === 'advanced' },
-       { texto: 'Conciliação Bancária', contratado: d.usaConciliacao }, { texto: 'Fluxo de Caixa', contratado: d.pacote === 'full' }]),
-    pilarHTML(3, 'Jurídico', 'Apoio consultivo contínuo.', contr.jur,
-      [{ texto: 'Jurídico Consultivo', contratado: d.usaJuridico }, { texto: 'Revisão de Contratos', contratado: d.revisaoContratos },
-       { texto: 'Planejamento Tributário', contratado: d.planejamentoTributario }, { texto: 'Direitos de Imagem', contratado: false }]),
-    pilarHTML(4, 'Investimentos', 'Gestão de patrimônio e futuro.', contr.inv,
-      [{ texto: 'Gestão de Investimentos', contratado: contr.inv }, { texto: 'M&A e Novos Negócios', contratado: false },
-       { texto: 'Estudos de Viabilidade', contratado: false }]),
+    pilarHTML(1, 'Administrativo', 'Gestão completa da rotina e bens.',
+      [{ texto: 'Gestão de Imóveis', contratado: t.imoveis }, { texto: 'Gestão de Veículos', contratado: t.veiculos },
+       { texto: 'Gestão de Funcionários', contratado: t.domesticos }, { texto: 'Contratação de Serviços', contratado: t.contratacoes },
+       { texto: 'Organização de Viagens', contratado: t.viagens }]),
+    pilarHTML(2, 'Financeiro', 'Operação e planejamento financeiro.',
+      [{ texto: 'Planejamento Financeiro', contratado: t.planejamentoFin },
+       { texto: 'Pagamento de Contas', contratado: t.movimentos },
+       { texto: 'Conciliação Bancária', contratado: t.movimentos },
+       { texto: 'Fluxo de Caixa', contratado: t.movimentos }]),
+    pilarHTML(3, 'Jurídico', 'Apoio consultivo contínuo.',
+      [{ texto: 'Jurídico Consultivo', contratado: t.juridico }, { texto: 'Revisão de Contratos', contratado: t.revisao },
+       { texto: 'Planejamento Tributário', contratado: t.planTrib }, { texto: 'Direitos de Imagem', contratado: false }]),
+    // M&A e Estudos de Viabilidade NÃO entram aqui — vivem em "Soluções Sob Demanda".
+    pilarHTML(4, 'Investimentos', 'Gestão de patrimônio e futuro.',
+      [{ texto: 'Gestão de Investimentos', contratado: t.investimentos }]),
   ].join('');
 
   const composicao = ehAditivo
@@ -221,7 +269,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   <section id="tecnologia" class="p-12 md:p-20 bg-white">
     <h2 class="text-center text-4xl font-bold text-principal mb-12">Centralização e Controle (ERP)</h2>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-      <div class="pr-8"><p class="text-xl text-secundario leading-relaxed font-light mb-6">Centralizamos toda a sua operação administrativa e financeira em nosso <strong>sistema de gestão (ERP)</strong>, garantindo controle total mesmo à distância.</p><p class="text-xl text-secundario leading-relaxed font-light">Você acompanha em tempo real a posição patrimonial, o fluxo de caixa e a evolução dos investimentos — tudo em um único painel.</p></div>
+      <div class="pr-8"><p class="text-xl text-secundario leading-relaxed font-light mb-6">Centralizamos a sua operação administrativa e financeira em nosso <strong>sistema de gestão (ERP)</strong>.</p><p class="text-xl text-secundario leading-relaxed font-light">Você acompanha a posição patrimonial, o fluxo de caixa e os investimentos em um único painel, acessível de qualquer lugar.</p></div>
       <div class="space-y-6">
         <div class="service-card-white rounded-lg p-6 shadow-lg flex items-center space-x-4 border"><div class="text-3xl text-primario p-4 bg-white rounded-full shadow-inner"><i class="fas fa-chart-area"></i></div><div class="flex-grow"><h4 class="text-xl font-bold text-principal">Evolução Patrimonial</h4><p class="text-secundario text-sm">Performance consolidada.</p></div></div>
         <div class="service-card-white rounded-lg p-6 shadow-lg flex items-center space-x-4 border"><div class="text-3xl text-primario p-4 bg-white rounded-full shadow-inner"><i class="fas fa-building"></i></div><div class="flex-grow"><h4 class="text-xl font-bold text-principal">Gestão de Ativos</h4><p class="text-secundario text-sm">Imóveis e Veículos.</p></div></div>
@@ -247,7 +295,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
         <h3 class="text-lg font-semibold text-secundario uppercase">ALINHAMENTO</h3>
         <h4 class="text-3xl font-bold text-principal mt-1 mb-4">Escopo Contratado e Limites</h4>
         <p class="text-secundario leading-relaxed mb-6">O escopo descrito reflete exatamente a volumetria precificada — você paga pelo esforço dimensionado, com renegociação transparente se os volumes crescerem.</p>
-        <div class="space-y-4 mt-6">${blocosEscopo(d, contr)}</div>
+        <div class="space-y-4 mt-6">${blocosEscopo(d, t, contr)}</div>
       </div>
     </div>
   </section>

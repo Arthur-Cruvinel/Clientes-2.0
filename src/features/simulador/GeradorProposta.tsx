@@ -208,7 +208,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
       qtdVeiculos: veic, qtdImoveis: imov, gruposFinanceiros: grupos, qtdFuncionariosDomesticos: domest,
       volumeMovimentos: volMov, qtdContasBancarias: contas, qtdRecebiveis: recebiveis, qtdContratacoes: contratacoes,
-      plTotal: plOn + plOff, textoEscopoAdicional: textoEscopo,
+      dedicViagem: dViagem, plTotal: plOn + plOff, textoEscopoAdicional: textoEscopo,
     });
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     window.open(url, '_blank');
@@ -247,6 +247,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           <label className="block">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Imagem da capa (URL — vazio = capa-padrão escura com logo central)</span>
             <input value={imagemCapa} onChange={e => setImagemCapa(e.target.value)} className={INP} style={BRD} placeholder="https://…" />
+            <span className="text-[10px]" style={{ color: '#9ca3af' }}>Use imagem em alta resolução (mínimo ~1600px de largura); imagens pequenas ficam ruins na capa.</span>
           </label>
           <label className="block">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Escopo — observações adicionais (opcional; entra como bloco na pág. de investimento)</span>
