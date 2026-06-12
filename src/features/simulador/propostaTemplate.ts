@@ -208,13 +208,30 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   .text-primario{color:var(--cor-primaria)} .bg-primario{background:var(--cor-primaria)} .text-principal{color:var(--cor-texto-principal)} .text-secundario{color:var(--cor-texto-secundario)}
   .service-card{background:var(--cor-fundo-alternativo);border:1px solid var(--cor-borda-card)} .service-card-inactive{background:#fff;border:1px dashed #D1D5DB} .service-card-white{background:#fff;border:1px solid var(--cor-borda-card)}
   .service-list{list-style:none;padding-left:0} .service-list li{display:flex;align-items:flex-start;margin-bottom:.5rem;font-size:.85rem;line-height:1.4;color:var(--cor-texto-secundario)} .service-list li>span:first-child{color:var(--cor-primaria);font-weight:700;margin-right:.5rem;margin-top:3px;flex-shrink:0} .service-list-inactive li>span:first-child{color:#9CA3AF}
-  @media print { *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} #barra-print{display:none!important} section{break-inside:avoid} #capa{break-after:page} .service-card,.service-card-white,.service-card-inactive{break-inside:avoid} }
+  /* CAUSA da perda de resolução na capa: na impressão, o card (#doc) tem
+     box-shadow + border-radius + overflow-hidden e a capa tem backdrop-filter
+     (badge). Esses efeitos forçam o motor de impressão a RASTERIZAR a subárvore
+     em DPI de tela, descartando a resolução nativa da foto; somado ao cap de
+     largura (max-w-6xl → shrink-to-fit no papel), a foto é reamostrada 2×.
+     FIX: no print, neutralizar os efeitos e full-bleed sem cap de largura — o
+     <img> volta a ser amostrado no DPI do dispositivo, direto da fonte hi-res. */
+  @page { size: A4 portrait; margin: 0; }
+  @media print {
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    html,body{background:#fff!important;margin:0!important}
+    #barra-print{display:none!important}
+    #doc{max-width:none!important;width:100%!important;margin:0!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important}
+    #capa{box-shadow:none!important;border-radius:0!important}
+    .backdrop-blur-sm{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+    section{break-inside:avoid} #capa{break-after:page}
+    .service-card,.service-card-white,.service-card-inactive{break-inside:avoid}
+  }
   #barra-print{position:fixed;right:20px;bottom:20px;z-index:50}
 </style></head>
 <body class="antialiased">
 <div id="barra-print"><button onclick="window.print()" style="background:linear-gradient(135deg,#2F49EE,#732AD8,#D100B9);color:#fff;border:none;padding:12px 20px;border-radius:999px;font-family:Poppins,sans-serif;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25)">🖨️ Imprimir / PDF</button></div>
 
-<div class="w-full max-w-6xl mx-auto my-12 bg-white shadow-2xl rounded-lg overflow-hidden">
+<div id="doc" class="w-full max-w-6xl mx-auto my-12 bg-white shadow-2xl rounded-lg overflow-hidden">
 
   <section id="capa" class="h-[700px] relative flex flex-col justify-end text-center text-white bg-gray-900">
     ${fundoCapa}
