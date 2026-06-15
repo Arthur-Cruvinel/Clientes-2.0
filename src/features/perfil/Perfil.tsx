@@ -28,6 +28,7 @@ export function Perfil() {
   const {
     clientes, clienteSelecionado, selecionar, busca, setBusca,
     modalAberto, setModalAberto, colaboradores, parametros, salvarCliente, salvando,
+    avisoSalvar, setAvisoSalvar,
     loading, periodoLabel, bankersUnicos, empresariosUnicos, atualizarCampoEmLote, carregar,
     ordenacaoLista, setOrdenacaoLista, filtroNomeColuna, setFiltroNomeColuna,
     filtroPacotes, setFiltroPacotes, pacotesDisponiveis, limparFiltrosColuna,
@@ -90,6 +91,15 @@ export function Perfil() {
 
       {toast && (
         <div className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-700">{toast}</div>
+      )}
+
+      {/* Aviso não-bloqueante do save (ex.: cliente sem id_estavel → custo
+          administrativo não gravado na estrutura por período). */}
+      {avisoSalvar && (
+        <div className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-between gap-3">
+          <span>{avisoSalvar}</span>
+          <button onClick={() => setAvisoSalvar(null)} className="underline shrink-0">fechar</button>
+        </div>
       )}
 
       {novoClienteAberto && periodoSelecionado && (
@@ -160,7 +170,7 @@ export function Perfil() {
               {aba === 'Resumo' && <ResumoTab c={c} />}
               {aba === 'Alocação' && <AlocacaoTab c={c} hp={parametros.horas_pacote} vinculos={dadosPeriodo?.vinculos ?? []} />}
               {aba === 'Configuração' && <ConfigTab c={c} vinculos={dadosPeriodo?.vinculos ?? []} />}
-              {aba === 'Cadastral' && <CadastralTab c={c} poupanca={poupancaCliente} />}
+              {aba === 'Cadastral' && <CadastralTab c={c} poupanca={poupancaCliente} periodoLabel={periodoLabel} />}
             </div>
           </div>
         )}
@@ -288,7 +298,7 @@ function ConfigTab({ c, vinculos }: { c: import('../../types').DadosCliente; vin
   );
 }
 
-function CadastralTab({ c, poupanca }: { c: DadosCliente; poupanca?: RegistroPoupanca }) {
+function CadastralTab({ c, poupanca, periodoLabel }: { c: DadosCliente; poupanca?: RegistroPoupanca; periodoLabel: string }) {
   return (
     <div>
       <Par label="Nome completo" valor={c.nome_cliente} />
@@ -298,9 +308,17 @@ function CadastralTab({ c, poupanca }: { c: DadosCliente; poupanca?: RegistroPou
       {/* PL vem do RegistroPoupanca do período (CLAUDE.md). */}
       <Par label="AUM Onshore" valor={formatCurrency(poupanca?.pl_onshore ?? 0)} />
       <Par label="AUM Offshore" valor={formatCurrency(poupanca?.pl_offshore ?? 0)} />
+      {/* Custos FIXOS dedicados — perenes (master). */}
+      <p className="text-[10px] uppercase tracking-wider font-bold mt-3 mb-1" style={{ color: '#6b6b8a' }}>
+        Custos fixos (dedicados)
+      </p>
       <Par label="Custo contabilidade dedicado" valor={formatCurrency(c.custo_contabilidade_dedicado ?? 0)} />
       <Par label="Custo pagamento dedicado" valor={formatCurrency(c.custo_pagamento_dedicado ?? 0)} />
-      <Par label="Custo administrativo dedicado" valor={formatCurrency(c.custo_administrativo_dedicado ?? 0)} />
+      {/* Custo administrativo — VARIÁVEL do período selecionado. */}
+      <p className="text-[10px] uppercase tracking-wider font-bold mt-3 mb-1" style={{ color: '#6b6b8a' }}>
+        Custo variável do mês{periodoLabel ? ` · ${periodoLabel}` : ''}
+      </p>
+      <Par label="Custo administrativo (deste mês)" valor={formatCurrency(c.custo_administrativo_dedicado ?? 0)} />
     </div>
   );
 }

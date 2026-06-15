@@ -184,6 +184,11 @@ export interface AlteracaoCliente {
   valor_novo: unknown;
   alterado_em: string;    // ISO string
   alterado_por: string;   // email do usuário
+  /** Período 'YYYY-MM' da alteração. Preenchido para campos que viraram
+   *  VARIÁVEIS por período (ex.: custo_administrativo_dedicado) — sem isso o
+   *  histórico ficaria órfão (não diria a qual mês a mudança se refere).
+   *  Ausente para campos cadastrais perenes (continuam mono-instância). */
+  periodo?: string;
 }
 
 /** Reajuste salarial registrado para um colaborador.

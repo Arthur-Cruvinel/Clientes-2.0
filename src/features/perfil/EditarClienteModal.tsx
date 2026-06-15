@@ -131,6 +131,12 @@ function resolverNomeColabDoVinculo(
 export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, vinculos, periodo, onSalvar, onExcluido, salvando, onFechar }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
+  // Mmm/AAAA do período selecionado — rotula o custo administrativo (variável)
+  // para deixar claro que o valor é deste mês, não um cadastro perene.
+  const MESES_ABREV = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const periodoLabel = periodo
+    ? `${MESES_ABREV[Number(periodo.split('-')[1]) - 1]}/${periodo.split('-')[0]}`
+    : '';
   const [aba, setAba] = useState<(typeof ABAS)[number]>('Alocação');
   // Estado da aba Complexidade ELEVADO ao modal — a aba é renderizada
   // condicionalmente (desmonta ao trocar), então o estado precisa viver aqui
@@ -191,8 +197,11 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
     moeda_fee: (cliente.moeda_fee ?? 'BRL') as MoedaFee,
     custo_contabilidade_dedicado: cliente.custo_contabilidade_dedicado ?? 0,
     custo_pagamento_dedicado: cliente.custo_pagamento_dedicado ?? 0,
+    // Valor do período (sobreposto pelo AppContext a partir de custosDedicados/;
+    // fallback no master enquanto o mês não foi repreendido).
     custo_administrativo_dedicado: cliente.custo_administrativo_dedicado ?? 0,
-    custo_viagem_dedicado: cliente.custo_viagem_dedicado ?? 0,
+    // custo_viagem_dedicado deixou de ser editável aqui (é administrativo) — o
+    // campo segue no doc, só não é mais tocado por esta tela.
     data_entrada_mes: cliente.data_entrada ? Number(cliente.data_entrada.split('-')[1]) : 0,
     data_entrada_ano: cliente.data_entrada ? Number(cliente.data_entrada.split('-')[0]) : 0,
   }));
@@ -250,8 +259,11 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
       moeda_fee: form.moeda_fee,
       custo_contabilidade_dedicado: form.custo_contabilidade_dedicado,
       custo_pagamento_dedicado: form.custo_pagamento_dedicado,
+      // Vai no payload p/ usePerfil.salvarCliente roteá-lo a definirCustoDedicado
+      // (mês selecionado). usePerfil REMOVE este campo do objeto que grava no
+      // master — aqui ele só carrega o valor digitado.
       custo_administrativo_dedicado: form.custo_administrativo_dedicado,
-      custo_viagem_dedicado: form.custo_viagem_dedicado,
+      // custo_viagem_dedicado NÃO é mais enviado (removido do editor).
       data_entrada: form.data_entrada_ano > 0 && form.data_entrada_mes > 0
         ? `${form.data_entrada_ano}-${String(form.data_entrada_mes).padStart(2, '0')}`
         : undefined,
@@ -438,18 +450,40 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
                 </p>
               )}
             </div>
-            {[
-              ['custo_contabilidade_dedicado', 'Custo contabilidade'],
-              ['custo_pagamento_dedicado', 'Custo pagamento'],
-              ['custo_administrativo_dedicado', 'Custo administrativo'],
-              ['custo_viagem_dedicado', 'Custo viagem'],
-            ].map(([k, label]) => (
-              <div key={k} className="space-y-1">
-                <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>{label}</label>
-                <input type="number" step="0.01" value={(form as Record<string, unknown>)[k] as number}
-                  onChange={e => set(k, Number(e.target.value))} className={INP} style={BRD} />
-              </div>
-            ))}
+            {/* Custos FIXOS (dedicados) — cadastrais, perenes. Gravam no master
+                (clientes_base/) como sempre; sem mudança de comportamento. */}
+            <div className="space-y-2 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>
+              <p className="text-[10px] uppercase tracking-wider font-bold" style={{ color: '#6b6b8a' }}>
+                Custos fixos (dedicados)
+              </p>
+              {[
+                ['custo_contabilidade_dedicado', 'Custo contabilidade'],
+                ['custo_pagamento_dedicado', 'Custo pagamento'],
+              ].map(([k, label]) => (
+                <div key={k} className="space-y-1">
+                  <label className="text-xs font-medium" style={{ color: '#6b6b8a' }}>{label}</label>
+                  <input type="number" step="0.01" value={(form as Record<string, unknown>)[k] as number}
+                    onChange={e => set(k, Number(e.target.value))} className={INP} style={BRD} />
+                </div>
+              ))}
+            </div>
+
+            {/* Custo administrativo — VARIÁVEL por período. Gravado SÓ no mês
+                selecionado (custosDedicados/{id_estavel}), NUNCA no master. */}
+            <div className="space-y-1 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>
+              <label className="text-xs font-bold" style={{ color: '#160F41' }}>
+                Custo administrativo{' '}
+                <span style={{ color: '#9333ea' }}>
+                  (variável — deste mês{periodoLabel ? `: ${periodoLabel}` : ''})
+                </span>
+              </label>
+              <input type="number" step="0.01" value={form.custo_administrativo_dedicado}
+                onChange={e => set('custo_administrativo_dedicado', Number(e.target.value))}
+                className={INP} style={BRD} />
+              <p className="text-[10px]" style={{ color: '#6b6b8a' }}>
+                Valor mensal do período selecionado — salvo só neste mês, não é cadastro perene.
+              </p>
+            </div>
 
             {/* AUM somente leitura — gerenciado pelo módulo AUM & Performance. */}
             <div className="space-y-1 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>

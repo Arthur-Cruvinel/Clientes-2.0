@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useApp } from '../../state/AppContext';
-import { salvarClienteBase, registrarAlteracao, sincronizarVinculoFuncao, buscarPtaxDiaAnterior, buscarPrimeiroRegistroPoupanca } from '../../services/firebase';
+import { salvarClienteBase, registrarAlteracao, sincronizarVinculoFuncao, buscarPtaxDiaAnterior, buscarPrimeiroRegistroPoupanca, definirCustoDedicado } from '../../services/firebase';
 import { useAuth } from '../../state/AuthContext';
 import { mesclarTodos } from '../../utils/dadosClienteAdapter';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
@@ -63,6 +63,9 @@ export function usePerfil() {
   const [busca, setBusca] = useState('');
   const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  // Aviso não-bloqueante do save (ex.: cliente sem id_estavel → administrativo
+  // não gravado na estrutura por período). Exibido pela tela do Perfil.
+  const [avisoSalvar, setAvisoSalvar] = useState<string | null>(null);
 
   // Estado de ordenação + filtros de coluna da lista (CLAUDE.md: estado de
   // ordenação vive no hook da feature, não no componente).
@@ -184,6 +187,12 @@ export function usePerfil() {
   const salvarCliente = useCallback(async (dados: Partial<Cliente>) => {
     if (!clienteSelecionado) return;
     setSalvando(true);
+    setAvisoSalvar(null);
+    // custo_administrativo_dedicado virou VARIÁVEL por período: o valor que vem
+    // do modal NÃO vai mais para o master — é roteado para definirCustoDedicado
+    // (mês selecionado) mais abaixo. Capturamos aqui antes de qualquer mexida.
+    const temAdmin = 'custo_administrativo_dedicado' in dados;
+    const adminValor = Number(dados.custo_administrativo_dedicado ?? 0);
     try {
       // ── Conversão de fee em moeda estrangeira → BRL ─────────────────────
       // Quando moeda_fee ≠ BRL, o valor que chega em dados.receita_fee está na
@@ -232,12 +241,22 @@ export function usePerfil() {
           registrarAlteracao(clienteSelecionado.nome_cliente, {
             campo, valor_anterior: anterior ?? null, valor_novo: novo ?? null,
             alterado_em: agora, alterado_por: email,
+            // Campo variável por período carrega o mês — sem isso o histórico
+            // ficaria órfão (não diria a qual mês a mudança se refere).
+            ...(campo === 'custo_administrativo_dedicado' ? { periodo: periodoSelecionado } : {}),
           });
         }
       }
 
       // Mescla dados existentes com alterações e salva em clientes_base/
       const clienteAtualizado = { ...clienteSelecionado, ...dadosFinal } as Cliente;
+      // custo_administrativo_dedicado NÃO vai mais para o master: virou valor por
+      // período (definirCustoDedicado, abaixo). Deletar a CHAVE antes do save —
+      // não setar undefined — para que merge:true PRESERVE o valor antigo do
+      // master intacto (undefined viraria deleteField em salvarClienteBase, e
+      // apagaria o fallback). clienteSelecionado já traz o valor sobreposto do
+      // período, então a remoção evita reescrever o master com ele.
+      delete clienteAtualizado.custo_administrativo_dedicado;
       await salvarClienteBase(clienteAtualizado);
 
       // Sincroniza vinculos/ para cada função cujo colaborador mudou.
@@ -264,6 +283,26 @@ export function usePerfil() {
             periodo: periodoSelecionado,
             vinculos: vinculosPeriodo,
           });
+        }
+      }
+
+      // ── Custo administrativo dedicado → estrutura por período ────────────────
+      // Grava SÓ no mês selecionado (custosDedicados/{id_estavel}), NUNCA no
+      // master. id_estavel ausente (ex.: Pure Asset sintetizado): definirCustoDedicado
+      // recusa — capturamos e avisamos sem bloquear o resto do save. Esses clientes
+      // têm administrativo 0 por natureza.
+      if (temAdmin && periodoSelecionado) {
+        try {
+          await definirCustoDedicado(periodoSelecionado, {
+            id_estavel_cliente: clienteSelecionado.id_estavel ?? '',
+            nome_cliente: clienteSelecionado.nome_cliente,
+            custo_administrativo_dedicado: adminValor,
+          });
+        } catch (e) {
+          console.warn('[Perfil] custo administrativo não gravado:', e);
+          setAvisoSalvar(
+            `Cliente "${clienteSelecionado.nome_cliente}" sem id_estável: custo administrativo não gravado neste mês.`,
+          );
         }
       }
 
@@ -313,6 +352,7 @@ export function usePerfil() {
     clientes: clientesFiltrados, clienteSelecionado, selecionar,
     busca, setBusca, modalAberto, setModalAberto,
     colaboradores, parametros, salvarCliente, salvando,
+    avisoSalvar, setAvisoSalvar,
     loading, periodoLabel, bankersUnicos, empresariosUnicos,
     atualizarCampoEmLote, carregar,
     // Ordenação + filtros de coluna da lista de clientes (tabela do Perfil)

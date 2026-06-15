@@ -9,6 +9,7 @@ import {
   buscarClientes,
   buscarColaboradores,
   buscarCustosIndiretos,
+  buscarCustosDedicados,
   buscarParametros,
   semearAliquotasRebate,
   buscarStatusPeriodo,
@@ -121,12 +122,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Se aberto: buscar de clientes_base/ (dados atuais)
       // poupanca/ é a fonte de PL do período (CLAUDE.md — decisão arquitetural).
       // vinculos/ é a estrutura nova da Fase 2.5 — pipeline usa via leitura dual.
-      const [clientes, colaboradoresRaw, custosIndiretos, registrosPoupanca, vinculos] = await Promise.all([
+      const [clientes, colaboradoresRaw, custosIndiretos, registrosPoupanca, vinculos, custosDedicados] = await Promise.all([
         fechado ? buscarClientes(periodo) : buscarClientesBase(),
         buscarColaboradores(periodo),
         buscarCustosIndiretos(periodo),
         buscarRegistrosPoupancaPorPeriodo(ano, mes),
         buscarVinculos(periodo),
+        // custosDedicados/ — custo_administrativo_dedicado VARIÁVEL por período
+        // (estrutura nova). Vazia até o usuário repreender os meses.
+        buscarCustosDedicados(periodo),
       ]);
 
       // Sempre recalcula a folha completa a partir dos campos base — valores
@@ -152,9 +156,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
       });
 
+      // ── Overlay do custo administrativo dedicado (estrutura por período) ──────
+      // custo_administrativo_dedicado migrou de mono-instância no master para
+      // valor VARIÁVEL por período em fechamentos/{periodo}/custosDedicados/
+      // {id_estavel}. Para cada cliente COM doc na estrutura nova, sobrepõe o
+      // valor do período no objeto cliente. SEM doc (estrutura ainda vazia / mês
+      // não repreendido) → MANTÉM o valor antigo do master como FALLBACK (não
+      // força zero). Isso alimenta de uma vez as 3 superfícies: engine
+      // (financials.dre.ts), CadastralTab read-only e o form do modal.
+      // FALLBACK TEMPORÁRIO: será removido quando o campo antigo for desativado
+      // (passo futuro, depois do repreenchimento dos meses).
+      const dedicadoPorIdEstavel = new Map(
+        custosDedicados
+          .filter(d => d.id_estavel_cliente)
+          .map(d => [d.id_estavel_cliente, d.custo_administrativo_dedicado]),
+      );
+      const clientesComDedicado = clientes.map(c =>
+        (c.id_estavel && dedicadoPorIdEstavel.has(c.id_estavel))
+          ? { ...c, custo_administrativo_dedicado: dedicadoPorIdEstavel.get(c.id_estavel) }
+          : c,
+      );
+
       // Filtrar clientes por data_entrada (só aparecem a partir do período de entrada)
       const periodoAtual = ano * 12 + mes;
-      const clientesFiltrados = clientes.filter(c => {
+      const clientesFiltrados = clientesComDedicado.filter(c => {
         if (!c.data_entrada) return true; // sem data_entrada: sempre aparece
         const [anoEnt, mesEnt] = c.data_entrada.split('-').map(Number);
         return (anoEnt * 12 + mesEnt) <= periodoAtual;
