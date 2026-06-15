@@ -4,7 +4,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, writeBatch, deleteField } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import type { Cliente, Colaborador, CustoIndireto, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao, DadosProposta } from '../types';
+import type { Cliente, Colaborador, CustoIndireto, CustoDedicado, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao, DadosProposta } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO, CATEGORIAS_CUSTO_INDIRETO } from '../utils/constants';
 import { PARAMETROS_DEFAULT, ALIQUOTA_REBATE_ONSHORE_DEFAULT, ALIQUOTA_REBATE_OFFSHORE_DEFAULT, MARGEM_ALVO_DEFAULT, OVERHEAD_RATIO_REFERENCIA_DEFAULT } from '../utils/constants';
@@ -1166,6 +1166,63 @@ export async function executarPropagacaoCustos(origem: string, destino: string):
     gravados++;
   }
   return { gravados, alinhados };
+}
+
+// ============================================================
+// Custos dedicados por período (custo_administrativo_dedicado)
+// Estrutura nova, paralela a custosIndiretos. Espelha o padrão de
+// ARMAZENAMENTO, mas SEM seed em massa e SEM propagação (prompts futuros).
+// Sub-coleção começa VAZIA em produção — nada é semeado aqui.
+// ============================================================
+
+/** Lê os custos dedicados de um período.
+ *  Caminho: `fechamentos/{anoMes}/custosDedicados/{id_estavel_cliente}`.
+ *  Espelha buscarCustosIndiretos. Enquanto o usuário não repreencher mês a mês,
+ *  a sub-coleção está vazia e isto retorna []. */
+export async function buscarCustosDedicados(anoMes: string): Promise<CustoDedicado[]> {
+  try {
+    const ref = collection(db, 'fechamentos', anoMes, 'custosDedicados');
+    const snapshot = await getDocs(ref);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as CustoDedicado);
+  } catch (error) {
+    console.error(`[Firebase] Erro ao buscar custos dedicados do período ${anoMes}:`, error);
+    throw error;
+  }
+}
+
+/** UPSERT idempotente do custo dedicado de UM cliente num período.
+ *
+ *  - docId DETERMINÍSTICO = `id_estavel_cliente` (UUID). Casar por id_estavel
+ *    garante que reescrever o mesmo cliente atualiza o MESMO doc — nunca duplica.
+ *  - NUNCA cria fantasma: aborta se `id_estavel_cliente` vier vazio (sem isso o
+ *    setDoc cairia num docId inválido/derivado, justamente o vetor de fantasma
+ *    que a estrutura nova existe para eliminar). O caller deve passar o
+ *    `id_estavel` canônico de `clientes_base/`.
+ *  - NUNCA escreve no master (`clientes_base/`): só toca
+ *    `fechamentos/{periodo}/custosDedicados/`. O campo antigo no doc de cliente
+ *    permanece intacto e ainda é lido pelo pipeline (nada quebra agora).
+ *  - merge:true preserva outros campos do doc (forward-compat).
+ *
+ *  Equivalente conceitual a definirCustoIndireto (upsert canônico) com a
+ *  disciplina anti-fantasma de atualizarValorCustoIndireto. NÃO é seed em massa
+ *  nem propagação — escreve um cliente, um período, sob demanda. */
+export async function definirCustoDedicado(
+  anoMes: string,
+  p: { id_estavel_cliente: string; nome_cliente: string; custo_administrativo_dedicado: number },
+): Promise<void> {
+  const idEstavel = p.id_estavel_cliente?.trim();
+  if (!idEstavel) {
+    throw new Error('[CustoDedicado] id_estavel_cliente ausente — recusado para não criar fantasma.');
+  }
+  await setDoc(
+    doc(db, 'fechamentos', anoMes, 'custosDedicados', idEstavel),
+    {
+      id_estavel_cliente: idEstavel,
+      nome_cliente: p.nome_cliente,
+      custo_administrativo_dedicado: p.custo_administrativo_dedicado,
+    },
+    { merge: true },
+  );
 }
 
 /**

@@ -351,6 +351,33 @@ export interface CustoIndireto {
   tipo_custo: 'geral' | 'juridico' | 'conciliacao';
 }
 
+/**
+ * Custo dedicado VARIÁVEL POR PERÍODO de um cliente.
+ *
+ * Mora em `fechamentos/{periodo}/custosDedicados/{id_estavel_cliente}` — sub-coleção
+ * própria, PARALELA a `custosIndiretos` (não dentro dele): custo dedicado é custo
+ * DIRETO do cliente, não entra no pool de rateio dos indiretos.
+ *
+ * Motivação: `custo_administrativo_dedicado` era mono-instância no master
+ * (`clientes_base/`) — editar um mês sobrescrevia todos. Agora cada período tem o
+ * seu próprio valor. O campo antigo no doc de cliente permanece (ainda lido pelo
+ * pipeline) até a virada de leitura ser feita num passo futuro.
+ *
+ * Identidade: `docId = id_estavel_cliente` (UUID v4), NUNCA o slug — evita a
+ * bifurcação UUID-vs-slug de `clientes/`. `nome_cliente` é só conveniência de
+ * leitura/console; a FONTE DA VERDADE da identidade é `id_estavel`, e em qualquer
+ * divergência de grafia o nome canônico de `clientes_base/` prevalece.
+ *
+ * Escopo atual: SOMENTE `custo_administrativo_dedicado`. Contabilidade e pagamento
+ * não entram aqui por ora (decisão explícita).
+ */
+export interface CustoDedicado {
+  id?: string;                          // docId quando lido (== id_estavel_cliente)
+  id_estavel_cliente: string;           // UUID v4 — chave canônica (Decisão 3: nunca por nome)
+  nome_cliente: string;                 // denormalizado p/ leitura; clientes_base/ é o canônico
+  custo_administrativo_dedicado: number;
+}
+
 export interface RegistroPoupanca {
   id?: string;
   nome_cliente: string;
