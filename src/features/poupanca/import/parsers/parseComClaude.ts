@@ -14,7 +14,11 @@ export interface SiglaNaoMapeada {
 }
 
 const PROXY_URL = '/.netlify/functions/claude-proxy';
-const MODEL = 'claude-sonnet-4-20250514';
+// claude-sonnet-4-20250514 passou a retornar 404 (not_found_error). Migrado para
+// claude-sonnet-4-6 (alias atual de Sonnet). Usar sempre o alias sem sufixo de
+// data; atualizar quando a Anthropic lançar a próxima geração. Manter em sincronia
+// com o parser de documentos (useDocumentParser.ts).
+const MODEL = 'claude-sonnet-4-6';
 const MAX_RETRIES = 3;
 
 // [NOVO] exportada para reutilização em parseMultiPeriodoComClaude

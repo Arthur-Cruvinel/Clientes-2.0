@@ -16,7 +16,11 @@ export interface ResultadoParser<T> {
 }
 
 const PROXY_URL = '/.netlify/functions/claude-proxy';
-const MODEL = 'claude-sonnet-4-20250514';
+// claude-sonnet-4-20250514 passou a retornar 404 (not_found_error). Migrado para
+// claude-sonnet-4-6 (alias atual de Sonnet). Usar sempre o alias sem sufixo de
+// data; atualizar quando a Anthropic lançar a próxima geração. Manter em sincronia
+// com o parser de lâminas (parseComClaude.ts).
+const MODEL = 'claude-sonnet-4-6';
 
 export function useDocumentParser() {
   const [parseando, setParseando] = useState(false);
