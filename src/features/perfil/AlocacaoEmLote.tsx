@@ -14,9 +14,12 @@ import { HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
 import type { ChaveOrdAlocacao } from './ordenacaoAlocacao';
 
-function corFator(f: number): string {
-  if (f < 0.8) return '#dc2626';
-  if (f < 1.0) return '#ea580c';
+// Cor do índice de USO DO PACOTE (escopo) POR CLIENTE: >100% extrapola o escopo
+// (alerta laranja/vermelho), ≤100% está dentro/folga (verde). Mesma convenção da
+// aba Alocação do Perfil; cores já usadas neste arquivo.
+function corEscopo(indice: number): string {
+  if (indice > 1.5) return '#dc2626';
+  if (indice > 1.0) return '#ea580c';
   return '#16a34a';
 }
 
@@ -227,7 +230,7 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                   <th className={`${TH} text-center`}>Origem</th>
                   <th className={`${TH} text-right`}><Ord chave="novo_pct" titulo="% dedicação" align="right" tooltip="O valor Auto é a SUGESTÃO por complexidade (horas reais quando o cliente tem perfil; senão pelo pacote). Editável." /></th>
                   <th className={`${TH} text-right`}><Ord chave="horas_efetivas" titulo="Horas efet." align="right" /></th>
-                  <th className={`${TH} text-center`} title="Sobrecarga do colaborador: horas disponíveis ÷ Σ horas normativas (< 1 = sem capacidade)">Sobrecarga</th>
+                  <th className={`${TH} text-center`} title="Quanto o cliente usa do pacote nesta função: >100% extrapola o escopo, <100% subutiliza">Uso do pacote</th>
                   <th className={`${TH} text-center`}>Ações</th>
                 </tr>
               </thead>
@@ -239,6 +242,11 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                   const manual = travados.has(cli.nome_cliente);
                   const horasEfet = novo * HORAS_CLT_MES * percentualAlocavel;
                   const pctRef = (HORAS_PACOTE[cli.pacote_servico]?.[funcao] ?? 0) / HORAS_CLT_MES;
+                  // Índice de uso do pacote POR CLIENTE, AO VIVO: pct editado (novo)
+                  // ÷ pct-direito normativo do pacote (pctRef). >1 extrapola o
+                  // escopo; <1 subutiliza. null quando o pacote não tem horas-
+                  // direito nesta função (evita divisão por zero — exibe "—").
+                  const indiceEscopo = pctRef > 0 ? novo / pctRef : null;
                   return (
                     <tr key={cli.id ?? cli.nome_cliente}>
                       <td className={TD} style={{ color: '#160F41' }}>{cli.nome_cliente}</td>
@@ -262,7 +270,9 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                           style={{ border: '1px solid #e2e2e8', color: '#160F41', backgroundColor: alterado ? '#fef3c7' : '#fff' }} />
                       </td>
                       <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{horasEfet.toFixed(1)}h</td>
-                      <td className={`${TD} text-center font-medium`} style={{ color: corFator(fatorSobrecarga) }}>{fatorSobrecarga.toFixed(2)}</td>
+                      <td className={`${TD} text-center font-medium`} style={{ color: indiceEscopo == null ? '#9ca3af' : corEscopo(indiceEscopo) }}>
+                        {indiceEscopo == null ? '—' : `${(indiceEscopo * 100).toFixed(0)}%`}
+                      </td>
                       <td className={`${TD} text-center`}>
                         <button type="button"
                           title={periodoFechado ? 'Período fechado — remoção indisponível' : 'Remover da carteira'}
