@@ -126,7 +126,7 @@ export function resolverClientePorPeriodo(cliente: Cliente, periodo: string): Cl
     let valor: unknown;
     let achou = false;
     for (const e of ordenado) {
-      const v = (e as Record<string, unknown>)[campo];
+      const v = (e as unknown as Record<string, unknown>)[campo];
       if (e.vigencia <= periodo && v !== undefined) { valor = v; achou = true; }
     }
     if (achou) resolvido[campo] = valor;  // senão: preserva o campo direto (baseline)

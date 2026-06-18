@@ -297,7 +297,7 @@ export function usePerfil() {
       // Sem período: cai no comportamento antigo (Tier A vai ao master direto).
       if (periodoSelecionado) {
         for (const campo of CAMPOS_VIGENCIA_CLIENTE) {
-          delete (clienteAtualizado as Record<string, unknown>)[campo];
+          delete (clienteAtualizado as unknown as Record<string, unknown>)[campo];
         }
         if (historicoVigencia) clienteAtualizado.historico_vigencia_cliente = historicoVigencia;
       }
