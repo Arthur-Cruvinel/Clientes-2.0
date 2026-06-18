@@ -9,6 +9,8 @@ export {
   calcularCustoColaborador,
   calcularFolhaColaborador,
   buscarTetoPorPeriodo,
+  resolverClientePorPeriodo,
+  CAMPOS_VIGENCIA_CLIENTE,
   calcularCustoDireto,
   somarPctPorColaborador,
   calcularFatoresEscopo,

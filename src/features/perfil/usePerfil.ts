@@ -7,8 +7,9 @@ import { salvarClienteBase, registrarAlteracao, sincronizarVinculoFuncao, buscar
 import { useAuth } from '../../state/AuthContext';
 import { mesclarTodos } from '../../utils/dadosClienteAdapter';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
+import { CAMPOS_VIGENCIA_CLIENTE } from '../../utils/financials';
 import type { OrdenacaoState } from '../../components/ui/HeaderOrdenavel';
-import type { DadosCliente, Cliente, FuncaoAlocacao, PacoteServico } from '../../types';
+import type { DadosCliente, Cliente, FuncaoAlocacao, PacoteServico, VigenciaCliente } from '../../types';
 
 /** Colunas ordenáveis/filtráveis da lista de clientes do Perfil. */
 export type ColunaListaCliente = 'nome' | 'pacote';
@@ -241,22 +242,65 @@ export function usePerfil() {
           registrarAlteracao(clienteSelecionado.nome_cliente, {
             campo, valor_anterior: anterior ?? null, valor_novo: novo ?? null,
             alterado_em: agora, alterado_por: email,
-            // Campo variável por período carrega o mês — sem isso o histórico
-            // ficaria órfão (não diria a qual mês a mudança se refere).
-            ...(campo === 'custo_administrativo_dedicado' ? { periodo: periodoSelecionado } : {}),
+            // Campo por período (administrativo) ou de vigência (Tier A) carrega o
+            // mês — sem isso o histórico ficaria órfão (não diria a qual mês a
+            // mudança se refere).
+            ...((campo === 'custo_administrativo_dedicado'
+              || (CAMPOS_VIGENCIA_CLIENTE as readonly string[]).includes(campo))
+              ? { periodo: periodoSelecionado } : {}),
           });
         }
       }
 
-      // Mescla dados existentes com alterações e salva em clientes_base/
+      // ── Vigência Tier A (forward-only) ────────────────────────────────────────
+      // fee/moeda/rebate/contabilidade/pagamento NÃO vão mais para o write direto
+      // do master: viram entradas de vigência. Compara cada campo Tier A do save
+      // com o VIGENTE no período (clienteSelecionado já vem RESOLVIDO pelo overlay
+      // do AppContext). Se mudou, injeta/atualiza a entrada com vigencia =
+      // periodoSelecionado (substitui a do mesmo mês, mesclando campos). O campo
+      // direto do master fica como baseline (delete da chave + merge:true).
+      let historicoVigencia = clienteSelecionado.historico_vigencia_cliente
+        ? [...clienteSelecionado.historico_vigencia_cliente]
+        : undefined;
+      if (periodoSelecionado) {
+        const vigenteAtual = clienteSelecionado as unknown as Record<string, unknown>;
+        const novos = dadosFinal as Record<string, unknown>;
+        const mudancas: Partial<VigenciaCliente> = {};
+        for (const campo of CAMPOS_VIGENCIA_CLIENTE) {
+          if (!(campo in novos) || novos[campo] === undefined) continue;
+          if (JSON.stringify(novos[campo]) !== JSON.stringify(vigenteAtual[campo])) {
+            (mudancas as Record<string, unknown>)[campo] = novos[campo];
+          }
+        }
+        if (Object.keys(mudancas).length > 0) {
+          const base = historicoVigencia ?? [];
+          const existente = base.find(v => v.vigencia === periodoSelecionado);
+          const entrada: VigenciaCliente = {
+            ...(existente ?? {}),
+            ...mudancas,
+            vigencia: periodoSelecionado,
+            observacao: 'Reajuste automático',
+            registrado_em: agora,
+            registrado_por: email,
+          };
+          historicoVigencia = [...base.filter(v => v.vigencia !== periodoSelecionado), entrada];
+        }
+      }
+
+      // Mescla dados existentes com alterações e salva em clientes_base/.
       const clienteAtualizado = { ...clienteSelecionado, ...dadosFinal } as Cliente;
-      // custo_administrativo_dedicado NÃO vai mais para o master: virou valor por
-      // período (definirCustoDedicado, abaixo). Deletar a CHAVE antes do save —
-      // não setar undefined — para que merge:true PRESERVE o valor antigo do
-      // master intacto (undefined viraria deleteField em salvarClienteBase, e
-      // apagaria o fallback). clienteSelecionado já traz o valor sobreposto do
-      // período, então a remoção evita reescrever o master com ele.
+      // custo_administrativo_dedicado → custosDedicados/ (por período, abaixo).
+      // Deletar a CHAVE (não setar undefined) p/ merge:true preservar o master.
       delete clienteAtualizado.custo_administrativo_dedicado;
+      // Tier A → vigência: remove as chaves do write p/ merge:true PRESERVAR os
+      // campos diretos do master como baseline (não reescrever com o resolvido).
+      // Sem período: cai no comportamento antigo (Tier A vai ao master direto).
+      if (periodoSelecionado) {
+        for (const campo of CAMPOS_VIGENCIA_CLIENTE) {
+          delete (clienteAtualizado as Record<string, unknown>)[campo];
+        }
+        if (historicoVigencia) clienteAtualizado.historico_vigencia_cliente = historicoVigencia;
+      }
       await salvarClienteBase(clienteAtualizado);
 
       // Sincroniza vinculos/ para cada função cujo colaborador mudou.

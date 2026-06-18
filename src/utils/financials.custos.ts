@@ -93,6 +93,47 @@ export function buscarTetoPorPeriodo(
   };
 }
 
+/** Campos contratuais Tier A do cliente que viram vigência forward-only.
+ *  Fonte única — consumida pelo resolver (leitura) e por usePerfil (escrita).
+ *  custo_administrativo_dedicado NÃO entra (já é por período em custosDedicados/);
+ *  Tier B (pacote_servico, flags) fica para rodada futura. */
+export const CAMPOS_VIGENCIA_CLIENTE = [
+  'receita_fee', 'moeda_fee', 'receita_fee_original', 'moeda_fee_original', 'ptax_usado',
+  'percentual_rebate_anual_onshore', 'percentual_rebate_anual_offshore',
+  'custo_contabilidade_dedicado', 'custo_pagamento_dedicado',
+] as const;
+
+/** Resolve os campos Tier A do cliente para o período — espelha
+ *  buscarTetoPorPeriodo, mas POR CAMPO e SEM materialização (master único).
+ *
+ *  - Sem `historico_vigencia_cliente` → retorna o cliente INTACTO (retrocompat
+ *    total: tudo cai nos campos diretos). É um no-op no estado atual de produção.
+ *  - Com histórico → para CADA campo Tier A, pega o valor da vigência mais
+ *    recente com `vigencia <= periodo` que DEFINE aquele campo (forward-fill).
+ *  - Período anterior a qualquer vigência que defina o campo → MANTÉM o campo
+ *    direto do cliente (baseline). É a divergência DELIBERADA vs buscarTetoPorPeriodo
+ *    (que usaria a entrada mais antiga): forward-only NÃO reescreve o passado —
+ *    o campo direto é o valor que valia antes de começar o controle de vigência.
+ *
+ *  Não muta o original (cópia rasa). Entradas com campo `undefined` são ignoradas
+ *  (não sobrescrevem com vazio). */
+export function resolverClientePorPeriodo(cliente: Cliente, periodo: string): Cliente {
+  const hist = cliente.historico_vigencia_cliente;
+  if (!hist || hist.length === 0) return cliente;
+  const ordenado = [...hist].sort((a, b) => a.vigencia.localeCompare(b.vigencia));
+  const resolvido = { ...cliente } as Record<string, unknown>;
+  for (const campo of CAMPOS_VIGENCIA_CLIENTE) {
+    let valor: unknown;
+    let achou = false;
+    for (const e of ordenado) {
+      const v = (e as Record<string, unknown>)[campo];
+      if (e.vigencia <= periodo && v !== undefined) { valor = v; achou = true; }
+    }
+    if (achou) resolvido[campo] = valor;  // senão: preserva o campo direto (baseline)
+  }
+  return resolvido as unknown as Cliente;
+}
+
 // ============================================================
 // Folha mensal completa
 // ============================================================

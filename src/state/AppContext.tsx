@@ -19,7 +19,7 @@ import {
   buscarPeriodoAnterior,
   copiarPeriodo,
 } from '../services/firebase';
-import { processarPeriodo, calcularFolhaColaborador } from '../utils/financials';
+import { processarPeriodo, calcularFolhaColaborador, resolverClientePorPeriodo } from '../utils/financials';
 import { buscarAumPorPeriodo, type AumCliente } from '../services/aumIntegration';
 import { ModalCopiarPeriodo, type ResumoCopia } from '../components/ui/ModalCopiarPeriodo';
 
@@ -171,11 +171,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           .filter(d => d.id_estavel_cliente)
           .map(d => [d.id_estavel_cliente, d.custo_administrativo_dedicado]),
       );
-      const clientesComDedicado = clientes.map(c =>
-        (c.id_estavel && dedicadoPorIdEstavel.has(c.id_estavel))
+      const clientesComDedicado = clientes.map(c => {
+        const comDedicado = (c.id_estavel && dedicadoPorIdEstavel.has(c.id_estavel))
           ? { ...c, custo_administrativo_dedicado: dedicadoPorIdEstavel.get(c.id_estavel) }
-          : c,
-      );
+          : c;
+        // Overlay de VIGÊNCIA (Tier A): resolve fee/moeda/rebate/contabilidade/
+        // pagamento do cliente para o período (forward-only). Histórico vazio →
+        // no-op (retrocompat). Mesmo padrão do overlay do administrativo: alimenta
+        // o motor (DRE/EBITDA) E a UI de uma vez, sem threadar período no pipeline.
+        return resolverClientePorPeriodo(comDedicado, periodo);
+      });
 
       // Filtrar clientes por data_entrada (só aparecem a partir do período de entrada)
       const periodoAtual = ano * 12 + mes;

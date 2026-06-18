@@ -134,6 +134,40 @@ export interface Cliente {
   receita_fee_original?: number;   // fee na moeda original, antes da conversão
   moeda_fee_original?: string;     // moeda aplicada na conversão gravada
   ptax_usado?: number;             // PTAX (venda) do dia da gravação usada na conversão
+
+  // ── VIGÊNCIA FORWARD-ONLY DOS CAMPOS CONTRATUAIS (Tier A) ────────────────────
+  // Histórico de vigências dos campos que mudam por reajuste (fee, moeda+trilha,
+  // taxas de rebate, contabilidade, pagamento). Vive no master clientes_base/;
+  // resolvido na LEITURA por resolverClientePorPeriodo (overlay no AppContext).
+  // Vazio → tudo cai nos campos diretos acima (retrocompat TOTAL — sem migração).
+  // NÃO inclui custo_administrativo_dedicado (já é por período em custosDedicados/)
+  // nem Tier B (pacote_servico, flags). Ver VigenciaCliente.
+  historico_vigencia_cliente?: VigenciaCliente[];
+}
+
+/** Entrada de vigência forward-only dos campos contratuais (Tier A) do cliente.
+ *  Espelha ReajusteSalarial: cada entrada vale A PARTIR de `vigencia` ('YYYY-MM')
+ *  e segue valendo até a próxima entrada que REDEFINA aquele campo. Resolução POR
+ *  CAMPO (resolverClientePorPeriodo): a vigência mais recente <= período que
+ *  DEFINE o campo vence; sem entrada que o defina <= período → cai no campo
+ *  direto do cliente (baseline). Bundle, não escalar: uma entrada pode mudar só o
+ *  fee, ou fee+rebate juntos. Diferente da folha, NÃO há materialização por
+ *  período — o cliente tem master único; o snapshot de período fechado carrega o
+ *  array via fecharPeriodo. */
+export interface VigenciaCliente {
+  vigencia: string;                          // 'YYYY-MM' — primeiro mês de vigência
+  receita_fee?: number;                      // já em BRL (mesma semântica do campo direto)
+  moeda_fee?: MoedaFee;
+  receita_fee_original?: number;
+  moeda_fee_original?: string;
+  ptax_usado?: number;
+  percentual_rebate_anual_onshore?: number;
+  percentual_rebate_anual_offshore?: number;
+  custo_contabilidade_dedicado?: number;
+  custo_pagamento_dedicado?: number;
+  observacao?: string;
+  registrado_em?: string;
+  registrado_por?: string;
 }
 
 /** Drivers de complexidade fixos (perenes) por cliente.
