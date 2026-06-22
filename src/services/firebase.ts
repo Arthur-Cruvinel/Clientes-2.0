@@ -1590,7 +1590,11 @@ export async function criarClienteNovo(params: {
 
   try {
     await salvarClienteBase(novo);
-    await setDoc(doc(db, 'fechamentos', periodo, 'clientes', slugCliente), novo);
+    // Snapshot do período chaveado por id_estavel (UUID) — chave canônica do
+    // snapshot. O master (clientes_base/) permanece por slug; o snapshot, por
+    // UUID. Antes gravava por slug, criando doc paralelo ao baseline-UUID e
+    // duplicando o cliente no período (Bug Arquitetural #1).
+    await setDoc(doc(db, 'fechamentos', periodo, 'clientes', id_estavel), novo);
     return { id_estavel, slugCliente, erros: [] };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -1657,21 +1661,43 @@ export async function fecharPeriodo(
   periodo: string,
   dados: { fechado_por: string; total_clientes: number; receita_total: number },
 ): Promise<void> {
-  // 1. Copiar clientes_base/ para fechamentos/{periodo}/clientes/
-  const clientesSnap = await getDocs(collection(db, 'clientes_base'));
-  const docs = clientesSnap.docs;
-
-  for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+  // 1. WIPE — apaga o snapshot de clientes do período ANTES de regravar.
+  //    Sem isto, fechar acumulava lixo: docs do esquema legado (slug) conviviam
+  //    com a baseline-UUID, duplicando a base (Bug Arquitetural #1). Com o wipe,
+  //    re-fechar é IDEMPOTENTE — apaga tudo e regrava sempre o mesmo conjunto.
+  //    Só toca a subcoleção clientes/; custosDedicados/ e vinculos/ ficam intactos.
+  const existentes = await getDocs(collection(db, 'fechamentos', periodo, 'clientes'));
+  for (let i = 0; i < existentes.docs.length; i += BATCH_LIMIT) {
     const batch = writeBatch(db);
-    const chunk = docs.slice(i, i + BATCH_LIMIT);
-    for (const d of chunk) {
-      const destRef = doc(db, 'fechamentos', periodo, 'clientes', d.id);
-      batch.set(destRef, d.data());
-    }
+    for (const d of existentes.docs.slice(i, i + BATCH_LIMIT)) batch.delete(d.ref);
     await batch.commit();
   }
 
-  // 2. Registrar status do período
+  // 2. Copiar clientes_base/ → fechamentos/{periodo}/clientes/ com docId =
+  //    id_estavel (UUID, chave canônica do snapshot). Cliente sem id_estavel é
+  //    RECUSADO (não grava fantasma) — mesma disciplina de definirCustoDedicado.
+  const clientesSnap = await getDocs(collection(db, 'clientes_base'));
+  const docs = clientesSnap.docs;
+  const semIdEstavel: string[] = [];
+  let gravados = 0;
+  for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const d of docs.slice(i, i + BATCH_LIMIT)) {
+      const data = d.data() as Cliente;
+      const idEstavel = data.id_estavel?.trim();
+      if (!idEstavel) { semIdEstavel.push(data.nome_cliente ?? d.id); continue; }
+      batch.set(doc(db, 'fechamentos', periodo, 'clientes', idEstavel), data);
+      gravados++;
+    }
+    await batch.commit();
+  }
+  if (semIdEstavel.length > 0) {
+    console.warn(
+      `[fecharPeriodo] ${semIdEstavel.length} cliente(s) sem id_estavel NÃO gravados no snapshot: ${semIdEstavel.join(', ')}`,
+    );
+  }
+
+  // 3. Registrar status do período
   await setDoc(doc(db, 'periodos_status', periodo), {
     periodo,
     fechado: true,
@@ -1681,7 +1707,7 @@ export async function fecharPeriodo(
     receita_total: dados.receita_total,
   } satisfies PeriodoStatus);
 
-  console.log(`[Firebase] Período ${periodo} fechado com ${docs.length} clientes`);
+  console.log(`[Firebase] Período ${periodo} fechado com ${gravados} clientes (docId=id_estavel)`);
 }
 
 export async function reabrirPeriodo(periodo: string, reaberto_por: string): Promise<void> {
