@@ -32,14 +32,14 @@ export function CapacidadeDrillDown({ dado, mostrarBarraTotal = false }: Props) 
       {mostrarBarraTotal && (
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span style={{ color: '#6b6b8a' }}>Ocupação total</span>
+            <span style={{ color: '#6b6b8a' }}>Ocupação efetiva (todas as funções)</span>
             <span className="font-bold" style={{ color: cor(dado.ocupacaoPct) }}>{(dado.ocupacaoPct * 100).toFixed(0)}%</span>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#eef0f4' }}>
             <div className="h-full rounded-full" style={{ width: `${Math.min(100, dado.ocupacaoPct * 100)}%`, backgroundColor: cor(dado.ocupacaoPct) }} />
           </div>
           <p className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>
-            {dado.horasUsadas.toFixed(0)}h de {dado.horasDisponiveis.toFixed(0)}h disponíveis
+            {dado.horasUsadas.toFixed(0)}h de {dado.horasDisponiveis.toFixed(0)}h — horas que o colaborador de fato trabalha
           </p>
         </div>
       )}

@@ -296,17 +296,25 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
           </div>
 
           <div className="rounded-lg p-3 space-y-2" style={{ backgroundColor: '#f9f9fb' }}>
-            <p className="text-xs" style={{ color: '#160F41' }}>
-              Horas normativas: <strong>{horasNormativasTotais.toFixed(0)}h</strong> de <strong>{horasProdutivas.toFixed(0)}h</strong> disponíveis/mês
+            <p className="text-xs font-medium" style={{ color: '#160F41' }}>
+              Escopo teórico do pacote — {LABEL_FUNCAO_CURTA[funcao] ?? funcao}
+            </p>
+            <p className="text-[10px]" style={{ color: '#6b6b8a' }}>
+              <strong>{horasNormativasTotais.toFixed(0)}h</strong> se os clientes desta função fossem atendidos a 100% do escopo · de <strong>{horasProdutivas.toFixed(0)}h</strong> disponíveis/mês
             </p>
             {emSobrecarga ? (
               <p className="flex items-center gap-1 text-xs" style={{ color: '#dc2626' }}>
                 <AlertTriangle size={12} /> Sobrecarga: <strong>{(horasNormativasTotais - horasProdutivas).toFixed(0)}h</strong> acima da capacidade — nível de serviço comprometido (fator {fatorSobrecarga.toFixed(2)})
               </p>
             ) : (
-              <p className="flex items-center gap-1 text-xs" style={{ color: '#166534' }}>
-                <CheckCircle2 size={12} /> Capacidade livre: <strong>{capacidadeLivreHoras.toFixed(0)}h</strong> (~{horasLightLivre} clientes light ou {horasFullLivre} clientes full)
-              </p>
+              <>
+                <p className="flex items-center gap-1 text-xs" style={{ color: '#166534' }}>
+                  <CheckCircle2 size={12} /> Capacidade livre (teórica): <strong>{capacidadeLivreHoras.toFixed(0)}h</strong> (~{horasLightLivre} clientes light ou {horasFullLivre} clientes full)
+                </p>
+                <p className="text-[10px]" style={{ color: '#9ca3af' }}>
+                  baseada no escopo dos pacotes, não na alocação efetiva
+                </p>
+              </>
             )}
           </div>
 

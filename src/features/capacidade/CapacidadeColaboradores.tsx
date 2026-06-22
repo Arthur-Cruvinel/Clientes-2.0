@@ -48,7 +48,7 @@ export function CapacidadeColaboradores({ dados }: { dados: ColaboradorCapacidad
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold" style={{ color: '#160F41' }}>Ocupação por colaborador</h3>
+      <h3 className="text-sm font-semibold" style={{ color: '#160F41' }}>Ocupação efetiva por colaborador</h3>
       {dados.length === 0 && <p className="text-sm italic" style={{ color: '#6b6b8a' }}>Nenhum colaborador alocável no período.</p>}
 
       {grupos.map(g => {
@@ -103,7 +103,7 @@ export function CapacidadeColaboradores({ dados }: { dados: ColaboradorCapacidad
                           <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: cor(d.ocupacaoPct) }} />
                         </div>
                         <p className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>
-                          {d.horasUsadas.toFixed(0)}h de {d.horasDisponiveis.toFixed(0)}h disponíveis
+                          {d.horasUsadas.toFixed(0)}h efetivas de {d.horasDisponiveis.toFixed(0)}h
                         </p>
                       </button>
 
