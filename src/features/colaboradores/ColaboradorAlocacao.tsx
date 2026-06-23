@@ -163,8 +163,10 @@ export function ColaboradorAlocacao({ derivado, clientes, periodo }: Props) {
                 const pct = pcts[cli.nome_cliente] ?? 0;
                 const horasEfet = pct * HORAS_CLT_MES * pa;
                 const horasPacote = HORAS_PACOTE[cli.pacote_servico]?.[funcao] ?? 0;
-                const pctNorm = horasPacote / HORAS_CLT_MES;
-                const fator = pctNorm > 0 ? pct / pctNorm : 0;
+                // Escopo = horas efetivas (já com percentual_alocavel) ÷ horas-
+                // direito da função no pacote, coerente com a coluna "Horas efet.".
+                // 0 quando a função não tem horas-direito no pacote (evita ÷0).
+                const fator = horasPacote > 0 ? horasEfet / horasPacote : 0;
                 const alterado = cli.id_estavel && Math.abs(pct - pctEfetivo(cli, funcao)) > 1e-9;
                 return (
                   <tr key={cli.nome_cliente}>
