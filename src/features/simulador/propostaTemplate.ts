@@ -157,11 +157,13 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
     blocos.push({ titulo: 'Escopo Jurídico', texto: `${base} ${EXC}` });
   }
   if (contr.inv) {
-    const inc = ['gestão de carteira', 'consolidação multi-custódia (BTG/XP/Galápagos)', 'relatórios de performance'];
-    if (t.offshore) inc.push('estrutura offshore');
-    // Patrimônio do cliente (R$) NUNCA aparece no documento — regra firme do CFO.
-    // A volumetria (movimentos, veículos, imóveis, contas) pode; valor de PL não.
-    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Inclui ${inc.join(', ')}. ${EXC}` });
+    // Investimento NÃO tem teto — é convite ao crescimento, não escopo racionado.
+    // Por isso, SEM linguagem de limite e SEM a CLAUSULA_EXCEDENTE (que fala em
+    // excedente/renegociação, imprópria aqui). Patrimônio em R$ nunca aparece
+    // (regra firme do CFO, d2e0a22). Offshore gateado por t.offshore (coerência
+    // tick↔texto com o Pilar 4).
+    const offshoreFrase = t.offshore ? ' e estrutura offshore' : '';
+    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Gestão e consolidação do seu patrimônio onde ele estiver — múltiplas custódias reunidas em visão única, com relatórios de performance${offshoreFrase}. Não é necessário transferir custódia para contar com nossa gestão: acompanhamos e otimizamos seu patrimônio na estrutura atual, e o serviço acompanha o seu crescimento.` });
   }
   // adm/fin/inv são sempre contratados → só jur pode cair em ativação.
   const naoContr = [!contr.jur && 'Jurídico'].filter(Boolean) as string[];
