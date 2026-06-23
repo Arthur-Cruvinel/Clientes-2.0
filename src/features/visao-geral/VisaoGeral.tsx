@@ -259,6 +259,11 @@ export function VisaoGeral() {
   const regimeLabel = regime === 'real' ? 'Real' : 'Presumido';
   const periodoLabel = periodoCurto(periodoSelecionado);
 
+  // Objetivo do estudo de jurídico: quantos clientes têm a flag perene
+  // utiliza_servico_juridico. Contagem global do período (não do filtro).
+  const comJuridico = clientes.filter((c: DadosCliente) => c.utiliza_servico_juridico).length;
+  const pctJuridico = clientes.length > 0 ? (comJuridico / clientes.length) * 100 : 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -337,8 +342,8 @@ export function VisaoGeral() {
           )}
           {clientes.length > 0 && (
             <ExportButton
-              onExportExcel={() => exportVisaoGeralExcel(clientes, periodoLabel, regimeLabel)}
-              onExportPdf={() => exportVisaoGeralPdf(clientes, periodoLabel, regimeLabel)}
+              onExportExcel={() => exportVisaoGeralExcel(clientesFiltradosOrdenados, periodoLabel, regimeLabel)}
+              onExportPdf={() => exportVisaoGeralPdf(clientesFiltradosOrdenados, periodoLabel, regimeLabel)}
             />
           )}
         </div>
@@ -354,7 +359,7 @@ export function VisaoGeral() {
       )}
 
       {loading ? <SkeletonKpis /> : totais && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           <KpiCard titulo="Receita Total" valor={formatCurrency(totais.receita_bruta)} />
           <KpiCard titulo={isMC ? 'Margem Contrib.' : 'EBITDA'} valor={formatCurrency(kpiValor)}
             cor={kpiValor >= 0 ? 'text-green-700' : 'text-red-700'} />
@@ -364,6 +369,15 @@ export function VisaoGeral() {
             subtitulo={`Margem líq.: ${formatPercent((totais.margem_liquida ?? 0) * 100)} · após IRPJ/CSLL`}
             cor={totais.lucro_liquido >= 0 ? 'text-green-700' : 'text-red-700'} />
           <KpiCard titulo="Clientes Ativos" valor={String(clientesAtivos)} />
+          <KpiCard titulo="Jurídico Incluso" valor={String(comJuridico)}
+            subtitulo={`de ${clientes.length} clientes · ${formatPercent(pctJuridico)}`} />
+        </div>
+      )}
+
+      {!loading && totais && (
+        <div className="text-sm px-3 py-2 rounded-lg" style={{ backgroundColor: '#eef2ff', color: '#3730a3' }}>
+          <strong>{comJuridico}</strong> de <strong>{clientes.length}</strong> clientes com jurídico incluso
+          ({formatPercent(pctJuridico)}). Use o filtro da coluna <strong>Jurídico</strong> para isolar e exportar.
         </div>
       )}
 

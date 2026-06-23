@@ -75,7 +75,7 @@ export function exportVisaoGeralExcel(
     'CLIENTE', 'RECEITA BRUTA', 'IMPOSTOS FAT.', 'CUSTO DIRETO',
     'CUSTO INDIRETO', 'CUSTO DEDICADO', 'MARGEM CONTRIB.', 'EBITDA', 'MARGEM %',
     'IRPJ/CSLL', 'LUCRO LÍQUIDO',
-    'RECEITA REBATE', 'REGIME',
+    'RECEITA REBATE', 'REGIME', 'JURÍDICO',
   ];
 
   const rows: (string | number | null)[][] = [];
@@ -102,6 +102,7 @@ export function exportVisaoGeralExcel(
       c.lucro_liquido,
       c.receita_rebate,
       regime,
+      c.utiliza_servico_juridico ? 'Sim' : 'Não',
     ]);
   }
 
@@ -126,13 +127,13 @@ export function exportVisaoGeralExcel(
     soma('lucro_liquido'),
     soma('receita_rebate'),
     '',
+    '',
   ]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   autoWidth(ws, headers);
-  // Margem % = coluna 8 (0-based) após inserir MARGEM CONTRIB. (6); EBITDA→7.
-  // Texto = colunas 0 (nome) e 12 (regime). Demais deslocadas +1.
-  formatarCelulas(ws, 4, new Set([8]), new Set([0, 12]));
+  // Margem % = coluna 8 (0-based). Texto = 0 (nome), 12 (regime), 13 (jurídico).
+  formatarCelulas(ws, 4, new Set([8]), new Set([0, 12, 13]));
 
   XLSX.utils.book_append_sheet(wb, ws, 'Visão Geral');
   salvarWorkbook(wb, `visao-geral_${periodo}_${Date.now()}.xlsx`);

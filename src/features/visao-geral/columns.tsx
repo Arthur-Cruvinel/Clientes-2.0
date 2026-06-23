@@ -101,6 +101,16 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
       render: (c) => <PacoteBadge pacote={c.pacote_servico} />,
     },
     {
+      // Flag perene utiliza_servico_juridico (Sim/Não). Filtrável pelo dropdown
+      // de coluna (todos / Sim / Não), igual às demais colunas.
+      chave: 'utiliza_servico_juridico', titulo: 'Jurídico', alinhamento: 'center', ordenavel: true,
+      render: (c) => (
+        <Badge variante={c.utiliza_servico_juridico ? 'sucesso' : 'default'}>
+          {c.utiliza_servico_juridico ? 'Sim' : 'Não'}
+        </Badge>
+      ),
+    },
+    {
       chave: 'receita_fee_mensal', titulo: 'Fee', alinhamento: 'right', ordenavel: true,
       render: (c) => c.receita_fee_mensal > 0 ? formatCurrency(c.receita_fee_mensal) : <span style={{ color: '#d1d5db' }}>-</span>,
     },
@@ -239,6 +249,7 @@ export function valorTextoColuna(c: DadosCliente, chave: string, isMC: boolean):
       return `${ms[m - 1]}/${a}`;
     }
     case 'pacote_servico': return LABEL_PACOTE[c.pacote_servico] ?? c.pacote_servico;
+    case 'utiliza_servico_juridico': return c.utiliza_servico_juridico ? 'Sim' : 'Não';
     case 'receita_fee_mensal': return c.receita_fee_mensal > 0 ? formatCurrency(c.receita_fee_mensal) : '-';
     case 'receita_rebate': return c.receita_rebate > 0 ? formatCurrency(c.receita_rebate) : '-';
     case 'custo_direto': return formatCurrency(c.custo_direto);

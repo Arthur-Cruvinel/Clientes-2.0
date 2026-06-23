@@ -135,7 +135,7 @@ export function exportVisaoGeralPdf(
     'Cliente', 'Receita Bruta', 'Impostos Fat.', 'Custo Direto',
     'Custo Indireto', 'Custo Dedicado', 'Mg. Contrib.', 'EBITDA', 'Margem %',
     'IRPJ/CSLL', 'Lucro Líq.', 'Mg. Líq. %',
-    'Receita Rebate', 'Regime',
+    'Receita Rebate', 'Regime', 'Jurídico',
   ]];
 
   // Corpo
@@ -154,6 +154,7 @@ export function exportVisaoGeralPdf(
     pct(c.margem_liquida),
     brl(c.receita_rebate),
     regime,
+    c.utiliza_servico_juridico ? 'Sim' : 'Não',
   ]);
 
   // Totais
@@ -180,6 +181,7 @@ export function exportVisaoGeralPdf(
     brl(soma('lucro_liquido')),
     pct(margemLiqMedia),
     brl(soma('receita_rebate')),
+    '',
     '',
   ]];
 
