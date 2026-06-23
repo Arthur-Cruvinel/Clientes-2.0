@@ -241,12 +241,15 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                   const alterado = Math.abs(novo - original) > 1e-9;
                   const manual = travados.has(cli.nome_cliente);
                   const horasEfet = novo * HORAS_CLT_MES * percentualAlocavel;
-                  const pctRef = (HORAS_PACOTE[cli.pacote_servico]?.[funcao] ?? 0) / HORAS_CLT_MES;
-                  // Índice de uso do pacote POR CLIENTE, AO VIVO: pct editado (novo)
-                  // ÷ pct-direito normativo do pacote (pctRef). >1 extrapola o
-                  // escopo; <1 subutiliza. null quando o pacote não tem horas-
-                  // direito nesta função (evita divisão por zero — exibe "—").
-                  const indiceEscopo = pctRef > 0 ? novo / pctRef : null;
+                  const horasDireito = HORAS_PACOTE[cli.pacote_servico]?.[funcao] ?? 0;
+                  const pctRef = horasDireito / HORAS_CLT_MES;
+                  // Índice de uso do pacote POR CLIENTE, AO VIVO: horas efetivas
+                  // (já com percentual_alocavel) ÷ horas-direito da função no
+                  // pacote. >1 extrapola o escopo; <1 subutiliza. null quando o
+                  // pacote não tem horas-direito nesta função (evita ÷0 — "—").
+                  // Reusa o MESMO horasEfet exibido na coluna "Horas efet." para
+                  // garantir coerência: horasEfet / horasDireito == este índice.
+                  const indiceEscopo = horasDireito > 0 ? horasEfet / horasDireito : null;
                   return (
                     <tr key={cli.id ?? cli.nome_cliente}>
                       <td className={TD} style={{ color: '#160F41' }}>{cli.nome_cliente}</td>
