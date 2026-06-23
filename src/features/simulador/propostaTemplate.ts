@@ -159,7 +159,9 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
   if (contr.inv) {
     const inc = ['gestão de carteira', 'consolidação multi-custódia (BTG/XP/Galápagos)', 'relatórios de performance'];
     if (t.offshore) inc.push('estrutura offshore');
-    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Inclui ${inc.join(', ')}${d.plTotal > 0 ? `; patrimônio estimado de ${brl(d.plTotal)}` : ''}. ${EXC}` });
+    // Patrimônio do cliente (R$) NUNCA aparece no documento — regra firme do CFO.
+    // A volumetria (movimentos, veículos, imóveis, contas) pode; valor de PL não.
+    blocos.push({ titulo: 'Escopo de Investimentos', texto: `Inclui ${inc.join(', ')}. ${EXC}` });
   }
   // adm/fin/inv são sempre contratados → só jur pode cair em ativação.
   const naoContr = [!contr.jur && 'Jurídico'].filter(Boolean) as string[];
