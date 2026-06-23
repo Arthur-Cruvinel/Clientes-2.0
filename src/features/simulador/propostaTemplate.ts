@@ -27,6 +27,7 @@ export interface DadosPropostaTemplate {
   pacote: string;
   // Volumetria (escopo) + serviços.
   usaJuridico: boolean; usaConciliacao: boolean;
+  qtdDemandasJuridicas: number;   // N demandas consultivas/mês incluídas (0 = não exibe "até N")
   planejamentoTributario: boolean; revisaoContratos: boolean;
   qtdVeiculos: number; qtdImoveis: number; gruposFinanceiros: number; qtdFuncionariosDomesticos: number;
   volumeMovimentos: number; qtdContasBancarias: number; qtdRecebiveis: number; qtdContratacoes: number;
@@ -60,8 +61,9 @@ function ticks(d: DadosPropostaTemplate): Ticks {
     // PILAR 2 (Financeiro) — Planejamento é chamariz de poupança, sempre incluído.
     planejamentoFin: true,
     movimentos: d.volumeMovimentos > 0,      // pagamento/conciliação/fluxo
-    // PILAR 3 (Jurídico) — flags (tiers virão em obra própria).
-    juridico: d.usaJuridico, revisao: d.revisaoContratos, planTrib: d.planejamentoTributario,
+    // PILAR 3 (Jurídico) — N demandas consultivas/mês também acende o consultivo
+    // (coerência tick↔texto: se há jurídico precificado, o pilar mostra ✓).
+    juridico: d.usaJuridico || d.qtdDemandasJuridicas > 0, revisao: d.revisaoContratos, planTrib: d.planejamentoTributario,
     // PILAR 4 (Investimentos) — núcleo da casa, sempre incluído; offshore por PL.
     investimentos: true,
     consolidacao: true,                      // multi-custódia (BTG/XP/Galápagos)
@@ -146,7 +148,13 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
     const it: string[] = [];
     if (t.revisao) it.push('revisão de contratos');
     if (t.planTrib) it.push('planejamento tributário');
-    blocos.push({ titulo: 'Escopo Jurídico', texto: `Apoio consultivo contínuo${it.length ? `: ${it.join(', ')}` : ''}. ${EXC}` });
+    // N>0 → delimita o consultivo incluído (até N/mês) e a fronteira do extra.
+    // NUNCA exibir "até 0 demandas": com N=0 mantém a redação histórica.
+    // SEM PREÇO no documento — só o N e a fronteira incluído/extraordinário.
+    const base = d.qtdDemandasJuridicas > 0
+      ? `Jurídico consultivo incluído — até ${d.qtdDemandasJuridicas} demanda${d.qtdDemandasJuridicas === 1 ? '' : 's'}/mês${it.length ? ` (${it.join(', ')})` : ''}. Serviços extraordinários (elaboração de documentos do zero, representação/negociação, contencioso, parecer aprofundado ou direcionamento a escritório externo) são orçados sob demanda, à parte.`
+      : `Apoio consultivo contínuo${it.length ? `: ${it.join(', ')}` : ''}.`;
+    blocos.push({ titulo: 'Escopo Jurídico', texto: `${base} ${EXC}` });
   }
   if (contr.inv) {
     const inc = ['gestão de carteira', 'consolidação multi-custódia (BTG/XP/Galápagos)', 'relatórios de performance'];

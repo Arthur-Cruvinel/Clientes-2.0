@@ -62,6 +62,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [grupos, setGrupos] = useState(1); const [domest, setDomest] = useState(0);
   const [planTrib, setPlanTrib] = useState(false); const [revContr, setRevContr] = useState(false); const [obra, setObra] = useState(false);
   const [usaJur, setUsaJur] = useState(false); const [usaConc, setUsaConc] = useState(false);
+  const [demandasJur, setDemandasJur] = useState(0);  // N demandas jurídicas consultivas/mês
   const [volMov, setVolMov] = useState(0); const [contratacoes, setContratacoes] = useState(0); const [recebiveis, setRecebiveis] = useState(0);
   const [contas, setContas] = useState(0);
   const [plOn, setPlOn] = useState(0); const [plOff, setPlOff] = useState(0);
@@ -88,6 +89,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     pacote, regime, qtd_veiculos: veic, qtd_imoveis: imov, grupos_financeiros: grupos, qtd_funcionarios_domesticos: domest,
     planejamento_tributario: planTrib, revisao_contratos: revContr, gestao_obra: obra,
     utiliza_servico_juridico: usaJur, utiliza_conciliacao: usaConc,
+    qtd_demandas_juridicas_mes: demandasJur,
     volume_movimentos_mes: volMov, qtd_contratacoes_mes: contratacoes, qtd_recebiveis_mes: recebiveis,
     qtd_contas_bancarias: contas,
     pl_onshore: plOn, pl_offshore: plOff, taxa_rebate_onshore: taxaOn, taxa_rebate_offshore: taxaOff,
@@ -100,6 +102,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     setVeic(i.qtd_veiculos ?? 0); setImov(i.qtd_imoveis ?? 0); setGrupos(i.grupos_financeiros ?? 1); setDomest(i.qtd_funcionarios_domesticos ?? 0);
     setPlanTrib(!!i.planejamento_tributario); setRevContr(!!i.revisao_contratos); setObra(!!i.gestao_obra);
     setUsaJur(!!i.utiliza_servico_juridico); setUsaConc(!!i.utiliza_conciliacao);
+    setDemandasJur(i.qtd_demandas_juridicas_mes ?? 0);   // snapshots pré-feature → 0 (retrocompat)
     setVolMov(i.volume_movimentos_mes ?? 0); setContratacoes(i.qtd_contratacoes_mes ?? 0); setRecebiveis(i.qtd_recebiveis_mes ?? 0);
     setContas(i.qtd_contas_bancarias ?? 0);
     setPlOn(i.pl_onshore ?? 0); setPlOff(i.pl_offshore ?? 0);
@@ -147,9 +150,16 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       return { f, horas: h, custoHora: ch, custo: h * ch };
     });
     const custoDireto = custoDiretoDemanda(horas.por_funcao, custoHoraMedio);
+    // Jurídico consultivo: N × custo_demanda. custo_demanda = tempo × salário-hora
+    // × fator (R$ 82,88 é cru → puxa overhead). A parcela entra no custo direto
+    // ANTES do overhead, logo recebe overhead + imposto + margem como a mão de
+    // obra das 6 funções. N=0 (default) → parcela 0 → fee idêntico ao atual.
+    const custoDemandaJuridica = parametros.tempo_demanda_juridica_horas * parametros.custo_hora_juridico * parametros.fator_demanda_juridica;
+    const parcelaJuridica = demandasJur * custoDemandaJuridica;
+    const custoDiretoComJuridico = custoDireto + parcelaJuridica;
     const dedicados = dContab + dPgto + dAdm + dViagem;
-    const overhead = custoDireto * overheadRatio;
-    const custoTotal = custoDireto + dedicados + overhead;
+    const overhead = custoDiretoComJuridico * overheadRatio;
+    const custoTotal = custoDiretoComJuridico + dedicados + overhead;
 
     const aliqOn = parametros.aliquota_rebate_onshore, aliqOff = parametros.aliquota_rebate_offshore, split = parametros.split_plataforma;
     const rebate = ((plOn * (taxaOn / 100)) / 12 * (1 - aliqOn) + (plOff * (taxaOff / 100)) / 12 * (1 - aliqOff)) * split;
@@ -159,13 +169,14 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     const receitaNecessaria = denom > 0 ? custoTotal / denom : 0;
     const feeSugerido = receitaNecessaria - rebate;
 
-    return { porFuncao, custoDireto, dedicados, overhead, overheadRatio, custoTotal, rebate, receitaNecessaria, feeSugerido, margem, aliqFat, denomInvalido: denom <= 0, alertas: horas.alertas, totalHoras: horas.total };
-  }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
+    return { porFuncao, custoDireto, custoDemandaJuridica, parcelaJuridica, demandasJur, dedicados, overhead, overheadRatio, custoTotal, rebate, receitaNecessaria, feeSugerido, margem, aliqFat, denomInvalido: denom <= 0, alertas: horas.alertas, totalHoras: horas.total };
+  }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, demandasJur, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
 
   const buildOutputs = (): PropostaOutputs => ({
     porFuncao: (prop?.porFuncao ?? []).map(x => ({ funcao: x.f, horas: x.horas, custoHora: x.custoHora, custo: x.custo })),
     custoDireto: prop?.custoDireto ?? 0, dedicados: prop?.dedicados ?? 0, overhead: prop?.overhead ?? 0,
     custoTotal: prop?.custoTotal ?? 0, rebate: prop?.rebate ?? 0, receitaNecessaria: prop?.receitaNecessaria ?? 0, feeSugerido: prop?.feeSugerido ?? 0,
+    parcela_juridica: prop?.parcelaJuridica ?? 0,
   });
 
   async function salvar() {
@@ -211,6 +222,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       valorProposto: valorProposto > 0 ? valorProposto : Math.round((prop?.feeSugerido ?? 0) / 50) * 50,
       feeAtual, pacote,
       usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
+      qtdDemandasJuridicas: demandasJur,
       qtdVeiculos: veic, qtdImoveis: imov, gruposFinanceiros: grupos, qtdFuncionariosDomesticos: domest,
       volumeMovimentos: volMov, qtdContasBancarias: contas, qtdRecebiveis: recebiveis, qtdContratacoes: contratacoes,
       dedicViagem: dViagem, plTotal: plOn + plOff, plOffshore: plOff, textoEscopoAdicional: textoEscopo,
@@ -299,6 +311,15 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           <Chk label="Planej. tributário" v={planTrib} set={setPlanTrib} /><Chk label="Revisão contratos" v={revContr} set={setRevContr} />
           <Chk label="Gestão de obra" v={obra} set={setObra} /><Chk label="Serv. jurídico" v={usaJur} set={setUsaJur} /><Chk label="Conciliação" v={usaConc} set={setUsaConc} />
         </div>
+        {/* N demandas jurídicas/mês — compõe o fee (N × custo_demanda). Posição
+            provisória junto da flag jurídica; redesenho visual é trabalho posterior. */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-medium" style={{ color: '#160F41' }}>Demandas jurídicas / mês (N)</span>
+          <input type="number" step={1} min={0} value={demandasJur}
+            onChange={e => setDemandasJur(Math.max(0, Number(e.target.value)))}
+            className="rounded px-2 py-1 text-sm w-24" style={BRD} />
+          <span className="text-[10px]" style={{ color: '#9ca3af' }}>jurídico consultivo incluído no fee · 0 = sem parcela</span>
+        </div>
 
         <Secao titulo="Volumetria mensal — alimenta: mov.→pagamentos/fluxo; contratações→indicação; recebíveis→conciliação">
           <Num label="Movimentos / mês" v={volMov} set={setVolMov} /><Num label="Contratações / mês" v={contratacoes} set={setContratacoes} />
@@ -348,6 +369,14 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
 
             <div className="space-y-1 text-sm rounded-lg p-3" style={{ backgroundColor: '#f3f4f6' }}>
               <L label={`Custo direto (${prop.totalHoras.toFixed(1)}h)`} v={formatCurrency(prop.custoDireto)} />
+              {prop.demandasJur > 0 && (
+                <>
+                  <L label={`+ Jurídico (${prop.demandasJur} demanda${prop.demandasJur === 1 ? '' : 's'})`} v={formatCurrency(prop.parcelaJuridica)} />
+                  <p className="text-[11px] -mt-0.5" style={{ color: '#9ca3af' }}>
+                    {prop.demandasJur} × {formatCurrency(prop.custoDemandaJuridica)} ({parametros.tempo_demanda_juridica_horas.toLocaleString('pt-BR')}h × {formatCurrency(parametros.custo_hora_juridico)} × {parametros.fator_demanda_juridica.toLocaleString('pt-BR')})
+                  </p>
+                </>
+              )}
               <L label="+ Dedicados" v={formatCurrency(prop.dedicados)} />
               <L label={`+ Overhead (×${prop.overheadRatio.toFixed(2)} — razão de referência)`} v={formatCurrency(prop.overhead)} />
               <L label="= Custo total" v={formatCurrency(prop.custoTotal)} forte />

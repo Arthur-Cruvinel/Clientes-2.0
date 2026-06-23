@@ -6,6 +6,7 @@ import { ReplicarAlocacaoModal } from '../perfil/ReplicarAlocacaoModal';
 import { useConfiguracoes } from './useConfiguracoes';
 import { TabRebate } from './TabRebate';
 import { TabPacotes } from './TabPacotes';
+import { TabJuridico } from './TabJuridico';
 import { ColaboradoresVisao } from '../colaboradores/ColaboradoresVisao';
 import { CustosIndiretos } from '../custos-indiretos/CustosIndiretos';
 import { Metodologia } from '../metodologia/Metodologia';
@@ -25,6 +26,7 @@ const FLAG_MAPEAMENTO_MIGRADO = 'mapeamento_migrado';
 const ABAS = [
   { id: 'indiretos', label: 'Custos' },
   { id: 'rebate', label: 'Rebate' },
+  { id: 'juridico', label: 'Jurídico' },
   { id: 'pacotes', label: 'Pacotes de Serviço' },
   { id: 'colaboradores', label: 'Colaboradores' },
   { id: 'metodologia', label: 'Metodologia' },
@@ -440,6 +442,7 @@ export function Configuracoes() {
       {/* Conteúdo da aba */}
       <div className="bg-white rounded-lg border p-6" style={{ borderColor: '#e2e2e8' }}>
         {aba === 'rebate' && <TabRebate parametros={parametros} onSalvar={salvar} salvando={salvando} />}
+        {aba === 'juridico' && <TabJuridico parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'pacotes' && <TabPacotes parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'colaboradores' && <ColaboradoresVisao />}
         {aba === 'indiretos' && <CustosIndiretos />}

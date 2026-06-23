@@ -242,6 +242,14 @@ export const MARGEM_ALVO_DEFAULT = 0.25;                 // 25%
 // sempre esta razão; recalculável via UI a partir do período corrente.
 export const OVERHEAD_RATIO_REFERENCIA_DEFAULT = 1.3116;
 
+// ── PRECIFICAÇÃO DO JURÍDICO CONSULTIVO (por demanda) ──────────────────────
+// custo_demanda = tempo × custo_hora × fator ≈ 2,5 × 82,88 × 1,0 ≈ R$ 207.
+// O R$ 82,88 é salário-hora CRU (média da planilha de origem) → puxa overhead.
+// Globais e editáveis (Configurações → Jurídico). Ver docs/modelo-juridico-escopo.md.
+export const TEMPO_DEMANDA_JURIDICA_HORAS_DEFAULT = 2.5;     // 1,5 analisar + 1 elaborar
+export const CUSTO_HORA_JURIDICO_DEFAULT = 82.88;
+export const FATOR_DEMANDA_JURIDICA_DEFAULT = 1.0;
+
 // ── PARÂMETROS GLOBAIS DEFAULT ─────────────────────────────────────────
 export const PARAMETROS_DEFAULT: Parametros = {
   custo_juridico_mensal: 0,
@@ -254,6 +262,9 @@ export const PARAMETROS_DEFAULT: Parametros = {
   split_plataforma: 0.5,
   overhead_ratio_referencia: OVERHEAD_RATIO_REFERENCIA_DEFAULT,
   horas_pacote: HORAS_PACOTE as Record<PacoteServico, Record<FuncaoAlocacao, number>>,
+  tempo_demanda_juridica_horas: TEMPO_DEMANDA_JURIDICA_HORAS_DEFAULT,
+  custo_hora_juridico: CUSTO_HORA_JURIDICO_DEFAULT,
+  fator_demanda_juridica: FATOR_DEMANDA_JURIDICA_DEFAULT,
 };
 
 // Lista de funções de alocação (usada em iterações)
