@@ -13,13 +13,11 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../../state/AppContext';
-import { calcularHorasReais } from '../../utils/financials';
-import { custoHoraMedioPorFuncao, custoDiretoDemanda } from './precificacaoBase';
+import { calcularFee } from './calcularFee';
 import { salvarProposta, buscarPropostas, atualizarPropostaStatus, excluirProposta } from '../../services/firebase';
 import { gerarPropostaHTML } from './propostaTemplate';
-import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
-import type { Cliente, FuncaoAlocacao, PacoteServico, RegimeTributario, DadosProposta, PropostaInputs, PropostaOutputs } from '../../types';
+import type { FuncaoAlocacao, PacoteServico, RegimeTributario, DadosProposta, PropostaInputs, PropostaOutputs } from '../../types';
 
 const LABEL_F: Record<FuncaoAlocacao, string> = {
   consultoria_gestao: 'Gestão', consultoria_planejamento: 'Planejamento',
@@ -159,58 +157,13 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const prop = useMemo(() => {
     if (!dadosPeriodo) return null;
     const { colaboradores, clientes, vinculos } = dadosPeriodo;
-
-    // Mesma base do diagnóstico da Parte 1 (motor único — precificacaoBase).
-    const custoHoraMedio = custoHoraMedioPorFuncao(colaboradores, clientes, vinculos);
-    // Overhead SEMPRE da razão de referência (parametros/global).
-    const overheadRatio = parametros.overhead_ratio_referencia;
-
-    const cliente: Cliente = {
-      nome_cliente: 'Proposta', pacote_servico: pacote, receita_fee: 0,
-      percentual_rebate_anual_onshore: taxaOn / 100, percentual_rebate_anual_offshore: taxaOff / 100,
-      utiliza_servico_juridico: usaJur, utiliza_conciliacao: usaConc,
-      pct_consultoria_gestao: 0, pct_consultoria_planejamento: 0, pct_consultoria_financeira: 0,
-      pct_operacional_financeiro: 0, pct_serv_adm: 0, pct_serv_aux_adm: 0,
-      volume_movimentos_mes: volMov, qtd_recebiveis_mes: recebiveis, qtd_contratacoes_mes: contratacoes,
-      perfil_complexidade: {
-        grupos_financeiros: grupos, qtd_veiculos: veic, qtd_imoveis: imov, qtd_funcionarios_domesticos: domest,
-        planejamento_tributario: planTrib, revisao_contratos: revContr, gestao_obra: obra,
-      },
-    } as Cliente;
-
-    const horas = calcularHorasReais(cliente, cliente.perfil_complexidade!);
-    const porFuncao = FUNCOES_ALOCACAO.map(f => {
-      const h = horas.por_funcao[f] ?? 0; const ch = custoHoraMedio[f] ?? 0;
-      return { f, horas: h, custoHora: ch, custo: h * ch };
+    // Cálculo extraído para função pura (mesmo resultado; preparo do delta).
+    return calcularFee({
+      colaboradores, clientes, vinculos, parametros, regime,
+      pacote, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc,
+      volMov, contratacoes, recebiveis, demandasJur, plOn, plOff, taxaOn, taxaOff,
+      dContab, dPgto, dAdm, dViagem,
     });
-    const custoDireto = custoDiretoDemanda(horas.por_funcao, custoHoraMedio);
-    // Jurídico consultivo: N × custo_demanda. custo_demanda = tempo × salário-hora
-    // × fator (R$ 82,88 é cru → puxa overhead). A parcela entra no custo direto
-    // ANTES do overhead, logo recebe overhead + imposto + margem como a mão de
-    // obra das 6 funções. N=0 (default) → parcela 0 → fee idêntico ao atual.
-    const custoDemandaJuridica = parametros.tempo_demanda_juridica_horas * parametros.custo_hora_juridico * parametros.fator_demanda_juridica;
-    const parcelaJuridica = demandasJur * custoDemandaJuridica;
-    const custoDiretoComJuridico = custoDireto + parcelaJuridica;
-    const dedicados = dContab + dPgto + dAdm + dViagem;
-    const overhead = custoDiretoComJuridico * overheadRatio;
-    const custoTotal = custoDiretoComJuridico + dedicados + overhead;
-
-    const aliqOn = parametros.aliquota_rebate_onshore, aliqOff = parametros.aliquota_rebate_offshore, split = parametros.split_plataforma;
-    const rebate = ((plOn * (taxaOn / 100)) / 12 * (1 - aliqOn) + (plOff * (taxaOff / 100)) / 12 * (1 - aliqOff)) * split;
-
-    const aliqFat = ALIQUOTAS[regime].faturamento, margem = parametros.margem_alvo;
-    const denom = 1 - aliqFat - margem;
-    const receitaNecessaria = denom > 0 ? custoTotal / denom : 0;
-    const feeSugerido = receitaNecessaria - rebate;
-
-    // Aditivo (cliente_existente): incremento ISOLADO do novo serviço — só a
-    // parcela jurídica deste lote, com a MESMA matemática do Lote 1 (overhead +
-    // gross-up de imposto+margem), SEM subtrair rebate (o rebate já subsidia o
-    // fee atual). fee_novo = fee_atual + incremento. Prospect ignora (usa o fee
-    // total). Próximo lote (extraordinário) amplia os serviços incrementáveis.
-    const incrementoAditivo = denom > 0 ? (parcelaJuridica * (1 + overheadRatio)) / denom : 0;
-
-    return { porFuncao, custoDireto, custoDemandaJuridica, parcelaJuridica, demandasJur, incrementoAditivo, dedicados, overhead, overheadRatio, custoTotal, rebate, receitaNecessaria, feeSugerido, margem, aliqFat, denomInvalido: denom <= 0, alertas: horas.alertas, totalHoras: horas.total };
   }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, demandasJur, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
 
   const buildOutputs = (): PropostaOutputs => ({
