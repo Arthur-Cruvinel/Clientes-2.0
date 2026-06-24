@@ -25,6 +25,7 @@ export interface DadosPropostaTemplate {
   valorProposto: number;
   feeAtual: number;
   pacote: string;
+  adicoes: string[];   // aditivo: lista do que o ampliado acrescenta (vazio em prospect)
   // Volumetria (escopo) + serviços.
   usaJuridico: boolean; usaConciliacao: boolean;
   qtdDemandasJuridicas: number;   // N demandas consultivas/mês incluídas (0 = não exibe "até N")
@@ -374,7 +375,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
           <span><i class="fas fa-layer-group text-white/40 mr-2"></i>${composicaoLinha}</span>
           <span><i class="fas fa-barcode text-white/40 mr-2"></i>Boleto · vencimento dia ${d.diaVencimento}</span>
           <span><i class="fas fa-clock text-white/40 mr-2"></i>Válida por ${d.validadeDias} dias</span>
-        </div>
+        </div>${d.adicoes.length ? `\n        <p class="mt-4 text-sm font-light text-white/85"><i class="fas fa-plus-circle text-white/50 mr-2"></i>Inclui: ${esc(d.adicoes.join('; '))}.</p>` : ''}
       </div>
     </div>
     <!-- ESCOPO: largura total, cards lado a lado (grid 2 colunas). -->

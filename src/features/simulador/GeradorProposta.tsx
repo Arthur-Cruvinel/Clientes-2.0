@@ -51,6 +51,39 @@ export interface PrefillProposta {
   inputs: Partial<PropostaInputs>;
 }
 
+// Snapshot do ESCOPO (subconjunto de CalcularFeeInputs editável no form). Usado
+// como baseline imutável (escopo atual) e como ampliado (cópia editável) no
+// aditivo Forma 1: delta = motor(ampliado) − motor(baseline).
+interface ScopeSnapshot {
+  pacote: PacoteServico; veic: number; imov: number; grupos: number; domest: number;
+  planTrib: boolean; revContr: boolean; obra: boolean; usaJur: boolean; usaConc: boolean;
+  volMov: number; contratacoes: number; recebiveis: number; demandasJur: number;
+  plOn: number; plOff: number; taxaOn: number; taxaOff: number;
+  dContab: number; dPgto: number; dAdm: number; dViagem: number;
+}
+
+// Lista textual do que o AMPLIADO acrescenta sobre o BASELINE (campo a campo).
+// Alimenta o "Inclui: …" do documento. Só diferenças positivas/ligadas entram.
+function derivarAdicoes(base: ScopeSnapshot, amp: ScopeSnapshot): string[] {
+  const a: string[] = [];
+  if (amp.pacote !== base.pacote) a.push(`upgrade de pacote (${base.pacote} → ${amp.pacote})`);
+  if (amp.demandasJur > base.demandasJur) a.push(`jurídico consultivo até ${amp.demandasJur} demanda${amp.demandasJur === 1 ? '' : 's'}/mês`);
+  if (amp.volMov > base.volMov) a.push(`financeiro/pagamentos (${amp.volMov} movimentações/mês)`);
+  if (amp.recebiveis > base.recebiveis) a.push(`conciliação de recebíveis (${amp.recebiveis}/mês)`);
+  if (amp.contratacoes > base.contratacoes) a.push(`gestão de contratações (${amp.contratacoes}/mês)`);
+  if (amp.imov > base.imov) a.push(`gestão de imóveis (${amp.imov})`);
+  if (amp.veic > base.veic) a.push(`gestão de veículos (${amp.veic})`);
+  if (amp.domest > base.domest) a.push(`funcionários domésticos (${amp.domest})`);
+  if (amp.usaJur && !base.usaJur) a.push('serviço jurídico');
+  if (amp.usaConc && !base.usaConc) a.push('conciliação bancária');
+  if (amp.planTrib && !base.planTrib) a.push('planejamento tributário');
+  if (amp.revContr && !base.revContr) a.push('revisão de contratos');
+  const dedAmp = amp.dContab + amp.dPgto + amp.dAdm + amp.dViagem;
+  const dedBase = base.dContab + base.dPgto + base.dAdm + base.dViagem;
+  if (dedAmp > dedBase) a.push('custos dedicados adicionais');
+  return a;
+}
+
 export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const { dadosPeriodo, regime: regimeGlobal, parametros } = useApp();
 
@@ -78,6 +111,9 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [diaVencimento, setDiaVencimento] = useState(10);
   const [valorProposto, setValorProposto] = useState(0);
   const [feeAtual, setFeeAtual] = useState(0);
+  // Escopo atual do cliente (aditivo) — snapshot IMUTÁVEL capturado no prefill.
+  // null = sem cliente selecionado / modo prospect.
+  const [baseline, setBaseline] = useState<ScopeSnapshot | null>(null);
   const [editId, setEditId] = useState<string | undefined>();
   const [propostas, setPropostas] = useState<DadosProposta[]>([]);
   const [salvando, setSalvando] = useState(false);
@@ -121,16 +157,26 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   // puxa cadastro + perfil + volumetria + flags + rebate + dedicados + PL +
   // fee_atual. contas e N jurídico ficam em 0 (sem fonte no cadastro; N=0 é o
   // correto para aditivo — é o serviço que está sendo vendido, o CFO digita).
+  // ScopeSnapshot a partir de um Partial<PropostaInputs> (mesmas chaves do form).
+  const scopeFromInputs = (i: Partial<PropostaInputs>): ScopeSnapshot => ({
+    pacote: i.pacote ?? 'full', veic: i.qtd_veiculos ?? 0, imov: i.qtd_imoveis ?? 0,
+    grupos: i.grupos_financeiros ?? 1, domest: i.qtd_funcionarios_domesticos ?? 0,
+    planTrib: !!i.planejamento_tributario, revContr: !!i.revisao_contratos, obra: !!i.gestao_obra,
+    usaJur: !!i.utiliza_servico_juridico, usaConc: !!i.utiliza_conciliacao,
+    volMov: i.volume_movimentos_mes ?? 0, contratacoes: i.qtd_contratacoes_mes ?? 0, recebiveis: i.qtd_recebiveis_mes ?? 0,
+    demandasJur: i.qtd_demandas_juridicas_mes ?? 0,
+    plOn: i.pl_onshore ?? 0, plOff: i.pl_offshore ?? 0, taxaOn: i.taxa_rebate_onshore ?? 0, taxaOff: i.taxa_rebate_offshore ?? 0,
+    dContab: i.dedic_contabilidade ?? 0, dPgto: i.dedic_pagamento ?? 0, dAdm: i.dedic_administrativo ?? 0, dViagem: i.dedic_viagem ?? 0,
+  });
+
   function selecionarClienteExistente(nome: string) {
     setNomeProspect(nome);
-    if (!nome) { setIdEstavelCliente(undefined); return; }
+    if (!nome) { setIdEstavelCliente(undefined); setBaseline(null); return; }
     const cli = dadosPeriodo?.clientes.find(c => c.nome_cliente === nome);
     if (!cli) return;
     const pp = dadosPeriodo?.registrosPoupanca.find(p => p.nome_cliente === nome);
     const perfil = cli.perfil_complexidade;
-    setEditId(undefined);
-    setIdEstavelCliente(cli.id_estavel);
-    aplicarInputs({
+    const inputs: Partial<PropostaInputs> = {
       pacote: cli.pacote_servico,
       qtd_veiculos: perfil?.qtd_veiculos, qtd_imoveis: perfil?.qtd_imoveis,
       grupos_financeiros: perfil?.grupos_financeiros, qtd_funcionarios_domesticos: perfil?.qtd_funcionarios_domesticos,
@@ -143,7 +189,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       dedic_administrativo: cli.custo_administrativo_dedicado ?? 0, dedic_viagem: cli.custo_viagem_dedicado ?? 0,
       fee_atual: cli.receita_fee ?? 0,
       qtd_contas_bancarias: 0, qtd_demandas_juridicas_mes: 0, valor_proposto: 0,
-    });
+    };
+    setEditId(undefined);
+    setIdEstavelCliente(cli.id_estavel);
+    aplicarInputs(inputs);          // ampliado = cópia do escopo atual (editável)
+    setBaseline(scopeFromInputs(inputs));  // baseline = mesmo escopo, TRAVADO
   }
 
   useEffect(() => { buscarPropostas().then(setPropostas).catch(() => {}); }, []);
@@ -152,6 +202,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     if (!prefill) return;
     setTipo(prefill.tipo); setNomeProspect(prefill.nome); setIdEstavelCliente(prefill.id_estavel_cliente);
     setEditId(undefined); aplicarInputs(prefill.inputs);
+    setBaseline(prefill.tipo === 'cliente_existente' ? scopeFromInputs(prefill.inputs) : null);
   }, [prefill]);
 
   const prop = useMemo(() => {
@@ -165,6 +216,22 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       dContab, dPgto, dAdm, dViagem,
     });
   }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, demandasJur, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
+
+  // ── ADITIVO FORMA 1 (delta) — base (c) split ─────────────────────────────────
+  // Escopo ampliado a partir dos estados atuais do form (o que o CFO edita).
+  const ampliado: ScopeSnapshot = { pacote, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, volMov, contratacoes, recebiveis, demandasJur, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem };
+  // feeSugerido do BASELINE (motor sobre o escopo travado). prop.feeSugerido já é
+  // o do ampliado (mesmos estados). Mesma régua dos dois lados.
+  const feeBaseline = useMemo(() => {
+    if (!dadosPeriodo || !baseline) return null;
+    const { colaboradores, clientes, vinculos } = dadosPeriodo;
+    return calcularFee({ colaboradores, clientes, vinculos, parametros, regime, ...baseline }).feeSugerido;
+  }, [dadosPeriodo, baseline, parametros, regime]);
+  // delta = motor(ampliado) − motor(baseline). rebate e escopo existente CANCELAM;
+  // sobra só o custo incremental do que foi adicionado, grossed-up. = 0 se nada mudou.
+  const delta = (tipo === 'cliente_existente' && prop && feeBaseline != null) ? prop.feeSugerido - feeBaseline : 0;
+  const novoTotalAditivo = feeAtual + delta;   // sobre a receita_fee REAL (split)
+  const adicoesAditivo = (tipo === 'cliente_existente' && baseline) ? derivarAdicoes(baseline, ampliado) : [];
 
   const buildOutputs = (): PropostaOutputs => ({
     porFuncao: (prop?.porFuncao ?? []).map(x => ({ funcao: x.f, horas: x.horas, custoHora: x.custoHora, custo: x.custo })),
@@ -193,11 +260,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   }
   function reabrir(p: DadosProposta) {
     setTipo(p.tipo); setNomeProspect(p.nome_prospect); setIdEstavelCliente(p.id_estavel_cliente);
-    setEditId(p.id_estavel); aplicarInputs(p.inputs);
+    setEditId(p.id_estavel); aplicarInputs(p.inputs); setBaseline(null);
   }
   function duplicar(p: DadosProposta) {
     setTipo(p.tipo); setNomeProspect(`${p.nome_prospect} (cópia)`); setIdEstavelCliente(p.id_estavel_cliente);
-    setEditId(undefined); aplicarInputs(p.inputs);
+    setEditId(undefined); aplicarInputs(p.inputs); setBaseline(null);
   }
   async function mudarStatus(p: DadosProposta, status: DadosProposta['status']) {
     await atualizarPropostaStatus(p.id_estavel, status); setPropostas(await buscarPropostas());
@@ -206,7 +273,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     if (!confirm(`Excluir a proposta de ${p.nome_prospect}?`)) return;
     await excluirProposta(p.id_estavel); if (editId === p.id_estavel) setEditId(undefined); setPropostas(await buscarPropostas());
   }
-  function novo() { setEditId(undefined); setNomeProspect(''); setIdEstavelCliente(undefined); aplicarInputs({}); }
+  function novo() { setEditId(undefined); setNomeProspect(''); setIdEstavelCliente(undefined); aplicarInputs({}); setBaseline(null); }
 
   function gerar() {
     const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -214,12 +281,13 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       nome: nomeProspect.trim() || 'Cliente', tipo, data,
       textoIntroducao: textoIntro, imagemCapaUrl: imagemCapa,
       // Headline da faixa: manual quando informado; senão o sugerido por tipo —
-      // aditivo = fee_atual + incremento isolado; prospect = fee sugerido total.
+      // aditivo = fee_atual real + delta; prospect = fee sugerido total.
       valorProposto: valorProposto > 0 ? valorProposto
         : tipo === 'cliente_existente'
-          ? Math.round((feeAtual + (prop?.incrementoAditivo ?? 0)) / 50) * 50
+          ? Math.round(novoTotalAditivo / 50) * 50
           : Math.round((prop?.feeSugerido ?? 0) / 50) * 50,
       feeAtual, pacote,
+      adicoes: tipo === 'cliente_existente' ? adicoesAditivo : [],
       usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
       qtdDemandasJuridicas: demandasJur,
       qtdVeiculos: veic, qtdImoveis: imov, gruposFinanceiros: grupos, qtdFuncionariosDomesticos: domest,
@@ -243,7 +311,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             <label className="block">
               <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Tipo</span>
               <select value={tipo} onChange={e => setTipo(e.target.value as typeof tipo)} className={INP} style={BRD}>
-                <option value="prospect">Prospect</option><option value="cliente_existente">Cliente existente</option>
+                <option value="prospect">Prospect</option><option value="cliente_existente">Aditivo de Escopo</option>
               </select>
             </label>
             <Num label="Valor proposto (R$/mês)" v={valorProposto} set={setValorProposto} step={50} />
@@ -266,7 +334,9 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             <button type="button" onClick={() => setValorProposto(Math.round(prop.feeSugerido / 50) * 50)}
               className="text-[11px] underline" style={{ color: '#0065FF' }}>↑ usar fee sugerido arredondado ({formatCurrency(prop.feeSugerido)})</button>
           )}
-          {tipo === 'cliente_existente' && <Num label="Fee atual (composição aditiva)" v={feeAtual} set={setFeeAtual} step={50} />}
+          {tipo === 'cliente_existente' && (
+            <div className="text-[11px]" style={{ color: '#6b6b8a' }}>Fee atual (cadastro): <strong style={{ color: '#160F41' }}>{formatCurrency(feeAtual)}</strong> — base real do aditivo (não editável).</div>
+          )}
           <label className="block">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Texto de introdução (editável)</span>
             <textarea value={textoIntro} onChange={e => setTextoIntro(e.target.value)} rows={3} className={INP} style={BRD}
@@ -312,6 +382,12 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           </label>
         </div>
 
+        {tipo === 'cliente_existente' && baseline && (
+          <div className="rounded-lg px-3 py-2 text-[11px]" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+            <strong>Escopo ampliado</strong> — os campos abaixo iniciam no escopo atual do cliente. Aumente volumetria, ligue serviços ou adicione jurídico N: <strong>só a diferença vira acréscimo</strong>.
+          </div>
+        )}
+
         <Secao titulo="Perfil de complexidade (fixo)">
           <Num label="Veículos" v={veic} set={setVeic} /><Num label="Imóveis" v={imov} set={setImov} />
           <Num label="Grupos financeiros" v={grupos} set={setGrupos} /><Num label="Func. domésticos" v={domest} set={setDomest} />
@@ -350,30 +426,40 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
         {!prop ? <p className="text-sm" style={{ color: '#6b6b8a' }}>Selecione um período.</p> : prop.denomInvalido ? (
           <p className="text-sm" style={{ color: '#991b1b' }}>Margem alvo + imposto ≥ 100% — ajuste a margem na aba Reajustes.</p>
         ) : tipo === 'cliente_existente' ? (
+          !baseline ? (
+            <p className="text-sm" style={{ color: '#6b6b8a' }}>Selecione um cliente existente para montar o aditivo (escopo atual + adições).</p>
+          ) : (
           <>
+            {/* BASELINE travado (escopo atual, read-only). */}
+            <div className="rounded-lg border p-3 text-xs" style={{ borderColor: '#e2e2e8', backgroundColor: '#f9fafb' }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#6b6b8a' }}>Escopo atual (baseline — travado)</p>
+              <p style={{ color: '#6b6b8a' }}>
+                Pacote {baseline.pacote} · {baseline.volMov} mov/mês · {baseline.recebiveis} receb/mês · jurídico {baseline.usaJur ? 'sim' : 'não'} · conc {baseline.usaConc ? 'sim' : 'não'} · {baseline.imov} imóveis · {baseline.veic} veículos · ded {formatCurrency(baseline.dContab + baseline.dPgto + baseline.dAdm + baseline.dViagem)}
+              </p>
+            </div>
+            {/* DELTA (base c split): fee atual real → + acréscimo (delta) → = novo total. */}
             <div className="rounded-lg border p-4" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
               <p className="text-xs uppercase tracking-wider mb-2" style={{ color: '#6b6b8a' }}>Aditivo de escopo — composição do fee</p>
               <div className="space-y-1 text-sm">
-                <L label="Fee atual (cadastro)" v={formatCurrency(feeAtual)} />
-                <L label="+ Incremento — novo serviço (isolado)" v={formatCurrency(prop.incrementoAditivo)} forte />
+                <L label="Fee atual (cadastro, real)" v={formatCurrency(feeAtual)} />
+                <L label="+ Acréscimo (delta: ampliado − atual)" v={formatCurrency(delta)} forte />
                 <div className="border-t pt-1 mt-1" style={{ borderColor: '#bfdbfe' }}>
-                  <L label="= Novo total mensal" v={formatCurrency(feeAtual + prop.incrementoAditivo)} forte />
+                  <L label="= Novo total mensal" v={formatCurrency(novoTotalAditivo)} forte />
                 </div>
               </div>
-              {prop.demandasJur > 0 ? (
-                <p className="text-[11px] mt-2" style={{ color: '#6b6b8a' }}>
-                  Jurídico {prop.demandasJur} × {formatCurrency(prop.custoDemandaJuridica)} = {formatCurrency(prop.parcelaJuridica)} de custo direto · × (1 + overhead {prop.overheadRatio.toFixed(2)}) ÷ (1 − imp.fat {formatPercent(prop.aliqFat * 100)} − margem {formatPercent(prop.margem * 100)}). Sem rebate (já subsidia o fee atual).
-                </p>
+              {adicoesAditivo.length > 0 ? (
+                <p className="text-[11px] mt-2" style={{ color: '#6b6b8a' }}>Inclui: {adicoesAditivo.join('; ')}.</p>
               ) : (
-                <p className="text-[11px] mt-2" style={{ color: '#9ca3af' }}>Informe o serviço sendo vendido (ex.: demandas jurídicas/mês) para calcular o incremento.</p>
+                <p className="text-[11px] mt-2" style={{ color: '#9ca3af' }}>Edite o escopo ampliado (volumetria, jurídico N, serviços) para gerar o acréscimo. Delta = R$ 0,00 enquanto o ampliado == baseline.</p>
               )}
-              {(feeAtual + prop.incrementoAditivo) > 0 && Math.abs(valorProposto - (feeAtual + prop.incrementoAditivo)) > 0.5 && (
-                <button type="button" onClick={() => setValorProposto(Math.round((feeAtual + prop.incrementoAditivo) / 50) * 50)}
-                  className="text-[11px] underline mt-2" style={{ color: '#0065FF' }}>↑ usar novo total no valor proposto ({formatCurrency(feeAtual + prop.incrementoAditivo)})</button>
+              {novoTotalAditivo > 0 && Math.abs(valorProposto - novoTotalAditivo) > 0.5 && (
+                <button type="button" onClick={() => setValorProposto(Math.round(novoTotalAditivo / 50) * 50)}
+                  className="text-[11px] underline mt-2" style={{ color: '#0065FF' }}>↑ usar novo total no valor proposto ({formatCurrency(novoTotalAditivo)})</button>
               )}
             </div>
-            <p className="text-[11px]" style={{ color: '#9ca3af' }}>Incremento ISOLADO (Forma 2): apenas o novo serviço é precificado; o fee atual vem do cadastro. O documento mostra fee atual → acréscimo → novo total. Sem patrimônio em R$.</p>
+            <p className="text-[11px]" style={{ color: '#9ca3af' }}>Delta (Forma 1): acréscimo = motor(ampliado) − motor(atual) — mesma régua, o escopo existente e o rebate cancelam. Exibido sobre a receita_fee real. Sem patrimônio em R$.</p>
           </>
+          )
         ) : (
           <>
             <div className="rounded-lg border p-4 text-center" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
