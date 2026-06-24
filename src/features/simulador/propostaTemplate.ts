@@ -254,7 +254,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
        { texto: 'Fluxo de Caixa', contratado: t.movimentos, novo: nv('movimentos') }]),
     pilarHTML(3, 'Jurídico', 'Apoio consultivo contínuo.',
       [{ texto: 'Jurídico Consultivo', contratado: t.juridico, novo: nv('juridico') }, { texto: 'Revisão de Contratos', contratado: t.revisao, novo: nv('revisao') },
-       { texto: 'Planejamento Tributário', contratado: t.planTrib, novo: nv('planTrib') }, { texto: 'Direitos de Imagem', contratado: false }]),
+       { texto: 'Planejamento Tributário', contratado: t.planTrib, novo: nv('planTrib') }]),
     // M&A e Estudos de Viabilidade NÃO entram aqui — vivem em "Soluções Sob Demanda".
     pilarHTML(4, 'Investimentos', 'Gestão de patrimônio e futuro.',
       [{ texto: 'Gestão de Investimentos', contratado: t.investimentos },
