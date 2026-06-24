@@ -178,15 +178,51 @@ function observacoesHTML(d: DadosPropostaTemplate): string {
   return `<div class="escopo-card bg-white p-5 rounded-md border border-gray-200 mt-4"><strong class="text-principal text-lg">Observações</strong><p class="text-secundario text-base mt-1">${esc(d.textoEscopoAdicional)}</p></div>`;
 }
 
+// ── Variação por TIPO de documento ──────────────────────────────────────────
+// O scaffold do template é ÚNICO; só estes pontos mudam por tipo. Preparado para
+// receber o 3º tipo (orçamento extraordinário) num lote seguinte — basta uma
+// nova entrada aqui. prospect = literais ATUAIS (byte-equivalente: trava de
+// não-regressão).
+interface TipoDocConfig {
+  tituloDoc: string;        // <title>{tituloDoc} — {nome}</title>
+  badgeCapa: string;        // pílula da capa
+  h1: string;               // título grande da capa (antes de {nome})
+  subtitulo: string;        // subtítulo da capa
+  introDefault: string;     // parágrafo de introdução (já interpolado com nome)
+  composicaoLinha: string;  // linha de composição da faixa de investimento
+}
+function tipoConfig(d: DadosPropostaTemplate): TipoDocConfig {
+  if (d.tipo === 'cliente_existente') {
+    // ADITIVO — o documento PARECE aditivo (capa/título próprios) e a faixa mostra
+    // os 3 números: fee atual → acréscimo → novo total. acréscimo = novo total −
+    // fee atual; novo total = valorProposto (definido no Gerador como
+    // fee_atual + incremento isolado).
+    const acrescimo = Math.max(0, d.valorProposto - d.feeAtual);
+    return {
+      tituloDoc: 'Aditivo de Escopo',
+      badgeCapa: 'Aditivo de Escopo',
+      h1: 'Aditivo ao Plano de Gestão',
+      subtitulo: 'Aditivo de Escopo — Gestão Financeira',
+      introDefault: `${esc(d.nome)}, hoje já cuidamos da sua operação financeira no dia a dia. Esta proposta amplia o escopo para o <strong>Pilar Financeiro completo</strong> — consolidando pagamentos, conciliação e fluxo de caixa sob a mesma estrutura. O resultado é direto: mais controle sobre a rotina e visão consolidada do seu patrimônio em um único painel.`,
+      composicaoLinha: `Escopo atual ${brl(d.feeAtual)} + acréscimo ${brl(acrescimo)} = novo total ${brl(d.valorProposto)}`,
+    };
+  }
+  // PROSPECT — literais IDÊNTICOS ao template atual. NÃO ALTERAR (trava de
+  // não-regressão byte-equivalente).
+  return {
+    tituloDoc: 'Proposta',
+    badgeCapa: 'Proposta Comercial',
+    h1: 'Plano de Gestão',
+    subtitulo: 'Gestão Patrimonial e Performance Financeira',
+    introDefault: `${esc(d.nome)}, a gestão de um patrimônio em crescimento exige estrutura, método e visão de longo prazo. Propomos assumir a sua operação financeira e administrativa de ponta a ponta — patrimônio, pagamentos, conciliação, fluxo de caixa e investimentos. O resultado é direto: você acompanha cada número com clareza e decide com base em informação organizada, de qualquer lugar.`,
+    composicaoLinha: 'Gestão patrimonial completa, em um plano único',
+  };
+}
+
 export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
-  const ehAditivo = d.tipo === 'cliente_existente';
-  const subtitulo = ehAditivo ? 'Aditivo de Escopo — Gestão Financeira' : 'Gestão Patrimonial e Performance Financeira';
-  // Tom sóbrio: (1) momento do cliente, (2) o que fazemos/propomos, (3) ganho em controle e visão.
-  const introDefault = ehAditivo
-    ? `${esc(d.nome)}, hoje já cuidamos da sua operação financeira no dia a dia. Esta proposta amplia o escopo para o <strong>Pilar Financeiro completo</strong> — consolidando pagamentos, conciliação e fluxo de caixa sob a mesma estrutura. O resultado é direto: mais controle sobre a rotina e visão consolidada do seu patrimônio em um único painel.`
-    : `${esc(d.nome)}, a gestão de um patrimônio em crescimento exige estrutura, método e visão de longo prazo. Propomos assumir a sua operação financeira e administrativa de ponta a ponta — patrimônio, pagamentos, conciliação, fluxo de caixa e investimentos. O resultado é direto: você acompanha cada número com clareza e decide com base em informação organizada, de qualquer lugar.`;
-  const intro = d.textoIntroducao.trim() ? esc(d.textoIntroducao) : introDefault;
-  const novo = Math.max(0, d.valorProposto - d.feeAtual);
+  const cfg = tipoConfig(d);
+  const subtitulo = cfg.subtitulo;
+  const intro = d.textoIntroducao.trim() ? esc(d.textoIntroducao) : cfg.introDefault;
 
   // Fonte única: ticks → contratação. Pilares e escopo derivam daqui (coerência).
   const t = ticks(d);
@@ -222,14 +258,12 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   ].join('');
 
   // Faixa de investimento (resumo): composição enxuta para a linha secundária.
-  const composicaoLinha = ehAditivo
-    ? `Escopo atual ${brl(d.feeAtual)} + novo escopo ${brl(novo)}`
-    : 'Gestão patrimonial completa, em um plano único';
+  const composicaoLinha = cfg.composicaoLinha;
 
   return `<!DOCTYPE html>
 <html lang="pt-br" class="scroll-smooth"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proposta — ${esc(d.nome)}</title>
+<title>${cfg.tituloDoc} — ${esc(d.nome)}</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -272,8 +306,8 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
     ${fundoCapa}
     <div class="absolute inset-0 flex justify-center" style="bottom:55%"><div style="width:36%;max-height:100%">${logoSVG('#FFFFFF', 'capa')}</div></div>
     <div class="relative z-10 p-8 pb-16 flex flex-col h-full"><div class="mt-auto">
-      <div class="inline-block border border-white/30 px-6 py-2 rounded-full bg-black/30 backdrop-blur-sm mb-6"><span class="text-xs font-bold text-white uppercase tracking-widest">Proposta Comercial</span></div>
-      <h1 class="text-2xl md:text-4xl font-light uppercase mb-2 text-white" style="letter-spacing:0.18em;text-shadow:0 2px 10px rgba(0,0,0,0.5)">Plano de Gestão <span class="text-primario font-normal">${esc(d.nome)}</span></h1>
+      <div class="inline-block border border-white/30 px-6 py-2 rounded-full bg-black/30 backdrop-blur-sm mb-6"><span class="text-xs font-bold text-white uppercase tracking-widest">${cfg.badgeCapa}</span></div>
+      <h1 class="text-2xl md:text-4xl font-light uppercase mb-2 text-white" style="letter-spacing:0.18em;text-shadow:0 2px 10px rgba(0,0,0,0.5)">${cfg.h1} <span class="text-primario font-normal">${esc(d.nome)}</span></h1>
       <h2 class="text-lg md:text-xl font-light text-gray-200 tracking-wider uppercase mt-4 max-w-2xl mx-auto">${subtitulo}</h2>
       <p class="text-xs text-gray-300 uppercase tracking-widest mt-4">${esc(d.data)}</p>
       <div class="w-24 h-1 mx-auto rounded-full mt-8" style="background:linear-gradient(90deg,#2F49EE,#732AD8,#D100B9)"></div>

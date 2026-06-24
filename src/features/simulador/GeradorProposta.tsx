@@ -114,6 +114,40 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     setValorProposto(i.valor_proposto ?? 0); setFeeAtual(i.fee_atual ?? 0);
   };
 
+  // Lista de clientes do período para o seletor do modo "cliente existente".
+  const nomesClientes = useMemo(() =>
+    [...(dadosPeriodo?.clientes ?? [])].map(c => c.nome_cliente).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [dadosPeriodo]);
+
+  // Prefill REAL do cliente existente (mesma fonte do upsell de Reajustes):
+  // puxa cadastro + perfil + volumetria + flags + rebate + dedicados + PL +
+  // fee_atual. contas e N jurídico ficam em 0 (sem fonte no cadastro; N=0 é o
+  // correto para aditivo — é o serviço que está sendo vendido, o CFO digita).
+  function selecionarClienteExistente(nome: string) {
+    setNomeProspect(nome);
+    if (!nome) { setIdEstavelCliente(undefined); return; }
+    const cli = dadosPeriodo?.clientes.find(c => c.nome_cliente === nome);
+    if (!cli) return;
+    const pp = dadosPeriodo?.registrosPoupanca.find(p => p.nome_cliente === nome);
+    const perfil = cli.perfil_complexidade;
+    setEditId(undefined);
+    setIdEstavelCliente(cli.id_estavel);
+    aplicarInputs({
+      pacote: cli.pacote_servico,
+      qtd_veiculos: perfil?.qtd_veiculos, qtd_imoveis: perfil?.qtd_imoveis,
+      grupos_financeiros: perfil?.grupos_financeiros, qtd_funcionarios_domesticos: perfil?.qtd_funcionarios_domesticos,
+      planejamento_tributario: perfil?.planejamento_tributario, revisao_contratos: perfil?.revisao_contratos, gestao_obra: perfil?.gestao_obra,
+      utiliza_servico_juridico: cli.utiliza_servico_juridico, utiliza_conciliacao: cli.utiliza_conciliacao,
+      volume_movimentos_mes: cli.volume_movimentos_mes, qtd_contratacoes_mes: cli.qtd_contratacoes_mes, qtd_recebiveis_mes: cli.qtd_recebiveis_mes,
+      pl_onshore: pp?.pl_onshore ?? 0, pl_offshore: pp?.pl_offshore ?? 0,
+      taxa_rebate_onshore: (cli.percentual_rebate_anual_onshore ?? 0) * 100, taxa_rebate_offshore: (cli.percentual_rebate_anual_offshore ?? 0) * 100,
+      dedic_contabilidade: cli.custo_contabilidade_dedicado ?? 0, dedic_pagamento: cli.custo_pagamento_dedicado ?? 0,
+      dedic_administrativo: cli.custo_administrativo_dedicado ?? 0, dedic_viagem: cli.custo_viagem_dedicado ?? 0,
+      fee_atual: cli.receita_fee ?? 0,
+      qtd_contas_bancarias: 0, qtd_demandas_juridicas_mes: 0, valor_proposto: 0,
+    });
+  }
+
   useEffect(() => { buscarPropostas().then(setPropostas).catch(() => {}); }, []);
   // Prefill vindo do upsell (aba Reajustes → "Gerar proposta").
   useEffect(() => {
@@ -169,7 +203,14 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     const receitaNecessaria = denom > 0 ? custoTotal / denom : 0;
     const feeSugerido = receitaNecessaria - rebate;
 
-    return { porFuncao, custoDireto, custoDemandaJuridica, parcelaJuridica, demandasJur, dedicados, overhead, overheadRatio, custoTotal, rebate, receitaNecessaria, feeSugerido, margem, aliqFat, denomInvalido: denom <= 0, alertas: horas.alertas, totalHoras: horas.total };
+    // Aditivo (cliente_existente): incremento ISOLADO do novo serviço — só a
+    // parcela jurídica deste lote, com a MESMA matemática do Lote 1 (overhead +
+    // gross-up de imposto+margem), SEM subtrair rebate (o rebate já subsidia o
+    // fee atual). fee_novo = fee_atual + incremento. Prospect ignora (usa o fee
+    // total). Próximo lote (extraordinário) amplia os serviços incrementáveis.
+    const incrementoAditivo = denom > 0 ? (parcelaJuridica * (1 + overheadRatio)) / denom : 0;
+
+    return { porFuncao, custoDireto, custoDemandaJuridica, parcelaJuridica, demandasJur, incrementoAditivo, dedicados, overhead, overheadRatio, custoTotal, rebate, receitaNecessaria, feeSugerido, margem, aliqFat, denomInvalido: denom <= 0, alertas: horas.alertas, totalHoras: horas.total };
   }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, demandasJur, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
 
   const buildOutputs = (): PropostaOutputs => ({
@@ -219,7 +260,12 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     const html = gerarPropostaHTML({
       nome: nomeProspect.trim() || 'Cliente', tipo, data,
       textoIntroducao: textoIntro, imagemCapaUrl: imagemCapa,
-      valorProposto: valorProposto > 0 ? valorProposto : Math.round((prop?.feeSugerido ?? 0) / 50) * 50,
+      // Headline da faixa: manual quando informado; senão o sugerido por tipo —
+      // aditivo = fee_atual + incremento isolado; prospect = fee sugerido total.
+      valorProposto: valorProposto > 0 ? valorProposto
+        : tipo === 'cliente_existente'
+          ? Math.round((feeAtual + (prop?.incrementoAditivo ?? 0)) / 50) * 50
+          : Math.round((prop?.feeSugerido ?? 0) / 50) * 50,
       feeAtual, pacote,
       usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
       qtdDemandasJuridicas: demandasJur,
@@ -249,6 +295,16 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             </label>
             <Num label="Valor proposto (R$/mês)" v={valorProposto} set={setValorProposto} step={50} />
           </div>
+          {tipo === 'cliente_existente' && (
+            <label className="block">
+              <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Cliente existente — puxa dados do cadastro</span>
+              <select value={nomesClientes.includes(nomeProspect) ? nomeProspect : ''}
+                onChange={e => selecionarClienteExistente(e.target.value)} className={INP} style={BRD}>
+                <option value="">Selecione um cliente…</option>
+                {nomesClientes.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          )}
           <label className="block">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Nome do {tipo === 'prospect' ? 'prospect' : 'cliente'}</span>
             <input value={nomeProspect} onChange={e => setNomeProspect(e.target.value)} className={INP} style={BRD} />
@@ -340,6 +396,31 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       <div className="space-y-3">
         {!prop ? <p className="text-sm" style={{ color: '#6b6b8a' }}>Selecione um período.</p> : prop.denomInvalido ? (
           <p className="text-sm" style={{ color: '#991b1b' }}>Margem alvo + imposto ≥ 100% — ajuste a margem na aba Reajustes.</p>
+        ) : tipo === 'cliente_existente' ? (
+          <>
+            <div className="rounded-lg border p-4" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
+              <p className="text-xs uppercase tracking-wider mb-2" style={{ color: '#6b6b8a' }}>Aditivo de escopo — composição do fee</p>
+              <div className="space-y-1 text-sm">
+                <L label="Fee atual (cadastro)" v={formatCurrency(feeAtual)} />
+                <L label="+ Incremento — novo serviço (isolado)" v={formatCurrency(prop.incrementoAditivo)} forte />
+                <div className="border-t pt-1 mt-1" style={{ borderColor: '#bfdbfe' }}>
+                  <L label="= Novo total mensal" v={formatCurrency(feeAtual + prop.incrementoAditivo)} forte />
+                </div>
+              </div>
+              {prop.demandasJur > 0 ? (
+                <p className="text-[11px] mt-2" style={{ color: '#6b6b8a' }}>
+                  Jurídico {prop.demandasJur} × {formatCurrency(prop.custoDemandaJuridica)} = {formatCurrency(prop.parcelaJuridica)} de custo direto · × (1 + overhead {prop.overheadRatio.toFixed(2)}) ÷ (1 − imp.fat {formatPercent(prop.aliqFat * 100)} − margem {formatPercent(prop.margem * 100)}). Sem rebate (já subsidia o fee atual).
+                </p>
+              ) : (
+                <p className="text-[11px] mt-2" style={{ color: '#9ca3af' }}>Informe o serviço sendo vendido (ex.: demandas jurídicas/mês) para calcular o incremento.</p>
+              )}
+              {(feeAtual + prop.incrementoAditivo) > 0 && Math.abs(valorProposto - (feeAtual + prop.incrementoAditivo)) > 0.5 && (
+                <button type="button" onClick={() => setValorProposto(Math.round((feeAtual + prop.incrementoAditivo) / 50) * 50)}
+                  className="text-[11px] underline mt-2" style={{ color: '#0065FF' }}>↑ usar novo total no valor proposto ({formatCurrency(feeAtual + prop.incrementoAditivo)})</button>
+              )}
+            </div>
+            <p className="text-[11px]" style={{ color: '#9ca3af' }}>Incremento ISOLADO (Forma 2): apenas o novo serviço é precificado; o fee atual vem do cadastro. O documento mostra fee atual → acréscimo → novo total. Sem patrimônio em R$.</p>
+          </>
         ) : (
           <>
             <div className="rounded-lg border p-4 text-center" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
