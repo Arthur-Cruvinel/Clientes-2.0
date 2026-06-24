@@ -26,6 +26,7 @@ export interface DadosPropostaTemplate {
   feeAtual: number;
   pacote: string;
   adicoes: string[];   // aditivo: lista do que o ampliado acrescenta (vazio em prospect)
+  itensNovos: string[];   // aditivo: chaves dos itens NOVOS p/ selo "Novo" (vazio em prospect)
   // Volumetria (escopo) + serviços.
   usaJuridico: boolean; usaConciliacao: boolean;
   qtdDemandasJuridicas: number;   // N demandas consultivas/mês incluídas (0 = não exibe "até N")
@@ -98,9 +99,12 @@ function logoSVG(cor: string, suffix: string): string {
     .replace(/id="fill1h"/g, `id="fill1${suffix}"`).replace(/url\(#fill1h\)/g, `url(#fill1${suffix})`);
 }
 
-function pilarHTML(numero: number, titulo: string, descricao: string, servicos: { texto: string; contratado: boolean }[]): string {
+function pilarHTML(numero: number, titulo: string, descricao: string, servicos: { texto: string; contratado: boolean; novo?: boolean }[]): string {
   const contratado = servicos.some(s => s.contratado);   // ≥1 item ✓ = pilar CONTRATADO
-  const ativos = servicos.filter(s => s.contratado).map(s => `<li><span>✓</span><span>${esc(s.texto)}</span></li>`).join('');
+  // Item NOVO (aditivo): ✓ + selo "Novo" magenta — destaca o que está sendo
+  // adicionado vs o que o cliente já tinha. No prospect, novo é sempre undefined
+  // → nenhum selo → documento byte-idêntico.
+  const ativos = servicos.filter(s => s.contratado).map(s => `<li><span>✓</span><span>${esc(s.texto)}</span>${s.novo ? ` <span class="ml-2 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style="background:#D100B9;color:#fff">Novo</span>` : ''}</li>`).join('');
   const extras = servicos.filter(s => !s.contratado);
   const liExtras = extras.length
     ? `<li class="text-gray-400 mt-2 pt-2 border-t border-gray-100 text-[10px] uppercase font-semibold">Disponível / Extra:</li>`
@@ -236,25 +240,27 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
        <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>`
     : `<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>`;
 
+  // Selo "Novo" por item (aditivo): chave em itensNovos. Prospect: vazio → nada.
+  const nv = (k: string) => d.itensNovos.includes(k);
   const pilares = [
     pilarHTML(1, 'Administrativo', 'Gestão completa da rotina e bens.',
       [{ texto: 'Contratação de Serviços', contratado: t.contratacoes }, { texto: 'Organização de Viagens', contratado: t.viagens },
-       { texto: 'Gestão de Imóveis', contratado: t.imoveis }, { texto: 'Gestão de Veículos', contratado: t.veiculos },
-       { texto: 'Gestão de Funcionários', contratado: t.domesticos }, { texto: 'Organização de Eventos', contratado: t.eventos }]),
+       { texto: 'Gestão de Imóveis', contratado: t.imoveis, novo: nv('imoveis') }, { texto: 'Gestão de Veículos', contratado: t.veiculos, novo: nv('veiculos') },
+       { texto: 'Gestão de Funcionários', contratado: t.domesticos, novo: nv('domesticos') }, { texto: 'Organização de Eventos', contratado: t.eventos }]),
     pilarHTML(2, 'Financeiro', 'Operação e planejamento financeiro.',
       [{ texto: 'Planejamento Financeiro', contratado: t.planejamentoFin },
-       { texto: 'Pagamento de Contas', contratado: t.movimentos },
-       { texto: 'Conciliação Bancária', contratado: t.movimentos },
-       { texto: 'Fluxo de Caixa', contratado: t.movimentos }]),
+       { texto: 'Pagamento de Contas', contratado: t.movimentos, novo: nv('movimentos') },
+       { texto: 'Conciliação Bancária', contratado: t.movimentos, novo: nv('movimentos') },
+       { texto: 'Fluxo de Caixa', contratado: t.movimentos, novo: nv('movimentos') }]),
     pilarHTML(3, 'Jurídico', 'Apoio consultivo contínuo.',
-      [{ texto: 'Jurídico Consultivo', contratado: t.juridico }, { texto: 'Revisão de Contratos', contratado: t.revisao },
-       { texto: 'Planejamento Tributário', contratado: t.planTrib }, { texto: 'Direitos de Imagem', contratado: false }]),
+      [{ texto: 'Jurídico Consultivo', contratado: t.juridico, novo: nv('juridico') }, { texto: 'Revisão de Contratos', contratado: t.revisao, novo: nv('revisao') },
+       { texto: 'Planejamento Tributário', contratado: t.planTrib, novo: nv('planTrib') }, { texto: 'Direitos de Imagem', contratado: false }]),
     // M&A e Estudos de Viabilidade NÃO entram aqui — vivem em "Soluções Sob Demanda".
     pilarHTML(4, 'Investimentos', 'Gestão de patrimônio e futuro.',
       [{ texto: 'Gestão de Investimentos', contratado: t.investimentos },
        { texto: 'Consolidação de Ativos (multi-custódia)', contratado: t.consolidacao },
        { texto: 'Relatórios de Performance', contratado: t.relatorios },
-       { texto: 'Estrutura Offshore', contratado: t.offshore },
+       { texto: 'Estrutura Offshore', contratado: t.offshore, novo: nv('offshore') },
        { texto: 'Planejamento de Liquidez', contratado: t.liquidez }]),
   ].join('');
 

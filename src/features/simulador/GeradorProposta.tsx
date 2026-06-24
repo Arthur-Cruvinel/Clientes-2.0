@@ -277,6 +277,19 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
 
   function gerar() {
     const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    // Itens NOVOS no documento de aditivo (chaves dos serviços que diferem do
+    // baseline). Mesma comparação da lista "Inclui:". Prospect → vazio.
+    const itensNovos: string[] = [];
+    if (tipo === 'cliente_existente' && baseline) {
+      if (demandasJur > baseline.demandasJur || (usaJur && !baseline.usaJur)) itensNovos.push('juridico');
+      if (volMov > baseline.volMov || (usaConc && !baseline.usaConc)) itensNovos.push('movimentos');
+      if (revContr && !baseline.revContr) itensNovos.push('revisao');
+      if (planTrib && !baseline.planTrib) itensNovos.push('planTrib');
+      if (imov > baseline.imov) itensNovos.push('imoveis');
+      if (veic > baseline.veic) itensNovos.push('veiculos');
+      if (domest > baseline.domest) itensNovos.push('domesticos');
+      if (plOff > baseline.plOff) itensNovos.push('offshore');
+    }
     const html = gerarPropostaHTML({
       nome: nomeProspect.trim() || 'Cliente', tipo, data,
       textoIntroducao: textoIntro, imagemCapaUrl: imagemCapa,
@@ -288,6 +301,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           : Math.round((prop?.feeSugerido ?? 0) / 50) * 50,
       feeAtual, pacote,
       adicoes: tipo === 'cliente_existente' ? adicoesAditivo : [],
+      itensNovos,
       usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
       qtdDemandasJuridicas: demandasJur,
       qtdVeiculos: veic, qtdImoveis: imov, gruposFinanceiros: grupos, qtdFuncionariosDomesticos: domest,
@@ -330,7 +344,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Nome do {tipo === 'prospect' ? 'prospect' : 'cliente'}</span>
             <input value={nomeProspect} onChange={e => setNomeProspect(e.target.value)} className={INP} style={BRD} />
           </label>
-          {prop && valorProposto <= 0 && prop.feeSugerido > 0 && (
+          {/* Só PROSPECT: o fee sugerido do motor é o fee total. No aditivo, o
+              preenchimento usa o "novo total" (receita_fee + delta) — botão no
+              painel do aditivo (à direita), NUNCA o feeSugerido cru (que incluiria
+              todo o escopo existente). */}
+          {tipo === 'prospect' && prop && valorProposto <= 0 && prop.feeSugerido > 0 && (
             <button type="button" onClick={() => setValorProposto(Math.round(prop.feeSugerido / 50) * 50)}
               className="text-[11px] underline" style={{ color: '#0065FF' }}>↑ usar fee sugerido arredondado ({formatCurrency(prop.feeSugerido)})</button>
           )}
@@ -367,37 +385,47 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Pacote</span>
-            <select value={pacote} onChange={e => setPacote(e.target.value as PacoteServico)} className={INP} style={BRD}>
-              {PACOTES.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Regime</span>
-            <select value={regime} onChange={e => setRegime(e.target.value as RegimeTributario)} className={INP} style={BRD}>
-              <option value="presumido">Presumido</option><option value="real">Real</option>
-            </select>
-          </label>
-        </div>
-
+        {/* ADITIVO: o escopo atual (baseline) fica TRAVADO (read-only). O CFO só
+            edita as "Adições" (jurídico N). Os <fieldset disabled> abaixo travam
+            os campos vindos do prefill — evita editar o que o cliente já tem
+            (e o delta netaria de qualquer forma, mas a UI deve deixar claro). */}
         {tipo === 'cliente_existente' && baseline && (
           <div className="rounded-lg px-3 py-2 text-[11px]" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
-            <strong>Escopo ampliado</strong> — os campos abaixo iniciam no escopo atual do cliente. Aumente volumetria, ligue serviços ou adicione jurídico N: <strong>só a diferença vira acréscimo</strong>.
+            🔒 <strong>Escopo atual (travado)</strong> — referência do que o cliente já tem (não editável). Adicione novos serviços na seção <strong>Adições</strong> abaixo: só a diferença vira acréscimo.
           </div>
         )}
 
-        <Secao titulo="Perfil de complexidade (fixo)">
-          <Num label="Veículos" v={veic} set={setVeic} /><Num label="Imóveis" v={imov} set={setImov} />
-          <Num label="Grupos financeiros" v={grupos} set={setGrupos} /><Num label="Func. domésticos" v={domest} set={setDomest} />
-        </Secao>
-        <div className="flex flex-wrap gap-4">
-          <Chk label="Planej. tributário" v={planTrib} set={setPlanTrib} /><Chk label="Revisão contratos" v={revContr} set={setRevContr} />
-          <Chk label="Gestão de obra" v={obra} set={setObra} /><Chk label="Serv. jurídico" v={usaJur} set={setUsaJur} /><Chk label="Conciliação" v={usaConc} set={setUsaConc} />
-        </div>
-        {/* N demandas jurídicas/mês — compõe o fee (N × custo_demanda). Posição
-            provisória junto da flag jurídica; redesenho visual é trabalho posterior. */}
+        <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Pacote</span>
+              <select value={pacote} onChange={e => setPacote(e.target.value as PacoteServico)} className={INP} style={BRD}>
+                {PACOTES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Regime</span>
+              <select value={regime} onChange={e => setRegime(e.target.value as RegimeTributario)} className={INP} style={BRD}>
+                <option value="presumido">Presumido</option><option value="real">Real</option>
+              </select>
+            </label>
+          </div>
+
+          <Secao titulo="Perfil de complexidade (fixo)">
+            <Num label="Veículos" v={veic} set={setVeic} /><Num label="Imóveis" v={imov} set={setImov} />
+            <Num label="Grupos financeiros" v={grupos} set={setGrupos} /><Num label="Func. domésticos" v={domest} set={setDomest} />
+          </Secao>
+          <div className="flex flex-wrap gap-4">
+            <Chk label="Planej. tributário" v={planTrib} set={setPlanTrib} /><Chk label="Revisão contratos" v={revContr} set={setRevContr} />
+            <Chk label="Gestão de obra" v={obra} set={setObra} /><Chk label="Serv. jurídico" v={usaJur} set={setUsaJur} /><Chk label="Conciliação" v={usaConc} set={setUsaConc} />
+          </div>
+        </fieldset>
+
+        {/* ADIÇÕES ao escopo (editável também no aditivo — fora do fieldset). No
+            prospect é só a linha normal de jurídico N. */}
+        {tipo === 'cliente_existente' && (
+          <p className="text-[11px] font-bold uppercase tracking-wider -mb-2" style={{ color: '#0065FF' }}>＋ Adições ao escopo (editável)</p>
+        )}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[11px] font-medium" style={{ color: '#160F41' }}>Demandas jurídicas / mês (N)</span>
           <input type="number" step={1} min={0} value={demandasJur}
@@ -406,19 +434,21 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           <span className="text-[10px]" style={{ color: '#9ca3af' }}>jurídico consultivo incluído no fee · 0 = sem parcela</span>
         </div>
 
-        <Secao titulo="Volumetria mensal — alimenta: mov.→pagamentos/fluxo; contratações→indicação; recebíveis→conciliação">
-          <Num label="Movimentos / mês" v={volMov} set={setVolMov} /><Num label="Contratações / mês" v={contratacoes} set={setContratacoes} />
-          <Num label="Recebíveis / mês" v={recebiveis} set={setRecebiveis} /><Num label="Contas bancárias" v={contas} set={setContas} />
-        </Secao>
+        <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
+          <Secao titulo="Volumetria mensal — alimenta: mov.→pagamentos/fluxo; contratações→indicação; recebíveis→conciliação">
+            <Num label="Movimentos / mês" v={volMov} set={setVolMov} /><Num label="Contratações / mês" v={contratacoes} set={setContratacoes} />
+            <Num label="Recebíveis / mês" v={recebiveis} set={setRecebiveis} /><Num label="Contas bancárias" v={contas} set={setContas} />
+          </Secao>
 
-        <Secao titulo="Patrimônio (rebate) e taxas">
-          <Num label="PL onshore (R$)" v={plOn} set={setPlOn} step={1000} /><Num label="PL offshore (R$)" v={plOff} set={setPlOff} step={1000} />
-          <Num label="Taxa rebate on (% a.a.)" v={taxaOn} set={setTaxaOn} step={0.01} /><Num label="Taxa rebate off (% a.a.)" v={taxaOff} set={setTaxaOff} step={0.01} />
-        </Secao>
-        <Secao titulo="Custos dedicados estimados (R$/mês)">
-          <Num label="Contabilidade" v={dContab} set={setDContab} step={0.01} /><Num label="Plataforma pgto" v={dPgto} set={setDPgto} step={0.01} />
-          <Num label="Administrativo" v={dAdm} set={setDAdm} step={0.01} /><Num label="Viagem" v={dViagem} set={setDViagem} step={0.01} />
-        </Secao>
+          <Secao titulo="Patrimônio (rebate) e taxas">
+            <Num label="PL onshore (R$)" v={plOn} set={setPlOn} step={1000} /><Num label="PL offshore (R$)" v={plOff} set={setPlOff} step={1000} />
+            <Num label="Taxa rebate on (% a.a.)" v={taxaOn} set={setTaxaOn} step={0.01} /><Num label="Taxa rebate off (% a.a.)" v={taxaOff} set={setTaxaOff} step={0.01} />
+          </Secao>
+          <Secao titulo="Custos dedicados estimados (R$/mês)">
+            <Num label="Contabilidade" v={dContab} set={setDContab} step={0.01} /><Num label="Plataforma pgto" v={dPgto} set={setDPgto} step={0.01} />
+            <Num label="Administrativo" v={dAdm} set={setDAdm} step={0.01} /><Num label="Viagem" v={dViagem} set={setDViagem} step={0.01} />
+          </Secao>
+        </fieldset>
       </div>
 
       {/* SAÍDA */}
