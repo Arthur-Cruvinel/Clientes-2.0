@@ -228,6 +228,13 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   const cfg = tipoConfig(d);
   const subtitulo = cfg.subtitulo;
   const intro = d.textoIntroducao.trim() ? esc(d.textoIntroducao) : cfg.introDefault;
+  // Título da capa. Aditivo: DUAS linhas fixas — frase fixa (linha 1) + nome
+  // completo (linha 2) como bloco sem quebra interna (nowrap → quebra só ENTRE
+  // a frase e o nome, nunca no meio do nome). Prospect: layout atual (inalterado
+  // — byte-idêntico).
+  const h1Html = d.tipo === 'cliente_existente'
+    ? `${cfg.h1}<br><span class="text-primario font-normal" style="white-space:nowrap">${esc(d.nome)}</span>`
+    : `${cfg.h1} <span class="text-primario font-normal">${esc(d.nome)}</span>`;
 
   // Fonte única: ticks → contratação. Pilares e escopo derivam daqui (coerência).
   const t = ticks(d);
@@ -314,7 +321,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
     <div class="absolute inset-0 flex justify-center" style="bottom:55%"><div style="width:36%;max-height:100%">${logoSVG('#FFFFFF', 'capa')}</div></div>
     <div class="relative z-10 p-8 pb-16 flex flex-col h-full"><div class="mt-auto">
       <div class="inline-block border border-white/30 px-6 py-2 rounded-full bg-black/30 backdrop-blur-sm mb-6"><span class="text-xs font-bold text-white uppercase tracking-widest">${cfg.badgeCapa}</span></div>
-      <h1 class="text-2xl md:text-4xl font-light uppercase mb-2 text-white" style="letter-spacing:0.18em;text-shadow:0 2px 10px rgba(0,0,0,0.5)">${cfg.h1} <span class="text-primario font-normal">${esc(d.nome)}</span></h1>
+      <h1 class="text-2xl md:text-4xl font-light uppercase mb-2 text-white" style="letter-spacing:0.18em;text-shadow:0 2px 10px rgba(0,0,0,0.5)">${h1Html}</h1>
       <h2 class="text-lg md:text-xl font-light text-gray-200 tracking-wider uppercase mt-4 max-w-2xl mx-auto">${subtitulo}</h2>
       <p class="text-xs text-gray-300 uppercase tracking-widest mt-4">${esc(d.data)}</p>
       <div class="w-24 h-1 mx-auto rounded-full mt-8" style="background:linear-gradient(90deg,#2F49EE,#732AD8,#D100B9)"></div>
