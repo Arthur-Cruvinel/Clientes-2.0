@@ -509,6 +509,7 @@ export interface PropostaInputs {
   qtd_veiculos: number; qtd_imoveis: number; grupos_financeiros: number; qtd_funcionarios_domesticos: number;
   planejamento_tributario: boolean; revisao_contratos: boolean; gestao_obra: boolean;
   utiliza_servico_juridico: boolean; utiliza_conciliacao: boolean;
+  qtd_demandas_juridicas_mes: number;   // N demandas consultivas/mês contratadas (default 0)
   volume_movimentos_mes: number; qtd_contratacoes_mes: number; qtd_recebiveis_mes: number;
   qtd_contas_bancarias: number;                                // nº de contas (escopo financeiro)
   pl_onshore: number; pl_offshore: number;
@@ -529,6 +530,7 @@ export interface PropostaOutputs {
   porFuncao: PropostaLinhaFuncao[];
   custoDireto: number; dedicados: number; overhead: number; custoTotal: number;
   rebate: number; receitaNecessaria: number; feeSugerido: number;
+  parcela_juridica?: number;   // N × custo_demanda (jurídico consultivo); ausente = snapshot pré-feature
 }
 
 export interface DadosProposta {
@@ -561,6 +563,14 @@ export interface Parametros {
   // que é hiper-sensível à completude da alocação. Recalculável via UI.
   overhead_ratio_referencia: number;
   horas_pacote: Record<PacoteServico, Record<FuncaoAlocacao, number>>;
+  // ── Precificação do JURÍDICO CONSULTIVO (por demanda) ──────────────────────
+  // custo_demanda = tempo_demanda_juridica_horas × custo_hora_juridico × fator.
+  // O fee da proposta absorve N × custo_demanda como custo direto (puxa overhead
+  // + imposto + margem). N (demandas/mês) é POR PROPOSTA, não global. Os 3
+  // parâmetros abaixo são globais e ajustáveis (Configurações → Jurídico).
+  tempo_demanda_juridica_horas: number;   // horas por demanda consultiva (default 2,5)
+  custo_hora_juridico: number;            // salário-hora cru do jurídico (default 82,88)
+  fator_demanda_juridica: number;         // multiplicador de calibração (default 1,0)
 }
 
 // ============================================================
