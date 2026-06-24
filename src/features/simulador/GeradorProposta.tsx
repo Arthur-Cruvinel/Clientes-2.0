@@ -43,6 +43,20 @@ function Chk({ label, v, set }: { label: string; v: boolean; set: (b: boolean) =
     </label>
   );
 }
+// Campo INCREMENTAL do aditivo: mostra o valor atual (baseline) como referência
+// e um input "+X" (começa em 0 = nada adicionado).
+function AdicaoNum({ label, atual, v, set }: { label: string; atual: number | string; v: number; set: (n: number) => void }) {
+  return (
+    <label className="block">
+      <span className="text-[11px]" style={{ color: '#6b6b8a' }}>{label} <span style={{ color: '#9ca3af' }}>· atual {atual}</span></span>
+      <div className="flex items-center gap-1">
+        <span className="text-sm font-bold" style={{ color: '#0065FF' }}>＋</span>
+        <input type="number" min={0} step={1} value={v} onChange={e => set(Math.max(0, Number(e.target.value)))}
+          className="rounded px-2 py-1.5 text-sm w-full" style={BRD} />
+      </div>
+    </label>
+  );
+}
 
 export interface PrefillProposta {
   tipo: 'prospect' | 'cliente_existente';
@@ -62,26 +76,56 @@ interface ScopeSnapshot {
   dContab: number; dPgto: number; dAdm: number; dViagem: number;
 }
 
-// Lista textual do que o AMPLIADO acrescenta sobre o BASELINE (campo a campo).
-// Alimenta o "Inclui: …" do documento. Só diferenças positivas/ligadas entram.
-function derivarAdicoes(base: ScopeSnapshot, amp: ScopeSnapshot): string[] {
+// Incrementos do aditivo (Forma 2): QUANTO A MAIS de cada driver ordinário o
+// CFO adiciona. ampliado = baseline + incrementos. Conciliação NÃO é campo —
+// acompanha movimento (regra automática). Pacote/PL/taxas/dedicados/flags não
+// são adicionáveis neste lote (recalibração/serviços específicos = futuro).
+interface Incrementos {
+  volMov: number; recebiveis: number; contratacoes: number;
+  imov: number; veic: number; domest: number; grupos: number;
+  demandasJur: number;
+}
+const ZERO_INC: Incrementos = { volMov: 0, recebiveis: 0, contratacoes: 0, imov: 0, veic: 0, domest: 0, grupos: 0, demandasJur: 0 };
+
+// ampliado = baseline + incrementos (campo a campo). Conciliação derivada:
+// movimento (baseline + incremento) > 0 → conciliação on. Jurídico on se há
+// demandas (baseline ou adicionadas).
+function ampliar(base: ScopeSnapshot, inc: Incrementos): ScopeSnapshot {
+  const volMov = base.volMov + inc.volMov;
+  const demandasJur = base.demandasJur + inc.demandasJur;
+  return {
+    ...base,
+    volMov, recebiveis: base.recebiveis + inc.recebiveis, contratacoes: base.contratacoes + inc.contratacoes,
+    imov: base.imov + inc.imov, veic: base.veic + inc.veic, domest: base.domest + inc.domest, grupos: base.grupos + inc.grupos,
+    demandasJur,
+    usaConc: volMov > 0,                       // conciliação automática (acompanha movimento)
+    usaJur: base.usaJur || demandasJur > 0,    // jurídico on se há demandas
+  };
+}
+
+// "Inclui: …" do documento — literais dos incrementos > 0.
+function derivarAdicoesInc(inc: Incrementos): string[] {
   const a: string[] = [];
-  if (amp.pacote !== base.pacote) a.push(`upgrade de pacote (${base.pacote} → ${amp.pacote})`);
-  if (amp.demandasJur > base.demandasJur) a.push(`jurídico consultivo até ${amp.demandasJur} demanda${amp.demandasJur === 1 ? '' : 's'}/mês`);
-  if (amp.volMov > base.volMov) a.push(`financeiro/pagamentos (${amp.volMov} movimentações/mês)`);
-  if (amp.recebiveis > base.recebiveis) a.push(`conciliação de recebíveis (${amp.recebiveis}/mês)`);
-  if (amp.contratacoes > base.contratacoes) a.push(`gestão de contratações (${amp.contratacoes}/mês)`);
-  if (amp.imov > base.imov) a.push(`gestão de imóveis (${amp.imov})`);
-  if (amp.veic > base.veic) a.push(`gestão de veículos (${amp.veic})`);
-  if (amp.domest > base.domest) a.push(`funcionários domésticos (${amp.domest})`);
-  if (amp.usaJur && !base.usaJur) a.push('serviço jurídico');
-  if (amp.usaConc && !base.usaConc) a.push('conciliação bancária');
-  if (amp.planTrib && !base.planTrib) a.push('planejamento tributário');
-  if (amp.revContr && !base.revContr) a.push('revisão de contratos');
-  const dedAmp = amp.dContab + amp.dPgto + amp.dAdm + amp.dViagem;
-  const dedBase = base.dContab + base.dPgto + base.dAdm + base.dViagem;
-  if (dedAmp > dedBase) a.push('custos dedicados adicionais');
+  if (inc.demandasJur > 0) a.push(`jurídico consultivo até ${inc.demandasJur} demanda${inc.demandasJur === 1 ? '' : 's'}/mês`);
+  if (inc.volMov > 0) a.push(`+${inc.volMov} movimentações/mês (pagamentos, conciliação, fluxo)`);
+  if (inc.recebiveis > 0) a.push(`+${inc.recebiveis} recebível(is)/mês`);
+  if (inc.contratacoes > 0) a.push(`+${inc.contratacoes} contratação(ões)/mês`);
+  if (inc.imov > 0) a.push(`+${inc.imov} imóvel(is)`);
+  if (inc.veic > 0) a.push(`+${inc.veic} veículo(s)`);
+  if (inc.domest > 0) a.push(`+${inc.domest} funcionário(s) doméstico(s)`);
+  if (inc.grupos > 0) a.push(`+${inc.grupos} grupo(s) financeiro(s)`);
   return a;
+}
+
+// Chaves dos itens NOVOS p/ selo "Novo" nos pilares do documento.
+function itensNovosInc(inc: Incrementos): string[] {
+  const k: string[] = [];
+  if (inc.demandasJur > 0) k.push('juridico');
+  if (inc.volMov > 0 || inc.recebiveis > 0) k.push('movimentos');   // financeiro/conciliação
+  if (inc.imov > 0) k.push('imoveis');
+  if (inc.veic > 0) k.push('veiculos');
+  if (inc.domest > 0) k.push('domesticos');
+  return k;
 }
 
 export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
@@ -114,6 +158,8 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   // Escopo atual do cliente (aditivo) — snapshot IMUTÁVEL capturado no prefill.
   // null = sem cliente selecionado / modo prospect.
   const [baseline, setBaseline] = useState<ScopeSnapshot | null>(null);
+  // Incrementos do aditivo (quanto a mais de cada driver). ampliado = baseline + inc.
+  const [inc, setInc] = useState<Incrementos>(ZERO_INC);
   const [editId, setEditId] = useState<string | undefined>();
   const [propostas, setPropostas] = useState<DadosProposta[]>([]);
   const [salvando, setSalvando] = useState(false);
@@ -171,6 +217,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
 
   function selecionarClienteExistente(nome: string) {
     setNomeProspect(nome);
+    setInc(ZERO_INC);
     if (!nome) { setIdEstavelCliente(undefined); setBaseline(null); return; }
     const cli = dadosPeriodo?.clientes.find(c => c.nome_cliente === nome);
     if (!cli) return;
@@ -201,7 +248,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   useEffect(() => {
     if (!prefill) return;
     setTipo(prefill.tipo); setNomeProspect(prefill.nome); setIdEstavelCliente(prefill.id_estavel_cliente);
-    setEditId(undefined); aplicarInputs(prefill.inputs);
+    setEditId(undefined); aplicarInputs(prefill.inputs); setInc(ZERO_INC);
     setBaseline(prefill.tipo === 'cliente_existente' ? scopeFromInputs(prefill.inputs) : null);
   }, [prefill]);
 
@@ -218,20 +265,23 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, demandasJur, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
 
   // ── ADITIVO FORMA 1 (delta) — base (c) split ─────────────────────────────────
-  // Escopo ampliado a partir dos estados atuais do form (o que o CFO edita).
-  const ampliado: ScopeSnapshot = { pacote, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, volMov, contratacoes, recebiveis, demandasJur, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem };
-  // feeSugerido do BASELINE (motor sobre o escopo travado). prop.feeSugerido já é
-  // o do ampliado (mesmos estados). Mesma régua dos dois lados.
+  // ampliado = baseline + incrementos (Forma 2). O baseline fica TRAVADO; o CFO
+  // só edita `inc`. delta = motor(ampliado) − motor(baseline) — mesma régua, o
+  // escopo existente e o rebate CANCELAM; sobra só o custo das adições, grossed-up.
   const feeBaseline = useMemo(() => {
     if (!dadosPeriodo || !baseline) return null;
     const { colaboradores, clientes, vinculos } = dadosPeriodo;
     return calcularFee({ colaboradores, clientes, vinculos, parametros, regime, ...baseline }).feeSugerido;
   }, [dadosPeriodo, baseline, parametros, regime]);
-  // delta = motor(ampliado) − motor(baseline). rebate e escopo existente CANCELAM;
-  // sobra só o custo incremental do que foi adicionado, grossed-up. = 0 se nada mudou.
-  const delta = (tipo === 'cliente_existente' && prop && feeBaseline != null) ? prop.feeSugerido - feeBaseline : 0;
+  const feeAmpliado = useMemo(() => {
+    if (!dadosPeriodo || !baseline) return null;
+    const { colaboradores, clientes, vinculos } = dadosPeriodo;
+    return calcularFee({ colaboradores, clientes, vinculos, parametros, regime, ...ampliar(baseline, inc) }).feeSugerido;
+  }, [dadosPeriodo, baseline, inc, parametros, regime]);
+  const delta = (tipo === 'cliente_existente' && feeBaseline != null && feeAmpliado != null) ? feeAmpliado - feeBaseline : 0;
   const novoTotalAditivo = feeAtual + delta;   // sobre a receita_fee REAL (split)
-  const adicoesAditivo = (tipo === 'cliente_existente' && baseline) ? derivarAdicoes(baseline, ampliado) : [];
+  const adicoesAditivo = tipo === 'cliente_existente' ? derivarAdicoesInc(inc) : [];
+  const setIncF = (k: keyof Incrementos) => (n: number) => setInc(p => ({ ...p, [k]: n }));
 
   const buildOutputs = (): PropostaOutputs => ({
     porFuncao: (prop?.porFuncao ?? []).map(x => ({ funcao: x.f, horas: x.horas, custoHora: x.custoHora, custo: x.custo })),
@@ -260,11 +310,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   }
   function reabrir(p: DadosProposta) {
     setTipo(p.tipo); setNomeProspect(p.nome_prospect); setIdEstavelCliente(p.id_estavel_cliente);
-    setEditId(p.id_estavel); aplicarInputs(p.inputs); setBaseline(null);
+    setEditId(p.id_estavel); aplicarInputs(p.inputs); setBaseline(null); setInc(ZERO_INC);
   }
   function duplicar(p: DadosProposta) {
     setTipo(p.tipo); setNomeProspect(`${p.nome_prospect} (cópia)`); setIdEstavelCliente(p.id_estavel_cliente);
-    setEditId(undefined); aplicarInputs(p.inputs); setBaseline(null);
+    setEditId(undefined); aplicarInputs(p.inputs); setBaseline(null); setInc(ZERO_INC);
   }
   async function mudarStatus(p: DadosProposta, status: DadosProposta['status']) {
     await atualizarPropostaStatus(p.id_estavel, status); setPropostas(await buscarPropostas());
@@ -273,23 +323,19 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     if (!confirm(`Excluir a proposta de ${p.nome_prospect}?`)) return;
     await excluirProposta(p.id_estavel); if (editId === p.id_estavel) setEditId(undefined); setPropostas(await buscarPropostas());
   }
-  function novo() { setEditId(undefined); setNomeProspect(''); setIdEstavelCliente(undefined); aplicarInputs({}); setBaseline(null); }
+  function novo() { setEditId(undefined); setNomeProspect(''); setIdEstavelCliente(undefined); aplicarInputs({}); setBaseline(null); setInc(ZERO_INC); }
 
   function gerar() {
     const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-    // Itens NOVOS no documento de aditivo (chaves dos serviços que diferem do
-    // baseline). Mesma comparação da lista "Inclui:". Prospect → vazio.
-    const itensNovos: string[] = [];
-    if (tipo === 'cliente_existente' && baseline) {
-      if (demandasJur > baseline.demandasJur || (usaJur && !baseline.usaJur)) itensNovos.push('juridico');
-      if (volMov > baseline.volMov || (usaConc && !baseline.usaConc)) itensNovos.push('movimentos');
-      if (revContr && !baseline.revContr) itensNovos.push('revisao');
-      if (planTrib && !baseline.planTrib) itensNovos.push('planTrib');
-      if (imov > baseline.imov) itensNovos.push('imoveis');
-      if (veic > baseline.veic) itensNovos.push('veiculos');
-      if (domest > baseline.domest) itensNovos.push('domesticos');
-      if (plOff > baseline.plOff) itensNovos.push('offshore');
-    }
+    // Itens NOVOS no documento de aditivo (chaves dos incrementos > 0). Mesma
+    // base da lista "Inclui:". Prospect → vazio.
+    const itensNovos = tipo === 'cliente_existente' ? itensNovosInc(inc) : [];
+    // Escopo que o documento renderiza: no aditivo é o AMPLIADO (baseline + inc),
+    // para os pilares refletirem o novo total. No prospect, os estados do form
+    // (mesmos valores → documento byte-idêntico).
+    const escopoDoc: ScopeSnapshot = (tipo === 'cliente_existente' && baseline)
+      ? ampliar(baseline, inc)
+      : { pacote, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, volMov, contratacoes, recebiveis, demandasJur, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem };
     const html = gerarPropostaHTML({
       nome: nomeProspect.trim() || 'Cliente', tipo, data,
       textoIntroducao: textoIntro, imagemCapaUrl: imagemCapa,
@@ -299,14 +345,14 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
         : tipo === 'cliente_existente'
           ? Math.round(novoTotalAditivo / 50) * 50
           : Math.round((prop?.feeSugerido ?? 0) / 50) * 50,
-      feeAtual, pacote,
+      feeAtual, pacote: escopoDoc.pacote,
       adicoes: tipo === 'cliente_existente' ? adicoesAditivo : [],
       itensNovos,
-      usaJuridico: usaJur, usaConciliacao: usaConc, planejamentoTributario: planTrib, revisaoContratos: revContr,
-      qtdDemandasJuridicas: demandasJur,
-      qtdVeiculos: veic, qtdImoveis: imov, gruposFinanceiros: grupos, qtdFuncionariosDomesticos: domest,
-      volumeMovimentos: volMov, qtdContasBancarias: contas, qtdRecebiveis: recebiveis, qtdContratacoes: contratacoes,
-      dedicViagem: dViagem, plTotal: plOn + plOff, plOffshore: plOff, textoEscopoAdicional: textoEscopo,
+      usaJuridico: escopoDoc.usaJur, usaConciliacao: escopoDoc.usaConc, planejamentoTributario: escopoDoc.planTrib, revisaoContratos: escopoDoc.revContr,
+      qtdDemandasJuridicas: escopoDoc.demandasJur,
+      qtdVeiculos: escopoDoc.veic, qtdImoveis: escopoDoc.imov, gruposFinanceiros: escopoDoc.grupos, qtdFuncionariosDomesticos: escopoDoc.domest,
+      volumeMovimentos: escopoDoc.volMov, qtdContasBancarias: contas, qtdRecebiveis: escopoDoc.recebiveis, qtdContratacoes: escopoDoc.contratacoes,
+      dedicViagem: escopoDoc.dViagem, plTotal: escopoDoc.plOn + escopoDoc.plOff, plOffshore: escopoDoc.plOff, textoEscopoAdicional: textoEscopo,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
       diaVencimento: diaVencimento >= 1 && diaVencimento <= 28 ? diaVencimento : 10,
     });
@@ -421,18 +467,46 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           </div>
         </fieldset>
 
-        {/* ADIÇÕES ao escopo (editável também no aditivo — fora do fieldset). No
-            prospect é só a linha normal de jurídico N. */}
-        {tipo === 'cliente_existente' && (
-          <p className="text-[11px] font-bold uppercase tracking-wider -mb-2" style={{ color: '#0065FF' }}>＋ Adições ao escopo (editável)</p>
+        {/* ADIÇÕES: prospect = linha normal de jurídico N (parte do escopo). Aditivo
+            = seção incremental agrupada (ampliado = baseline + inc), fora do
+            fieldset travado. Conciliação NÃO é campo — acompanha o movimento. */}
+        {tipo === 'prospect' ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-medium" style={{ color: '#160F41' }}>Demandas jurídicas / mês (N)</span>
+            <input type="number" step={1} min={0} value={demandasJur}
+              onChange={e => setDemandasJur(Math.max(0, Number(e.target.value)))}
+              className="rounded px-2 py-1 text-sm w-24" style={BRD} />
+            <span className="text-[10px]" style={{ color: '#9ca3af' }}>jurídico consultivo incluído no fee · 0 = sem parcela</span>
+          </div>
+        ) : baseline && (
+          <div className="rounded-lg border-2 p-3 space-y-3" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#0065FF' }}>＋ Adições ao escopo (editável)</p>
+            <p className="text-[10px]" style={{ color: '#6b6b8a' }}>Digite <strong>quanto a mais</strong> de cada item. A conciliação acompanha o movimento automaticamente — não precisa marcar.</p>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Financeiro / volumetria</p>
+              <div className="grid grid-cols-3 gap-3">
+                <AdicaoNum label="Movimentos / mês" atual={baseline.volMov} v={inc.volMov} set={setIncF('volMov')} />
+                <AdicaoNum label="Recebíveis / mês" atual={baseline.recebiveis} v={inc.recebiveis} set={setIncF('recebiveis')} />
+                <AdicaoNum label="Contratações / mês" atual={baseline.contratacoes} v={inc.contratacoes} set={setIncF('contratacoes')} />
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Perfil / bens</p>
+              <div className="grid grid-cols-2 gap-3">
+                <AdicaoNum label="Imóveis" atual={baseline.imov} v={inc.imov} set={setIncF('imov')} />
+                <AdicaoNum label="Veículos" atual={baseline.veic} v={inc.veic} set={setIncF('veic')} />
+                <AdicaoNum label="Func. domésticos" atual={baseline.domest} v={inc.domest} set={setIncF('domest')} />
+                <AdicaoNum label="Grupos financeiros" atual={baseline.grupos} v={inc.grupos} set={setIncF('grupos')} />
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Jurídico</p>
+              <div className="grid grid-cols-2 gap-3">
+                <AdicaoNum label="Demandas jurídicas / mês (N)" atual={baseline.demandasJur} v={inc.demandasJur} set={setIncF('demandasJur')} />
+              </div>
+            </div>
+          </div>
         )}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-medium" style={{ color: '#160F41' }}>Demandas jurídicas / mês (N)</span>
-          <input type="number" step={1} min={0} value={demandasJur}
-            onChange={e => setDemandasJur(Math.max(0, Number(e.target.value)))}
-            className="rounded px-2 py-1 text-sm w-24" style={BRD} />
-          <span className="text-[10px]" style={{ color: '#9ca3af' }}>jurídico consultivo incluído no fee · 0 = sem parcela</span>
-        </div>
 
         <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
           <Secao titulo="Volumetria mensal — alimenta: mov.→pagamentos/fluxo; contratações→indicação; recebíveis→conciliação">
