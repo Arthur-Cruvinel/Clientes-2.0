@@ -111,17 +111,17 @@ function pilarHTML(numero: number, titulo: string, descricao: string, servicos: 
       + extras.map(s => `<li class="text-gray-400"><span>+</span><span>${esc(s.texto)}</span></li>`).join('')
     : '';
   if (contratado) {
-    return `<div class="flex flex-col rounded-lg p-6 border-2 border-primario relative shadow-lg bg-white">
+    return `<div class="flex flex-col rounded-lg p-5 border-2 border-primario relative shadow-lg bg-white">
       <div class="absolute top-0 right-0 bg-primario text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg uppercase">Contratado</div>
       <span class="text-sm font-semibold text-primario uppercase">Pilar ${numero}</span>
-      <h3 class="text-xl font-bold text-principal mt-1 mb-3">${esc(titulo)}</h3>
-      <p class="text-secundario mb-4 leading-relaxed text-xs">${esc(descricao)}</p>
+      <h3 class="text-xl font-bold text-principal mt-1 mb-2">${esc(titulo)}</h3>
+      <p class="text-secundario mb-3 leading-relaxed text-xs">${esc(descricao)}</p>
       <ul class="service-list flex-grow mt-auto">${ativos}${liExtras}</ul></div>`;
   }
-  return `<div class="flex flex-col service-card-inactive rounded-lg p-6 relative">
+  return `<div class="flex flex-col service-card-inactive rounded-lg p-5 relative">
       <span class="text-sm font-semibold text-gray-400 uppercase">Pilar ${numero}</span>
-      <h3 class="text-xl font-bold text-gray-500 mt-1 mb-3">${esc(titulo)}</h3>
-      <p class="text-secundario mb-4 leading-relaxed text-xs">${esc(descricao)}</p>
+      <h3 class="text-xl font-bold text-gray-500 mt-1 mb-2">${esc(titulo)}</h3>
+      <p class="text-secundario mb-3 leading-relaxed text-xs">${esc(descricao)}</p>
       <ul class="service-list service-list-inactive flex-grow mt-auto">${liExtras || ativos}</ul></div>`;
 }
 
@@ -310,6 +310,9 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
        seletor estrutural — cada card é atômico, a página quebra ENTRE cards,
        nunca no meio. (Só CSS; não toca o markup.) */
     #servicos > div > div, #condicoes > div > div{break-inside:avoid}
+    /* Pilares em grid 2×2 também na IMPRESSÃO — garante 2 colunas mesmo se o
+       breakpoint do Tailwind não disparar na largura A4 (evita 1-por-linha). */
+    #servicos > div{grid-template-columns:1fr 1fr!important}
     /* Seções altas (grid de pilares, equipe): relaxar o break-inside:avoid de
        'section' — é ignorado por serem maiores que a página e atrapalha a quebra
        limpa entre cards. A proteção real é por card (acima). */
@@ -345,7 +348,7 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
 
   <section id="servicos" class="p-12 md:p-20" style="background:var(--cor-fundo-alternativo)">
     <h2 class="text-center text-4xl font-bold text-principal mb-12">O Ecossistema de Gestão</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">${pilares}</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">${pilares}</div>
   </section>
 
   <section id="servicos-extras" class="p-12 md:p-20 bg-white">
