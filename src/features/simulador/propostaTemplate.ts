@@ -309,13 +309,29 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
        pode dividir entre páginas; o CFO prefere contínuo-sem-buraco a
        card-atômico-com-buraco. */
     #capa{break-after:page}
-    /* Pilares em grid 2×2 na impressão (layout, não regra de quebra). */
-    #servicos > div{grid-template-columns:1fr 1fr!important}
+    /* CAPA preenche a página inteira e centraliza o conteúdo (h-[700px] deixava
+       a metade de baixo vazia). Logo absoluto fica na parte superior; o bloco de
+       título centraliza verticalmente via auto-margens. */
+    #capa{height:100vh!important;overflow:hidden!important}
+    #capa>div.z-10{height:auto!important;margin-top:auto!important;margin-bottom:auto!important}
+    /* Pilares 2×2 que PAGINAM por linha. O grid não fragmenta entre linhas no
+       print (empurra as 2 linhas juntas → vão). Com FLOAT, cada card flutua,
+       clear:left abre nova linha, e os floats quebram de página individualmente
+       (a 2ª linha vai sozinha quando não cabe). Cada card atômico. */
+    #servicos>div{display:block!important}
+    #servicos>div::after{content:"";display:table;clear:both}
+    #servicos>div>div{float:left!important;width:48.5%!important;break-inside:avoid!important;margin:0 0 1.25rem 0!important}
+    #servicos>div>div:nth-child(odd){clear:left!important;margin-right:3%!important}
     /* Faixa de PREÇO atômica (pequena e crítica — não dividir; não cria buraco). */
     #faixa-investimento{break-inside:avoid}
     /* Adensar: reduzir o respiro vertical das seções (eram p-20 ≈ 5rem na
        largura A4). Capa e a seção de PREÇO (#investimento) ficam de fora. */
     section:not(#capa):not(#investimento){padding-top:2.5rem!important;padding-bottom:2.5rem!important}
+    /* ACEITE: o respiro interno gigante (space-y-12 = 3rem entre blocos, gap-12)
+       inflava a seção e a empurrava INTEIRA p/ a página seguinte (deixando vão
+       antes). Reduzir p/ caber e fluir logo após Condições. */
+    #aceite .space-y-12>*+*{margin-top:1.5rem!important}
+    #aceite .gap-12{gap:1.5rem!important}
   }
   #barra-print{position:fixed;right:20px;bottom:20px;z-index:50}
 </style></head>
