@@ -164,6 +164,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [propostas, setPropostas] = useState<DadosProposta[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [gerandoPdf, setGerandoPdf] = useState(false);  // gera PDF via Netlify Function (PDFShift)
 
   const buildInputs = (): PropostaInputs => ({
     pacote, regime, qtd_veiculos: veic, qtd_imoveis: imov, grupos_financeiros: grupos, qtd_funcionarios_domesticos: domest,
@@ -325,7 +326,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   }
   function novo() { setEditId(undefined); setNomeProspect(''); setIdEstavelCliente(undefined); aplicarInputs({}); setBaseline(null); setInc(ZERO_INC); }
 
-  function gerar() {
+  async function gerar() {
     const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     // Itens NOVOS no documento de aditivo (chaves dos incrementos > 0). Mesma
     // base da lista "Inclui:". Prospect → vazio.
@@ -355,10 +356,27 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       dedicViagem: escopoDoc.dViagem, plTotal: escopoDoc.plOn + escopoDoc.plOff, plOffshore: escopoDoc.plOff, textoEscopoAdicional: textoEscopo,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
       diaVencimento: diaVencimento >= 1 && diaVencimento <= 28 ? diaVencimento : 10,
-    });
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }, { paraPdf: true });   // omite o botão "Imprimir" no HTML que vai pro PDF
+    // Gera o PDF (tira contínua) via Netlify Function → PDFShift. A API key fica
+    // protegida na function (env var). Abre o PDF retornado em nova aba.
+    setGerandoPdf(true); setToast(null);
+    try {
+      const resp = await fetch('/.netlify/functions/gerar-pdf', { method: 'POST', body: html });
+      if (!resp.ok) {
+        let msg = `Erro ${resp.status}`;
+        try { const j = await resp.json(); msg = j.error ?? msg; } catch { /* corpo não-JSON */ }
+        setToast(`Falha ao gerar PDF: ${msg}`); setTimeout(() => setToast(null), 6000);
+        return;
+      }
+      const url = URL.createObjectURL(await resp.blob());
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      setToast(`Falha ao gerar PDF: ${e instanceof Error ? e.message : 'erro de rede'}`);
+      setTimeout(() => setToast(null), 6000);
+    } finally {
+      setGerandoPdf(false);
+    }
   }
 
   return (
@@ -426,7 +444,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
               {salvando ? 'Salvando…' : editId ? 'Atualizar proposta' : 'Salvar proposta'}
             </button>
             <button onClick={novo} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ border: '1px solid #e2e2e8', color: '#6b6b8a' }}>Nova</button>
-            <button onClick={gerar} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ border: '1px solid #0065FF', color: '#0065FF' }}>Gerar proposta ↗</button>
+            <button onClick={gerar} disabled={gerandoPdf} className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50" style={{ border: '1px solid #0065FF', color: '#0065FF' }}>{gerandoPdf ? 'Gerando PDF…' : 'Gerar proposta ↗'}</button>
             {toast && <span className="text-xs self-center" style={{ color: '#166534' }}>{toast}</span>}
           </div>
         </div>

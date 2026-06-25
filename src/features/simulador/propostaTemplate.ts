@@ -224,7 +224,7 @@ function tipoConfig(d: DadosPropostaTemplate): TipoDocConfig {
   };
 }
 
-export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
+export function gerarPropostaHTML(d: DadosPropostaTemplate, opts: { paraPdf?: boolean } = {}): string {
   const cfg = tipoConfig(d);
   const subtitulo = cfg.subtitulo;
   const intro = d.textoIntroducao.trim() ? esc(d.textoIntroducao) : cfg.introDefault;
@@ -288,55 +288,17 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
   .text-primario{color:var(--cor-primaria)} .bg-primario{background:var(--cor-primaria)} .text-principal{color:var(--cor-texto-principal)} .text-secundario{color:var(--cor-texto-secundario)}
   .service-card{background:var(--cor-fundo-alternativo);border:1px solid var(--cor-borda-card)} .service-card-inactive{background:#fff;border:1px dashed #D1D5DB} .service-card-white{background:#fff;border:1px solid var(--cor-borda-card)}
   .service-list{list-style:none;padding-left:0} .service-list li{display:flex;align-items:flex-start;margin-bottom:.5rem;font-size:.85rem;line-height:1.4;color:var(--cor-texto-secundario)} .service-list li>span:first-child{color:var(--cor-primaria);font-weight:700;margin-right:.5rem;margin-top:3px;flex-shrink:0} .service-list-inactive li>span:first-child{color:#9CA3AF}
-  /* CAUSA da perda de resolução na capa: na impressão, o card (#doc) tem
-     box-shadow + border-radius + overflow-hidden e a capa tem backdrop-filter
-     (badge). Esses efeitos forçam o motor de impressão a RASTERIZAR a subárvore
-     em DPI de tela, descartando a resolução nativa da foto; somado ao cap de
-     largura (max-w-6xl → shrink-to-fit no papel), a foto é reamostrada 2×.
-     FIX: no print, neutralizar os efeitos e full-bleed sem cap de largura — o
-     <img> volta a ser amostrado no DPI do dispositivo, direto da fonte hi-res. */
-  @page { size: A4 portrait; margin: 0; }
-  @media print {
-    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-    html,body{background:#fff!important;margin:0!important}
-    #barra-print{display:none!important}
-    #doc{max-width:none!important;width:100%!important;margin:0!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important}
-    #capa{box-shadow:none!important;border-radius:0!important}
-    .backdrop-blur-sm{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
-    /* FLUXO CONTÍNUO: só a CAPA fica sozinha (break-after:page). SEM
-       break-inside:avoid em seções/cards — o conteúdo CORRE e a página quebra só
-       quando ENCHE (elimina meias-páginas e páginas em branco no meio). Um card
-       pode dividir entre páginas; o CFO prefere contínuo-sem-buraco a
-       card-atômico-com-buraco. */
-    #capa{break-after:page}
-    /* CAPA preenche a página inteira e centraliza o conteúdo (h-[700px] deixava
-       a metade de baixo vazia). Logo absoluto fica na parte superior; o bloco de
-       título centraliza verticalmente via auto-margens. */
-    #capa{height:100vh!important;overflow:hidden!important}
-    #capa>div.z-10{height:auto!important;margin-top:auto!important;margin-bottom:auto!important}
-    /* Pilares 2×2 que PAGINAM por linha. O grid não fragmenta entre linhas no
-       print (empurra as 2 linhas juntas → vão). Com FLOAT, cada card flutua,
-       clear:left abre nova linha, e os floats quebram de página individualmente
-       (a 2ª linha vai sozinha quando não cabe). Cada card atômico. */
-    #servicos>div{display:block!important}
-    #servicos>div::after{content:"";display:table;clear:both}
-    #servicos>div>div{float:left!important;width:48.5%!important;break-inside:avoid!important;margin:0 0 1.25rem 0!important}
-    #servicos>div>div:nth-child(odd){clear:left!important;margin-right:3%!important}
-    /* Faixa de PREÇO atômica (pequena e crítica — não dividir; não cria buraco). */
-    #faixa-investimento{break-inside:avoid}
-    /* Adensar: reduzir o respiro vertical das seções (eram p-20 ≈ 5rem na
-       largura A4). Capa e a seção de PREÇO (#investimento) ficam de fora. */
-    section:not(#capa):not(#investimento){padding-top:2.5rem!important;padding-bottom:2.5rem!important}
-    /* ACEITE: o respiro interno gigante (space-y-12 = 3rem entre blocos, gap-12)
-       inflava a seção e a empurrava INTEIRA p/ a página seguinte (deixando vão
-       antes). Reduzir p/ caber e fluir logo após Condições. */
-    #aceite .space-y-12>*+*{margin-top:1.5rem!important}
-    #aceite .gap-12{gap:1.5rem!important}
-  }
+  /* PDF = PÁGINA ÚNICA contínua, renderizada pelo PDFShift (format "1152xauto",
+     use_print:false → mídia SCREEN). A paginação A4 (@page / @media print:
+     break-after, break-inside, float dos pilares, adensamento) foi APOSENTADA —
+     o serviço captura a tira inteira do tamanho do conteúdo, sem quebrar. O
+     visual de tela (capa no topo, pilares 2×2, faixa de preço) é exatamente o
+     que vai pro PDF. O botão #barra-print é omitido no HTML server-side
+     (gerarPropostaHTML(d, { paraPdf:true })). */
   #barra-print{position:fixed;right:20px;bottom:20px;z-index:50}
 </style></head>
 <body class="antialiased">
-<div id="barra-print"><button onclick="window.print()" style="background:linear-gradient(135deg,#2F49EE,#732AD8,#D100B9);color:#fff;border:none;padding:12px 20px;border-radius:999px;font-family:Poppins,sans-serif;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25)">🖨️ Imprimir / PDF</button></div>
+${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" style="background:linear-gradient(135deg,#2F49EE,#732AD8,#D100B9);color:#fff;border:none;padding:12px 20px;border-radius:999px;font-family:Poppins,sans-serif;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25)">🖨️ Imprimir / PDF</button></div>`}
 
 <div id="doc" class="w-full max-w-6xl mx-auto my-12 bg-white shadow-2xl rounded-lg overflow-hidden">
 
