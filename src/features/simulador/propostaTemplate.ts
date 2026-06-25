@@ -295,7 +295,12 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate, opts: { paraPdf?: bo
      visual de tela (capa no topo, pilares 2×2, faixa de preço) é exatamente o
      que vai pro PDF. O botão #barra-print é omitido no HTML server-side
      (gerarPropostaHTML(d, { paraPdf:true })). */
-  #barra-print{position:fixed;right:20px;bottom:20px;z-index:50}
+  #barra-print{position:fixed;right:20px;bottom:20px;z-index:50}${opts.paraPdf ? `
+  /* PDF (tira contínua): encosta no TOPO e no FIM. Zera o my-12 do #doc e a
+     margem do body — sem o A4, viravam faixa cinza nas bordas. Browser não é
+     afetado (só sai no HTML com paraPdf:true). */
+  body{margin:0!important;background:#fff!important}
+  #doc{margin-top:0!important;margin-bottom:0!important}` : ''}
 </style></head>
 <body class="antialiased">
 ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" style="background:linear-gradient(135deg,#2F49EE,#732AD8,#D100B9);color:#fff;border:none;padding:12px 20px;border-radius:999px;font-family:Poppins,sans-serif;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25)">🖨️ Imprimir / PDF</button></div>`}

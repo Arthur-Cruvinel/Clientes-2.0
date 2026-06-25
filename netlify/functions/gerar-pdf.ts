@@ -8,10 +8,10 @@ import type { Handler } from '@netlify/functions';
 
 const PDFSHIFT_URL = 'https://api.pdfshift.io/v3/convert/pdf';
 
-// SANDBOX: PDFs de teste com marca d'água que NÃO consomem os créditos do mês.
-// Manter true durante a validação; trocar para false (ou setar a env var
-// PDFSHIFT_SANDBOX=false no Netlify) para gerar o PDF real sem marca d'água.
-const SANDBOX = (process.env.PDFSHIFT_SANDBOX ?? 'true') !== 'false';
+// SANDBOX: PDFs de teste com marca d'água que NÃO consomem créditos. Visual já
+// validado pelo CFO → DESLIGADO (PDF real, sem marca d'água, consome os 50/mês
+// do free tier). Para reativar o teste sem créditos: env var PDFSHIFT_SANDBOX=true.
+const SANDBOX = process.env.PDFSHIFT_SANDBOX === 'true';
 
 const handler: Handler = async (event) => {
   // CORS: só aceitar origem do próprio site (mesmo padrão dos outros proxies).
