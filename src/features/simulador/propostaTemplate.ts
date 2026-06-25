@@ -303,23 +303,19 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
     #doc{max-width:none!important;width:100%!important;margin:0!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important}
     #capa{box-shadow:none!important;border-radius:0!important}
     .backdrop-blur-sm{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
-    section{break-inside:avoid} #capa{break-after:page}
-    .service-card,.service-card-white,.service-card-inactive,.escopo-card{break-inside:avoid}
-    /* Pilares CONTRATADOS (div puro no grid, sem classe .service-card) e cards
-       de Condições Gerais (bg-white sem classe protegida): protegidos pelo
-       seletor estrutural — cada card é atômico, a página quebra ENTRE cards,
-       nunca no meio. (Só CSS; não toca o markup.) */
-    #servicos > div > div, #condicoes > div > div{break-inside:avoid}
-    /* Pilares em grid 2×2 também na IMPRESSÃO — garante 2 colunas mesmo se o
-       breakpoint do Tailwind não disparar na largura A4 (evita 1-por-linha). */
+    /* FLUXO CONTÍNUO: só a CAPA fica sozinha (break-after:page). SEM
+       break-inside:avoid em seções/cards — o conteúdo CORRE e a página quebra só
+       quando ENCHE (elimina meias-páginas e páginas em branco no meio). Um card
+       pode dividir entre páginas; o CFO prefere contínuo-sem-buraco a
+       card-atômico-com-buraco. */
+    #capa{break-after:page}
+    /* Pilares em grid 2×2 na impressão (layout, não regra de quebra). */
     #servicos > div{grid-template-columns:1fr 1fr!important}
-    /* Seções altas (grid de pilares, equipe): relaxar o break-inside:avoid de
-       'section' — é ignorado por serem maiores que a página e atrapalha a quebra
-       limpa entre cards. A proteção real é por card (acima). */
-    #servicos,#equipe{break-inside:auto}
-    /* faixa de investimento: gradiente é background (já print-safe); garante que
-       não quebre no meio e que a cor seja impressa. */
+    /* Faixa de PREÇO atômica (pequena e crítica — não dividir; não cria buraco). */
     #faixa-investimento{break-inside:avoid}
+    /* Adensar: reduzir o respiro vertical das seções (eram p-20 ≈ 5rem na
+       largura A4). Capa e a seção de PREÇO (#investimento) ficam de fora. */
+    section:not(#capa):not(#investimento){padding-top:2.5rem!important;padding-bottom:2.5rem!important}
   }
   #barra-print{position:fixed;right:20px;bottom:20px;z-index:50}
 </style></head>
