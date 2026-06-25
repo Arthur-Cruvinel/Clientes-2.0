@@ -305,6 +305,15 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate): string {
     .backdrop-blur-sm{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
     section{break-inside:avoid} #capa{break-after:page}
     .service-card,.service-card-white,.service-card-inactive,.escopo-card{break-inside:avoid}
+    /* Pilares CONTRATADOS (div puro no grid, sem classe .service-card) e cards
+       de Condições Gerais (bg-white sem classe protegida): protegidos pelo
+       seletor estrutural — cada card é atômico, a página quebra ENTRE cards,
+       nunca no meio. (Só CSS; não toca o markup.) */
+    #servicos > div > div, #condicoes > div > div{break-inside:avoid}
+    /* Seções altas (grid de pilares, equipe): relaxar o break-inside:avoid de
+       'section' — é ignorado por serem maiores que a página e atrapalha a quebra
+       limpa entre cards. A proteção real é por card (acima). */
+    #servicos,#equipe{break-inside:auto}
     /* faixa de investimento: gradiente é background (já print-safe); garante que
        não quebre no meio e que a cor seja impressa. */
     #faixa-investimento{break-inside:avoid}
