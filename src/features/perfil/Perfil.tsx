@@ -6,7 +6,6 @@ import { Pencil, UserPlus } from 'lucide-react';
 import { formatCurrency, formatPercent, encontrarPoupanca } from '../../utils/formatters';
 import { FUNCOES_ALOCACAO, HORAS_CLT_MES } from '../../utils/constants';
 import type { Vinculo } from '../../types/vinculo';
-import { calcularFatoresEscopo } from '../../utils/financials';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
 import { usePerfil, type ColunaListaCliente } from './usePerfil';
@@ -169,7 +168,7 @@ export function Perfil() {
             <div className="rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
               {aba === 'Resumo' && <ResumoTab c={c} />}
               {aba === 'Alocação' && <AlocacaoTab c={c} hp={parametros.horas_pacote} vinculos={dadosPeriodo?.vinculos ?? []} />}
-              {aba === 'Configuração' && <ConfigTab c={c} vinculos={dadosPeriodo?.vinculos ?? []} />}
+              {aba === 'Configuração' && <ConfigTab c={c} />}
               {aba === 'Cadastral' && <CadastralTab c={c} poupanca={poupancaCliente} periodoLabel={periodoLabel} />}
             </div>
           </div>
@@ -267,23 +266,7 @@ function Par({ label, valor }: { label: string; valor: string }) {
   );
 }
 
-function corFator(fator: number): string {
-  if (fator > 1.5) return '#dc2626';   // vermelho — extrapolando muito
-  if (fator > 1.0) return '#ea580c';   // laranja — acima do escopo
-  return '#16a34a';                    // verde — dentro do escopo
-}
-
-function ParFator({ funcao, fator }: { funcao: FuncaoAlocacao; fator: number }) {
-  return (
-    <div className="flex justify-between py-1.5 border-b" style={{ borderColor: '#f3f4f6' }}>
-      <span className="text-xs" style={{ color: '#6b6b8a' }}>Escopo {LABEL_F[funcao]}</span>
-      <span className="text-sm font-medium" style={{ color: corFator(fator) }}>{fator.toFixed(2)}</span>
-    </div>
-  );
-}
-
-function ConfigTab({ c, vinculos }: { c: import('../../types').DadosCliente; vinculos: Vinculo[] }) {
-  const fatores = calcularFatoresEscopo(c, vinculos);
+function ConfigTab({ c }: { c: import('../../types').DadosCliente }) {
   return (
     <div>
       <Par label="Pacote de serviço" valor={c.pacote_servico} />
@@ -293,7 +276,6 @@ function ConfigTab({ c, vinculos }: { c: import('../../types').DadosCliente; vin
       <Par label="Utiliza conciliação" valor={c.utiliza_conciliacao ? 'Sim' : 'Não'} />
       <Par label="Taxa rebate onshore" valor={`${((c.percentual_rebate_anual_onshore ?? 0) * 100).toFixed(2)}% a.a.`} />
       <Par label="Taxa rebate offshore" valor={`${((c.percentual_rebate_anual_offshore ?? 0) * 100).toFixed(2)}% a.a.`} />
-      {FUNCOES_ALOCACAO.map(f => <ParFator key={f} funcao={f} fator={fatores[f]} />)}
     </div>
   );
 }

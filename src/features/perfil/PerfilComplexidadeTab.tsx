@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../state/AppContext';
 import { salvarPerfilComplexidade } from '../../services/firebase';
-import { calcularHorasReais, calcularFatorEscopoReal } from '../../utils/financials';
+import { calcularHorasReais } from '../../utils/financials';
 import { FUNCOES_ALOCACAO, HORAS_PACOTE } from '../../utils/constants';
 import { Secao, Campo, Check } from './perfilComplexidadeUI';
 import type { Cliente, FuncaoAlocacao, PerfilComplexidade } from '../../types';
@@ -26,13 +26,6 @@ export const PERFIL_DEFAULT: PerfilComplexidade = {
   qtd_veiculos: 0, qtd_imoveis: 0, qtd_funcionarios_domesticos: 0,
   planejamento_tributario: false, revisao_contratos: false, gestao_obra: false,
 };
-
-function corFator(f: number): string {
-  if (f <= 0) return '#9ca3af';
-  if (f <= 1.0) return '#16a34a';
-  if (f <= 1.5) return '#ea580c';
-  return '#dc2626';
-}
 
 interface Props {
   cliente: Cliente;
@@ -64,10 +57,6 @@ export function PerfilComplexidadeTab({
   }), [cliente, volumeMovimentosMes, qtdRecebiveis, qtdContratacoes]);
 
   const horas = useMemo(() => calcularHorasReais(clienteAtual, perfil), [clienteAtual, perfil]);
-  // Fator de DEMANDA = horas reais ÷ horas do pacote (fonte única: calcularFator-
-  // EscopoReal, não conta inline). Conceito distinto do "Escopo" (pct alocado ÷
-  // normativo) das abas Configuração/Alocação — rótulos separados de propósito.
-  const fatoresDemanda = useMemo(() => calcularFatorEscopoReal(horas, clienteAtual), [horas, clienteAtual]);
 
   const setP = <K extends keyof PerfilComplexidade>(k: K, v: PerfilComplexidade[K]) =>
     setPerfil({ ...perfil, [k]: v });
@@ -119,22 +108,17 @@ export function PerfilComplexidadeTab({
               <th className={`${TH} text-left`}>Função</th>
               <th className={`${TH} text-right`}>H. reais</th>
               <th className={`${TH} text-right`}>H. pacote</th>
-              <th className={`${TH} text-center`} title="Horas reais estimadas ÷ horas do pacote — quanto o cliente DEMANDA vs o pacote">Fator de demanda</th>
             </tr>
           </thead>
           <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
             {FUNCOES_ALOCACAO.map(f => {
               const reais = horas.por_funcao[f] ?? 0;
               const pacote = HORAS_PACOTE[cliente.pacote_servico]?.[f] ?? 0;
-              const fator = fatoresDemanda[f] ?? 0;  // fonte única (calcularFatorEscopoReal)
               return (
                 <tr key={f}>
                   <td className={TD} style={{ color: '#160F41' }}>{LABEL_F[f]}</td>
                   <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{reais.toFixed(1)}h</td>
                   <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{pacote.toFixed(1)}h</td>
-                  <td className={`${TD} text-center font-medium`} style={{ color: corFator(fator) }}>
-                    {fator > 0 ? fator.toFixed(2) : '—'}
-                  </td>
                 </tr>
               );
             })}
@@ -143,7 +127,7 @@ export function PerfilComplexidadeTab({
             <tr style={{ backgroundColor: '#f3f4f6' }}>
               <td className={`${TD} font-bold`} style={{ color: '#160F41' }}>TOTAL</td>
               <td className={`${TD} text-right font-bold`} style={{ color: '#160F41' }}>{horas.total.toFixed(1)}h</td>
-              <td colSpan={2}></td>
+              <td></td>
             </tr>
           </tfoot>
         </table>

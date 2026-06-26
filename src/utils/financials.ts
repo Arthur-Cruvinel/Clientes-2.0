@@ -38,7 +38,6 @@ export {
 
 export {
   calcularHorasReais,
-  calcularFatorEscopoReal,
   pctNormativoPorHorasReais,
 } from './financials.horasReais';
 

@@ -14,15 +14,6 @@ import { HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
 import type { ChaveOrdAlocacao } from './ordenacaoAlocacao';
 
-// Cor do índice de USO DO PACOTE (escopo) POR CLIENTE: >100% extrapola o escopo
-// (alerta laranja/vermelho), ≤100% está dentro/folga (verde). Mesma convenção da
-// aba Alocação do Perfil; cores já usadas neste arquivo.
-function corEscopo(indice: number): string {
-  if (indice > 1.5) return '#dc2626';
-  if (indice > 1.0) return '#ea580c';
-  return '#16a34a';
-}
-
 // Período por extenso para o banner e a confirmação ("2026-04" → "Abril/2026").
 const MESES_LONGOS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -225,12 +216,10 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                 <tr style={{ color: '#6b6b8a' }}>
                   <th className={`${TH} text-left`}><Ord chave="nome_cliente" titulo="Cliente" align="left" /></th>
                   <th className={`${TH} text-left`}><Ord chave="pacote_servico" titulo="Pacote" align="left" /></th>
-                  <th className={`${TH} text-right`} title="Percentual normativo do PACOTE para esta função (HORAS_PACOTE ÷ HORAS_CLT_MES)">Pct pacote</th>
                   <th className={`${TH} text-right`}><Ord chave="pct_atual" titulo="Pct atual" align="right" /></th>
                   <th className={`${TH} text-center`}>Origem</th>
                   <th className={`${TH} text-right`}><Ord chave="novo_pct" titulo="% dedicação" align="right" tooltip="O valor Auto é a SUGESTÃO por complexidade (horas reais quando o cliente tem perfil; senão pelo pacote). Editável." /></th>
                   <th className={`${TH} text-right`}><Ord chave="horas_efetivas" titulo="Horas efet." align="right" /></th>
-                  <th className={`${TH} text-center`} title="Quanto o cliente usa do pacote nesta função: >100% extrapola o escopo, <100% subutiliza">Uso do pacote</th>
                   <th className={`${TH} text-center`}>Ações</th>
                 </tr>
               </thead>
@@ -241,20 +230,10 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                   const alterado = Math.abs(novo - original) > 1e-9;
                   const manual = travados.has(cli.nome_cliente);
                   const horasEfet = novo * HORAS_CLT_MES * percentualAlocavel;
-                  const horasDireito = HORAS_PACOTE[cli.pacote_servico]?.[funcao] ?? 0;
-                  const pctRef = horasDireito / HORAS_CLT_MES;
-                  // Índice de uso do pacote POR CLIENTE, AO VIVO: horas efetivas
-                  // (já com percentual_alocavel) ÷ horas-direito da função no
-                  // pacote. >1 extrapola o escopo; <1 subutiliza. null quando o
-                  // pacote não tem horas-direito nesta função (evita ÷0 — "—").
-                  // Reusa o MESMO horasEfet exibido na coluna "Horas efet." para
-                  // garantir coerência: horasEfet / horasDireito == este índice.
-                  const indiceEscopo = horasDireito > 0 ? horasEfet / horasDireito : null;
                   return (
                     <tr key={cli.id ?? cli.nome_cliente}>
                       <td className={TD} style={{ color: '#160F41' }}>{cli.nome_cliente}</td>
                       <td className={TD} style={{ color: '#6b6b8a' }}>{cli.pacote_servico}</td>
-                      <td className={`${TD} text-right text-gray-400`}>{(pctRef * 100).toFixed(1)}%</td>
                       <td className={`${TD} text-right`} style={{ color: '#9ca3af' }}>{(original * 100).toFixed(1)}%</td>
                       <td className={`${TD} text-center`}>
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
@@ -273,9 +252,6 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                           style={{ border: '1px solid #e2e2e8', color: '#160F41', backgroundColor: alterado ? '#fef3c7' : '#fff' }} />
                       </td>
                       <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{horasEfet.toFixed(1)}h</td>
-                      <td className={`${TD} text-center font-medium`} style={{ color: indiceEscopo == null ? '#9ca3af' : corEscopo(indiceEscopo) }}>
-                        {indiceEscopo == null ? '—' : `${(indiceEscopo * 100).toFixed(0)}%`}
-                      </td>
                       <td className={`${TD} text-center`}>
                         <button type="button"
                           title={periodoFechado ? 'Período fechado — remoção indisponível' : 'Remover da carteira'}

@@ -7,7 +7,7 @@
 import type {
   Cliente, FuncaoAlocacao, HorasReaisCalculadas, PerfilComplexidade,
 } from '../types';
-import { FUNCOES_ALOCACAO, HORAS_PACOTE, HORAS_CLT_MES } from './constants';
+import { HORAS_CLT_MES } from './constants';
 import { ATIVIDADES_SERVICO, VOLUME_MOVIMENTOS_PADRAO } from './atividadesServico';
 
 function porFuncaoZerado(): Record<FuncaoAlocacao, number> {
@@ -91,20 +91,6 @@ export function calcularHorasReais(
   }
 
   return resultado;
-}
-
-/** Compara horas reais estimadas vs horas normativas do pacote.
- *  fator > 1.0 → cliente consome além do pacote (candidato a reajuste). */
-export function calcularFatorEscopoReal(
-  horasReais: HorasReaisCalculadas, cliente: Cliente,
-): Record<FuncaoAlocacao, number> {
-  const fatores = porFuncaoZerado();
-  for (const funcao of FUNCOES_ALOCACAO) {
-    const normativasMes = HORAS_PACOTE[cliente.pacote_servico]?.[funcao] ?? 0;
-    const reais = horasReais.por_funcao[funcao] ?? 0;
-    fatores[funcao] = normativasMes > 0 ? reais / normativasMes : 0;
-  }
-  return fatores;
 }
 
 /** Wrapper: pct normativo a partir das horas reais (para uso em calcularPctDistribuido).
