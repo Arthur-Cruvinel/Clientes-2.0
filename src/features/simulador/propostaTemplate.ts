@@ -36,6 +36,11 @@ export interface DadosPropostaTemplate {
   dedicViagem: number;
   plTotal: number; plOffshore: number;   // plOffshore > 0 → Estrutura Offshore contratada
   titularidades: string; // texto livre (ex.: "1 PF + 1 PJ"); vazio → redação genérica
+  // Contabilidade (exibição — não entra no motor). Mensal > 0 → aparece.
+  contabilidadeMensal: number;      // R$/mês; soma no total MOSTRADO
+  contabilidadeIr: number;          // R$ — IR à parte (0 = não cita)
+  contabilidadeFechamento: number;  // R$ — fechamento anual à parte (0 = não cita)
+  contabilidadeTipo: string;        // "PF"/"PJ" ou livre; vazio = não cita
   textoEscopoAdicional: string;
   validadeDias: number;  // validade da proposta (default 15)
   diaVencimento: number; // dia do vencimento do boleto, 1–28 (default 10)
@@ -246,6 +251,26 @@ function titularidadesFrase(d: DadosPropostaTemplate): string {
   return `Esta proposta contempla ${alvo} — demandas relativas a outras titularidades serão objeto de proposta complementar.`;
 }
 
+/** Cláusula de contabilidade (Condições Gerais) — só quando há mensal > 0.
+ *  13º = mesmo valor do mensal. IR/fechamento/tipo citados se preenchidos.
+ *  IR e fechamento são à parte (não-mensais) — NÃO somam no total mensal. */
+function clausulaContabilidade(d: DadosPropostaTemplate): string {
+  const tipo = d.contabilidadeTipo.trim() ? ` (${esc(d.contabilidadeTipo.trim())})` : '';
+  const partes = [`Serviço de contabilidade${tipo}: mensalidade de ${brl(d.contabilidadeMensal)}. 13ª parcela equivalente à mensalidade (${brl(d.contabilidadeMensal)}).`];
+  if (d.contabilidadeIr > 0) partes.push(`Imposto de renda cobrado à parte (${brl(d.contabilidadeIr)}).`);
+  if (d.contabilidadeFechamento > 0) partes.push(`Fechamento anual cobrado à parte (${brl(d.contabilidadeFechamento)}).`);
+  return partes.join(' ');
+}
+
+/** Parcelas NÃO-mensais da contabilidade (13º=mensal, IR, fechamento) — listadas
+ *  na faixa como "à parte" para deixar claro que NÃO entram no total mensal. */
+function contabilidadeParcelasAnuais(d: DadosPropostaTemplate): string {
+  const itens = [`13ª parcela (${brl(d.contabilidadeMensal)})`];
+  if (d.contabilidadeIr > 0) itens.push(`IR (${brl(d.contabilidadeIr)})`);
+  if (d.contabilidadeFechamento > 0) itens.push(`fechamento (${brl(d.contabilidadeFechamento)})`);
+  return itens.join(', ');
+}
+
 // ── Variação por TIPO de documento ──────────────────────────────────────────
 // O scaffold do template é ÚNICO; só estes pontos mudam por tipo. Preparado para
 // receber o 3º tipo (orçamento extraordinário) num lote seguinte — basta uma
@@ -321,7 +346,9 @@ export function gerarPropostaHTML(d: DadosPropostaTemplate, opts: { paraPdf?: bo
       [{ texto: 'Planejamento Financeiro', contratado: t.planejamentoFin },
        { texto: 'Pagamento de Contas', contratado: t.movimentos, novo: nv('movimentos') },
        { texto: 'Conciliação Bancária', contratado: t.movimentos, novo: nv('movimentos') },
-       { texto: 'Fluxo de Caixa', contratado: t.movimentos, novo: nv('movimentos') }]),
+       { texto: 'Fluxo de Caixa', contratado: t.movimentos, novo: nv('movimentos') },
+       // Contabilidade (exibição) — só entra como item ✓ quando há mensal > 0.
+       ...(d.contabilidadeMensal > 0 ? [{ texto: 'Contabilidade', contratado: true }] : [])]),
     pilarHTML(3, 'Jurídico', 'Apoio consultivo contínuo.',
       [{ texto: 'Jurídico Consultivo', contratado: t.juridico, novo: nv('juridico') }, { texto: 'Revisão de Contratos', contratado: t.revisao, novo: nv('revisao') },
        { texto: 'Planejamento Tributário', contratado: t.planTrib, novo: nv('planTrib') }]),
@@ -438,12 +465,12 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
     <div id="faixa-investimento" class="px-12 md:px-20 py-14 text-white" style="background:linear-gradient(120deg,#160F41 0%,#2F49EE 60%,#732AD8 100%)">
       <div class="max-w-5xl mx-auto">
         <p class="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/60">Investimento Mensal</p>
-        <p class="mt-3"><span class="text-5xl font-extralight tracking-tight">${brl(d.valorProposto)}</span><span class="text-base font-light text-white/60"> /mês</span></p>
+        <p class="mt-3"><span class="text-5xl font-extralight tracking-tight">${brl(d.valorProposto + d.contabilidadeMensal)}</span><span class="text-base font-light text-white/60"> /mês</span></p>
         <div class="mt-6 flex flex-wrap gap-x-10 gap-y-2 text-sm font-light text-white/75">
           <span><i class="fas fa-layer-group text-white/40 mr-2"></i>${composicaoLinha}</span>
           <span><i class="fas fa-barcode text-white/40 mr-2"></i>Boleto · vencimento dia ${d.diaVencimento}</span>
           <span><i class="fas fa-clock text-white/40 mr-2"></i>Válida por ${d.validadeDias} dias</span>
-        </div>${d.adicoes.length ? `\n        <p class="mt-4 text-sm font-light text-white/85"><i class="fas fa-plus-circle text-white/50 mr-2"></i>Inclui: ${esc(d.adicoes.join('; '))}.</p>` : ''}
+        </div>${d.adicoes.length ? `\n        <p class="mt-4 text-sm font-light text-white/85"><i class="fas fa-plus-circle text-white/50 mr-2"></i>Inclui: ${esc(d.adicoes.join('; '))}.</p>` : ''}${d.contabilidadeMensal > 0 ? `\n        <p class="mt-4 text-sm font-light text-white/85"><i class="fas fa-calculator text-white/50 mr-2"></i>Composição mensal: gestão ${brl(d.valorProposto)} + contabilidade ${brl(d.contabilidadeMensal)}. Cobranças à parte (não-mensais): ${contabilidadeParcelasAnuais(d)}.</p>` : ''}
       </div>
     </div>
     <!-- ESCOPO: largura total, cards lado a lado (grid 2 colunas). -->
@@ -465,6 +492,7 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Pagamento</strong><p class="text-secundario text-base mt-1">Pagamento mensal via boleto, com vencimento todo dia ${d.diaVencimento}.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Rescisão</strong><p class="text-secundario text-base mt-1">O contrato pode ser rescindido por qualquer das partes mediante aviso prévio de 30 (trinta) dias. Nos 3 (três) primeiros meses de vigência — período de experiência — a rescisão pode ser solicitada a qualquer momento, sem necessidade de aviso prévio.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Reajuste por Volume Excedente</strong><p class="text-secundario text-base mt-1">${clausulaExcedente(d)}</p></div>
+      ${d.contabilidadeMensal > 0 ? `<div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Contabilidade</strong><p class="text-secundario text-base mt-1">${clausulaContabilidade(d)}</p></div>` : ''}
     </div>
   </section>
 

@@ -152,6 +152,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [imagemCapa, setImagemCapa] = useState('');
   const [textoEscopo, setTextoEscopo] = useState('');
   const [titularidades, setTitularidades] = useState('');  // texto livre (ex.: "1 PF + 1 PJ") — só descrição
+  // Contabilidade (exibição — não entra no motor). Vazio/0 = não aparece.
+  const [contabMensal, setContabMensal] = useState(0);
+  const [contabIr, setContabIr] = useState(0);
+  const [contabFechamento, setContabFechamento] = useState(0);
+  const [contabTipo, setContabTipo] = useState('');
   const [validadeDias, setValidadeDias] = useState(15);
   const [diaVencimento, setDiaVencimento] = useState(10);
   const [valorProposto, setValorProposto] = useState(0);
@@ -178,6 +183,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     dedic_contabilidade: dContab, dedic_pagamento: dPgto, dedic_administrativo: dAdm, dedic_viagem: dViagem,
     texto_introducao: textoIntro, imagem_capa_url: imagemCapa, texto_escopo_adicional: textoEscopo,
     titularidades,
+    contabilidade_mensal: contabMensal, contabilidade_ir: contabIr, contabilidade_fechamento: contabFechamento, contabilidade_tipo: contabTipo,
     validade_dias: validadeDias, dia_vencimento: diaVencimento, valor_proposto: valorProposto, fee_atual: feeAtual,
   });
   const aplicarInputs = (i: Partial<PropostaInputs>) => {
@@ -193,6 +199,8 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     setDContab(i.dedic_contabilidade ?? 0); setDPgto(i.dedic_pagamento ?? 0); setDAdm(i.dedic_administrativo ?? 0); setDViagem(i.dedic_viagem ?? 0);
     setTextoIntro(i.texto_introducao ?? ''); setImagemCapa(i.imagem_capa_url ?? ''); setTextoEscopo(i.texto_escopo_adicional ?? '');
     setTitularidades(i.titularidades ?? '');   // snapshots velhos → '' (genérico)
+    setContabMensal(i.contabilidade_mensal ?? 0); setContabIr(i.contabilidade_ir ?? 0);   // snapshots velhos → 0 (não aparece)
+    setContabFechamento(i.contabilidade_fechamento ?? 0); setContabTipo(i.contabilidade_tipo ?? '');
     setValidadeDias(i.validade_dias ?? 15);   // snapshots velhos → 15
     setDiaVencimento(i.dia_vencimento ?? 10);  // snapshots velhos → 10
     setValorProposto(i.valor_proposto ?? 0); setFeeAtual(i.fee_atual ?? 0);
@@ -358,6 +366,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       volumeMovimentos: escopoDoc.volMov, qtdContasBancarias: contas, qtdRecebiveis: escopoDoc.recebiveis, qtdContratacoes: escopoDoc.contratacoes,
       dedicViagem: escopoDoc.dViagem, plTotal: escopoDoc.plOn + escopoDoc.plOff, plOffshore: escopoDoc.plOff, textoEscopoAdicional: textoEscopo,
       titularidades,
+      contabilidadeMensal: contabMensal, contabilidadeIr: contabIr, contabilidadeFechamento: contabFechamento, contabilidadeTipo: contabTipo,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
       diaVencimento: diaVencimento >= 1 && diaVencimento <= 28 ? diaVencimento : 10,
       // Política de reajuste (global, Configurações → Reajuste) — só redação.
@@ -442,6 +451,20 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             <input value={titularidades} onChange={e => setTitularidades(e.target.value)} className={INP} style={BRD}
               placeholder="Ex.: 1 PF + 1 PJ. Vazio = redação genérica." />
           </label>
+          {/* Contabilidade (exibição — não entra no motor). Mensal vazio/0 = não aparece. */}
+          <div className="rounded-lg p-3 space-y-2" style={{ backgroundColor: '#f0f6ff' }}>
+            <span className="text-[11px] font-semibold" style={{ color: '#160F41' }}>Contabilidade (opcional) — exibição, não entra no cálculo do fee</span>
+            <div className="grid grid-cols-2 gap-3">
+              <Num label="Mensal (R$) — vazio = não aparece" v={contabMensal} set={setContabMensal} />
+              <label className="block">
+                <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Tipo (PF/PJ — opcional)</span>
+                <input value={contabTipo} onChange={e => setContabTipo(e.target.value)} className={INP} style={BRD} placeholder="Ex.: PF, PJ" />
+              </label>
+              <Num label="IR à parte (R$ — opcional)" v={contabIr} set={setContabIr} />
+              <Num label="Fechamento anual à parte (R$ — opcional)" v={contabFechamento} set={setContabFechamento} />
+            </div>
+            <span className="text-[10px]" style={{ color: '#9ca3af' }}>13º = mesmo valor do mensal. Só o mensal soma no total mensal; 13º/IR/fechamento são à parte.</span>
+          </div>
           <label className="block">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Escopo — observações adicionais (opcional; entra como bloco na pág. de investimento)</span>
             <textarea value={textoEscopo} onChange={e => setTextoEscopo(e.target.value)} rows={2} className={INP} style={BRD}

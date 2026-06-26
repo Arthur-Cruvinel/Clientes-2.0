@@ -524,6 +524,14 @@ export interface PropostaInputs {
   dia_vencimento: number;           // dia do vencimento do boleto, 1–28 (default 10)
   valor_proposto: number;   // preço comercial (editável; âncora = fee sugerido)
   fee_atual: number;        // composição aditiva (cliente_existente)
+  // ── CONTABILIDADE (camada de EXIBIÇÃO — NÃO entra no motor calcularFee) ─────
+  // O CFO informa o valor; aparece no documento e soma no total MOSTRADO. Só o
+  // mensal soma no total mensal; 13º (=mensal), IR e fechamento são à parte.
+  // Versão integrada (catálogo/motor/PF-PJ) = revisão de fundação, não é isto.
+  contabilidade_mensal?: number;       // R$/mês; vazio/0 = contabilidade não aparece
+  contabilidade_ir?: number;           // R$ — imposto de renda à parte (opcional)
+  contabilidade_fechamento?: number;   // R$ — fechamento anual à parte (opcional)
+  contabilidade_tipo?: string;         // texto livre (ex.: "PF"/"PJ") — só descrição
 }
 
 export interface PropostaLinhaFuncao { funcao: FuncaoAlocacao; horas: number; custoHora: number; custo: number; }
