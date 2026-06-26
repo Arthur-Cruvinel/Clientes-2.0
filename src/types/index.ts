@@ -548,6 +548,56 @@ export interface DadosProposta {
   valor_proposto: number;
 }
 
+// ============================================================
+// ORÇAMENTO EXTRAORDINÁRIO (serviços avulsos/pontuais — fora do fee)
+// ============================================================
+// Ferramenta SELETORA de valor fixo (faixa editável) por tipo. As cláusulas
+// percentuais (success fee / % da causa) são INFORMATIVAS — texto, NÃO entram
+// em cálculo (a mais-valia/resultado é futuro). Não toca o motor do fee.
+
+export type TipoExtraordinario =
+  | 'juridico_elaboracao_simples'
+  | 'juridico_elaboracao_complexa'
+  | 'juridico_parecer'
+  | 'juridico_representacao'
+  | 'juridico_contencioso'
+  | 'ma'
+  | 'valuation'
+  | 'viabilidade';
+
+export interface ItemOrcamento {
+  tipo: TipoExtraordinario;
+  descricao: string;                 // descrição livre do serviço (default = label do catálogo)
+  valor: number;                     // valor fixo escolhido dentro da faixa (editável)
+  clausula_pct?: number;             // % escolhido dentro da faixa % (representação/contencioso)
+  clausula_informativa?: string;     // texto da cláusula derivado do % escolhido; só exibição
+}
+
+export interface DadosOrcamento {
+  id?: string;
+  id_estavel: string;
+  criado_em: string;
+  atualizado_em: string;
+  status: 'rascunho' | 'enviado' | 'aceito' | 'recusado';
+  nome_cliente: string;
+  id_estavel_cliente?: string;
+  itens: ItemOrcamento[];
+  valor_total: number;               // Σ dos itens.valor
+  validadeDias: number;              // validade do orçamento em dias (default 15)
+  observacoes?: string;              // texto livre adicional
+}
+
+// Faixas/percentuais editáveis por tipo (Configurações → Extraordinário).
+// faixa_min/max delimitam o valor sugerido; clausula_pct/minimo alimentam a
+// cláusula informativa (texto). ma/valuation/viabilidade nascem zerados.
+export interface FaixaExtraordinario {
+  faixa_min: number;
+  faixa_max: number;
+  clausula_pct_min?: number;  // faixa % informativa — mínimo (success fee / % da causa)
+  clausula_pct_max?: number;  // faixa % informativa — máximo
+  clausula_minimo?: number;   // R$ mínimo (contencioso)
+}
+
 export interface Parametros {
   custo_juridico_mensal: number;
   custo_conciliacao_mensal: number;
@@ -579,6 +629,10 @@ export interface Parametros {
   tolerancia_volume_pct: number;          // folga % sobre o volume contratado (default 20)
   periodicidade_medicao_meses: number;    // periodicidade de medição em meses (default 3)
   valor_faixa_excedente: number;          // R$ a cada faixa de {tolerância}% adicional (default 500)
+  // ── ORÇAMENTO EXTRAORDINÁRIO (faixas/percentuais por tipo — só Orçador) ─────
+  // Faixas editáveis de valor sugerido + percentuais informativos. NÃO entram
+  // no motor do fee. Globais e ajustáveis (Configurações → Extraordinário).
+  extraordinario: Record<TipoExtraordinario, FaixaExtraordinario>;
 }
 
 // ============================================================

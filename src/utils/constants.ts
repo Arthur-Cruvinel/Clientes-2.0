@@ -1,6 +1,6 @@
 // --- Constantes Financeiras ---
 
-import type { PacoteServico, FuncaoAlocacao, Parametros } from '../types';
+import type { PacoteServico, FuncaoAlocacao, Parametros, TipoExtraordinario, FaixaExtraordinario } from '../types';
 
 // ── HORAS PRODUTIVAS CLT ──────────────────────────────────────────────────
 // Base: regime CLT, 44h semanais, 52 semanas/ano.
@@ -260,6 +260,21 @@ export const TOLERANCIA_VOLUME_PCT_DEFAULT = 20;            // 20% de folga
 export const PERIODICIDADE_MEDICAO_MESES_DEFAULT = 3;       // medição trimestral
 export const VALOR_FAIXA_EXCEDENTE_DEFAULT = 500;          // R$ por faixa adicional
 
+// ── ORÇAMENTO EXTRAORDINÁRIO (faixas/percentuais por tipo) ─────────────────
+// Faixas de valor sugerido (R$) + percentuais informativos por tipo de serviço
+// avulso. Jurídico cravado; ma/valuation/viabilidade zerados (plugáveis — o CFO
+// crava na aba Configurações → Extraordinário). NÃO entram no motor do fee.
+export const EXTRAORDINARIO_DEFAULT: Record<TipoExtraordinario, FaixaExtraordinario> = {
+  juridico_elaboracao_simples:  { faixa_min: 1000, faixa_max: 1800 },
+  juridico_elaboracao_complexa: { faixa_min: 2500, faixa_max: 4500 },
+  juridico_parecer:             { faixa_min: 1500, faixa_max: 2500 },
+  juridico_representacao:       { faixa_min: 1500, faixa_max: 3000, clausula_pct_min: 5,  clausula_pct_max: 10 },  // + success fee informativo (faixa %)
+  juridico_contencioso:         { faixa_min: 0,    faixa_max: 0,    clausula_pct_min: 10, clausula_pct_max: 15, clausula_minimo: 3000 }, // % da causa (faixa), mínimo
+  ma:                           { faixa_min: 0,    faixa_max: 0 },   // plugável (placeholder)
+  valuation:                    { faixa_min: 0,    faixa_max: 0 },   // plugável (placeholder)
+  viabilidade:                  { faixa_min: 0,    faixa_max: 0 },   // plugável (placeholder)
+};
+
 // ── PARÂMETROS GLOBAIS DEFAULT ─────────────────────────────────────────
 export const PARAMETROS_DEFAULT: Parametros = {
   custo_juridico_mensal: 0,
@@ -278,6 +293,7 @@ export const PARAMETROS_DEFAULT: Parametros = {
   tolerancia_volume_pct: TOLERANCIA_VOLUME_PCT_DEFAULT,
   periodicidade_medicao_meses: PERIODICIDADE_MEDICAO_MESES_DEFAULT,
   valor_faixa_excedente: VALOR_FAIXA_EXCEDENTE_DEFAULT,
+  extraordinario: EXTRAORDINARIO_DEFAULT,
 };
 
 // Lista de funções de alocação (usada em iterações)

@@ -4,7 +4,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, writeBatch, deleteField } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import type { Cliente, Colaborador, CustoIndireto, CustoDedicado, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao, DadosProposta } from '../types';
+import type { Cliente, Colaborador, CustoIndireto, CustoDedicado, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao, DadosProposta, DadosOrcamento } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO, CATEGORIAS_CUSTO_INDIRETO } from '../utils/constants';
 import { PARAMETROS_DEFAULT, ALIQUOTA_REBATE_ONSHORE_DEFAULT, ALIQUOTA_REBATE_OFFSHORE_DEFAULT, MARGEM_ALVO_DEFAULT, OVERHEAD_RATIO_REFERENCIA_DEFAULT } from '../utils/constants';
@@ -1378,6 +1378,24 @@ export async function atualizarPropostaStatus(idEstavel: string, status: DadosPr
 }
 export async function excluirProposta(idEstavel: string): Promise<void> {
   await deleteDoc(doc(db, 'propostas', idEstavel));
+}
+
+// ── Orçamentos extraordinários — espelha propostas/ (docId = id_estavel uuid) ──
+export async function salvarOrcamento(o: DadosOrcamento): Promise<void> {
+  const { id: _ignora, ...dados } = o;
+  void _ignora;
+  await setDoc(doc(db, 'orcamentos', o.id_estavel), dados, { merge: true });
+}
+export async function buscarOrcamentos(): Promise<DadosOrcamento[]> {
+  const snap = await getDocs(collection(db, 'orcamentos'));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }) as DadosOrcamento)
+    .sort((a, b) => (b.criado_em ?? '').localeCompare(a.criado_em ?? ''));
+}
+export async function atualizarOrcamentoStatus(idEstavel: string, status: DadosOrcamento['status']): Promise<void> {
+  await updateDoc(doc(db, 'orcamentos', idEstavel), { status, atualizado_em: new Date().toISOString() });
+}
+export async function excluirOrcamento(idEstavel: string): Promise<void> {
+  await deleteDoc(doc(db, 'orcamentos', idEstavel));
 }
 
 export async function buscarParametros(): Promise<Parametros> {

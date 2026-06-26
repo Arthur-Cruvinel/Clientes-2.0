@@ -6,8 +6,9 @@ import { formatPeriodo } from '../../utils/formatters';
 import { Reajustes } from './Reajustes';
 import { GeradorProposta, type PrefillProposta } from './GeradorProposta';
 import { BarraOverheadRef } from './BarraOverheadRef';
+import { Orcador } from '../extraordinario/Orcador';
 
-const ABAS = ['Reajustes', 'Gerador de Propostas'] as const;
+const ABAS = ['Reajustes', 'Gerador de Propostas', 'Orçador de Extraordinário'] as const;
 
 export function Simulador() {
   const { periodoSelecionado } = useApp();
@@ -33,6 +34,7 @@ export function Simulador() {
 
       {aba === 'Reajustes' && <Reajustes onUpsell={(p) => { setPrefill(p); setAba('Gerador de Propostas'); }} />}
       {aba === 'Gerador de Propostas' && <GeradorProposta prefill={prefill} />}
+      {aba === 'Orçador de Extraordinário' && <Orcador />}
     </div>
   );
 }
