@@ -519,6 +519,7 @@ export interface PropostaInputs {
   texto_introducao: string;
   imagem_capa_url: string;
   texto_escopo_adicional: string;   // ressalvas específicas do cliente (após blocos gerados)
+  titularidades?: string;           // texto livre (ex.: "1 PF + 1 PJ"); só descrição, não no cálculo
   validade_dias: number;            // validade da proposta em dias (default 15)
   dia_vencimento: number;           // dia do vencimento do boleto, 1–28 (default 10)
   valor_proposto: number;   // preço comercial (editável; âncora = fee sugerido)
@@ -571,6 +572,13 @@ export interface Parametros {
   tempo_demanda_juridica_horas: number;   // horas por demanda consultiva (default 2,5)
   custo_hora_juridico: number;            // salário-hora cru do jurídico (default 82,88)
   fator_demanda_juridica: number;         // multiplicador de calibração (default 1,0)
+  // ── POLÍTICA DE REAJUSTE POR VOLUME EXCEDENTE (só redação da proposta) ──────
+  // Estes 3 NÃO entram no cálculo do fee — alimentam apenas a cláusula de
+  // excedente escrita no documento. Globais e ajustáveis (Configurações →
+  // Reajuste).
+  tolerancia_volume_pct: number;          // folga % sobre o volume contratado (default 20)
+  periodicidade_medicao_meses: number;    // periodicidade de medição em meses (default 3)
+  valor_faixa_excedente: number;          // R$ a cada faixa de {tolerância}% adicional (default 500)
 }
 
 // ============================================================

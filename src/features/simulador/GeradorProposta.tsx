@@ -151,6 +151,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   const [textoIntro, setTextoIntro] = useState('');
   const [imagemCapa, setImagemCapa] = useState('');
   const [textoEscopo, setTextoEscopo] = useState('');
+  const [titularidades, setTitularidades] = useState('');  // texto livre (ex.: "1 PF + 1 PJ") — só descrição
   const [validadeDias, setValidadeDias] = useState(15);
   const [diaVencimento, setDiaVencimento] = useState(10);
   const [valorProposto, setValorProposto] = useState(0);
@@ -176,6 +177,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     pl_onshore: plOn, pl_offshore: plOff, taxa_rebate_onshore: taxaOn, taxa_rebate_offshore: taxaOff,
     dedic_contabilidade: dContab, dedic_pagamento: dPgto, dedic_administrativo: dAdm, dedic_viagem: dViagem,
     texto_introducao: textoIntro, imagem_capa_url: imagemCapa, texto_escopo_adicional: textoEscopo,
+    titularidades,
     validade_dias: validadeDias, dia_vencimento: diaVencimento, valor_proposto: valorProposto, fee_atual: feeAtual,
   });
   const aplicarInputs = (i: Partial<PropostaInputs>) => {
@@ -190,6 +192,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     if (i.taxa_rebate_onshore != null) setTaxaOn(i.taxa_rebate_onshore); if (i.taxa_rebate_offshore != null) setTaxaOff(i.taxa_rebate_offshore);
     setDContab(i.dedic_contabilidade ?? 0); setDPgto(i.dedic_pagamento ?? 0); setDAdm(i.dedic_administrativo ?? 0); setDViagem(i.dedic_viagem ?? 0);
     setTextoIntro(i.texto_introducao ?? ''); setImagemCapa(i.imagem_capa_url ?? ''); setTextoEscopo(i.texto_escopo_adicional ?? '');
+    setTitularidades(i.titularidades ?? '');   // snapshots velhos → '' (genérico)
     setValidadeDias(i.validade_dias ?? 15);   // snapshots velhos → 15
     setDiaVencimento(i.dia_vencimento ?? 10);  // snapshots velhos → 10
     setValorProposto(i.valor_proposto ?? 0); setFeeAtual(i.fee_atual ?? 0);
@@ -354,8 +357,13 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
       qtdVeiculos: escopoDoc.veic, qtdImoveis: escopoDoc.imov, gruposFinanceiros: escopoDoc.grupos, qtdFuncionariosDomesticos: escopoDoc.domest,
       volumeMovimentos: escopoDoc.volMov, qtdContasBancarias: contas, qtdRecebiveis: escopoDoc.recebiveis, qtdContratacoes: escopoDoc.contratacoes,
       dedicViagem: escopoDoc.dViagem, plTotal: escopoDoc.plOn + escopoDoc.plOff, plOffshore: escopoDoc.plOff, textoEscopoAdicional: textoEscopo,
+      titularidades,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
       diaVencimento: diaVencimento >= 1 && diaVencimento <= 28 ? diaVencimento : 10,
+      // Política de reajuste (global, Configurações → Reajuste) — só redação.
+      toleranciaVolumePct: parametros.tolerancia_volume_pct,
+      periodicidadeMedicaoMeses: parametros.periodicidade_medicao_meses,
+      valorFaixaExcedente: parametros.valor_faixa_excedente,
     }, { paraPdf: true });   // omite o botão "Imprimir" no HTML que vai pro PDF
     // Gera o PDF (tira contínua) via Netlify Function → PDFShift. A API key fica
     // protegida na function (env var). Abre o PDF retornado em nova aba.
@@ -428,6 +436,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Imagem da capa (URL — vazio = capa-padrão escura com logo central)</span>
             <input value={imagemCapa} onChange={e => setImagemCapa(e.target.value)} className={INP} style={BRD} placeholder="https://…" />
             <span className="text-[10px]" style={{ color: '#9ca3af' }}>Use imagem em alta resolução (mínimo ~1600px de largura); imagens pequenas ficam ruins na capa.</span>
+          </label>
+          <label className="block">
+            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Titularidades / natureza dos grupos (opcional; aparece no Escopo do Contrato)</span>
+            <input value={titularidades} onChange={e => setTitularidades(e.target.value)} className={INP} style={BRD}
+              placeholder="Ex.: 1 PF + 1 PJ. Vazio = redação genérica." />
           </label>
           <label className="block">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Escopo — observações adicionais (opcional; entra como bloco na pág. de investimento)</span>

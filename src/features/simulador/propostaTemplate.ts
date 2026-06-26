@@ -35,13 +35,26 @@ export interface DadosPropostaTemplate {
   volumeMovimentos: number; qtdContasBancarias: number; qtdRecebiveis: number; qtdContratacoes: number;
   dedicViagem: number;
   plTotal: number; plOffshore: number;   // plOffshore > 0 → Estrutura Offshore contratada
+  titularidades: string; // texto livre (ex.: "1 PF + 1 PJ"); vazio → redação genérica
   textoEscopoAdicional: string;
   validadeDias: number;  // validade da proposta (default 15)
   diaVencimento: number; // dia do vencimento do boleto, 1–28 (default 10)
+  // ── Política de reajuste por volume excedente (só redação — não no cálculo) ──
+  toleranciaVolumePct: number;      // folga % antes de reajustar
+  periodicidadeMedicaoMeses: number; // periodicidade de medição (meses)
+  valorFaixaExcedente: number;      // R$ por faixa adicional
 }
 
-// Cláusula de excedente — fonte única (escopo + condições gerais não divergem).
-const CLAUSULA_EXCEDENTE = 'Os volumes indicados refletem o escopo precificado nesta proposta. Excedentes recorrentes ou aumento significativo de complexidade serão objeto de renegociação de honorários.';
+// Cláusula de excedente — POLÍTICA parametrizada (Configurações → Reajuste).
+// Decisão do CFO: aparece UMA vez só, na seção "Excedentes" das Condições
+// Gerais. Os cards de escopo descrevem apenas o que inclui (sem repetir a
+// cláusula). Os 3 parâmetros vêm de `parametros` (passados via DadosProposta).
+function clausulaExcedente(d: DadosPropostaTemplate): string {
+  const tol = d.toleranciaVolumePct.toLocaleString('pt-BR');
+  const per = d.periodicidadeMedicaoMeses;
+  const perTxt = per === 1 ? '1 mês' : `${per.toLocaleString('pt-BR')} meses`;
+  return `Os volumes indicados refletem o escopo precificado nesta proposta. Aplica-se uma tolerância de ${tol}% sobre o volume contratado; acima dela, há um acréscimo de ${brl(d.valorFaixaExcedente)} a cada ${tol}% adicionais de volume. A medição ocorre a cada ${perTxt} e não é retroativa.`;
+}
 
 // Fonte única dos drivers → contratado/não. Pilares e escopo leem daqui.
 interface Ticks {
@@ -126,10 +139,10 @@ function pilarHTML(numero: number, titulo: string, descricao: string, servicos: 
 }
 
 /** Blocos de escopo GERADOS dos MESMOS ticks dos pilares — cada item escrito
- *  corresponde a um ✓ (e vice-versa). Cláusula de excedente contratual;
- *  não-contratados → ativação; + texto livre. */
+ *  corresponde a um ✓ (e vice-versa). Os cards descrevem APENAS o que inclui;
+ *  a cláusula de reajuste aparece uma vez só nas Condições Gerais (decisão CFO).
+ *  Não-contratados → ativação; + texto livre. */
 function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean; fin: boolean; jur: boolean; inv: boolean }): string {
-  const EXC = CLAUSULA_EXCEDENTE;
   const blocos: { titulo: string; texto: string }[] = [];
 
   if (contr.adm) {
@@ -139,15 +152,16 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
     if (t.domesticos) it.push(`${d.qtdFuncionariosDomesticos} funcionário(s) doméstico(s)`);
     if (t.contratacoes) it.push('contratação de serviços');
     if (t.viagens) it.push('organização de viagens');
-    blocos.push({ titulo: 'Escopo Administrativo', texto: `Gestão de ${it.join('; ')}. ${EXC}` });
+    blocos.push({ titulo: 'Escopo Administrativo', texto: `Gestão de ${it.join('; ')}.` });
   }
   if (contr.fin) {
-    const det: string[] = [];
-    if (t.movimentos) det.push(`${d.volumeMovimentos} movimentação(ões)/mês`);
-    if (d.qtdContasBancarias) det.push(`${d.qtdContasBancarias} conta(s) bancária(s)`);
-    if (d.qtdRecebiveis) det.push(`${d.qtdRecebiveis} recebível(is)/mês`);
-    const operacao = t.movimentos ? `; pagamentos, conciliação bancária e fluxo de caixa${det.length ? ` (${det.join('; ')})` : ''}` : '';
-    blocos.push({ titulo: 'Escopo do Pilar Financeiro', texto: `Planejamento financeiro e poupança incluídos${operacao}. ${EXC}` });
+    // Limite de Volume (item 4) — só o teto PRINCIPAL (movimentações/mês), em
+    // prosa fluida. Recebíveis/contratações/contas saíram de propósito: viravam
+    // ficha técnica seca e "recebíveis" será revisto numa fase futura.
+    const tetoMov = t.movimentos
+      ? ` A operação do dia a dia — pagamentos, conciliação bancária e fluxo de caixa — é dimensionada para até ${d.volumeMovimentos} movimentações por mês.`
+      : '';
+    blocos.push({ titulo: 'Escopo do Pilar Financeiro', texto: `Planejamento financeiro e poupança incluídos.${tetoMov}` });
   }
   if (contr.jur) {
     const it: string[] = [];
@@ -159,7 +173,7 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
     const base = d.qtdDemandasJuridicas > 0
       ? `Jurídico consultivo incluído — até ${d.qtdDemandasJuridicas} demanda${d.qtdDemandasJuridicas === 1 ? '' : 's'}/mês${it.length ? ` (${it.join(', ')})` : ''}. Serviços extraordinários (elaboração de documentos do zero, representação/negociação, contencioso, parecer aprofundado ou direcionamento a escritório externo) são orçados sob demanda, à parte.`
       : `Apoio consultivo contínuo${it.length ? `: ${it.join(', ')}` : ''}.`;
-    blocos.push({ titulo: 'Escopo Jurídico', texto: `${base} ${EXC}` });
+    blocos.push({ titulo: 'Escopo Jurídico', texto: base });
   }
   if (contr.inv) {
     // Investimento NÃO tem teto — é convite ao crescimento, não escopo racionado.
@@ -181,6 +195,55 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
 function observacoesHTML(d: DadosPropostaTemplate): string {
   if (!d.textoEscopoAdicional.trim()) return '';
   return `<div class="escopo-card bg-white p-5 rounded-md border border-gray-200 mt-4"><strong class="text-principal text-lg">Observações</strong><p class="text-secundario text-base mt-1">${esc(d.textoEscopoAdicional)}</p></div>`;
+}
+
+/** "O Plano" (item 1) — prosa que sintetiza o escopo contratado a partir dos
+ *  MESMOS ticks/contratação dos pilares (fonte única, zero dado novo). Lista
+ *  em prosa quais frentes a proposta inclui. */
+function oPlanoHTML(t: Ticks, contr: { adm: boolean; fin: boolean; jur: boolean; inv: boolean }): string {
+  const partes: string[] = [];
+  if (contr.fin) {
+    const fin = ['planejamento financeiro'];
+    if (t.movimentos) fin.push('pagamentos', 'conciliação bancária', 'fluxo de caixa');
+    partes.push(`gestão financeira (${fin.join(', ')})`);
+  }
+  if (contr.adm) {
+    const adm: string[] = [];
+    if (t.imoveis) adm.push('imóveis');
+    if (t.veiculos) adm.push('veículos');
+    if (t.domesticos) adm.push('funcionários domésticos');
+    adm.push('contratação de serviços', 'organização de viagens');
+    partes.push(`gestão administrativa (${adm.join(', ')})`);
+  }
+  if (contr.jur) {
+    const jur = ['jurídico consultivo'];
+    if (t.revisao) jur.push('revisão de contratos');
+    if (t.planTrib) jur.push('planejamento tributário');
+    partes.push(`apoio ${jur.join(', ')}`);
+  }
+  if (contr.inv) {
+    partes.push(`gestão de investimentos com consolidação multi-custódia${t.offshore ? ' e estrutura offshore' : ''}`);
+  }
+  if (!partes.length) return '';
+  // Junção com "; e" antes do último item (português corrido).
+  const lista = partes.length > 1
+    ? `${partes.slice(0, -1).join('; ')}; e ${partes[partes.length - 1]}`
+    : partes[0];
+  const prosa = `Sob um gestor dedicado, sua proposta reúne ${lista}. Tudo centralizado em um único painel, com a estrutura acompanhando o crescimento do seu patrimônio.`;
+  return `<section id="o-plano" class="px-12 md:px-20 pb-12 md:pb-16 text-center bg-white">
+    <h3 class="text-sm font-semibold text-secundario uppercase tracking-wide mb-3">O Plano</h3>
+    <p class="text-lg md:text-xl text-secundario leading-relaxed font-light max-w-4xl mx-auto">${prosa}</p>
+  </section>`;
+}
+
+/** Frase de titularidades (itens 2+3) para o lead do "Escopo Contratado". Texto
+ *  livre quando preenchido; genérico quando vazio. Sempre fecha com a cláusula
+ *  de proposta complementar para outras titularidades. */
+function titularidadesFrase(d: DadosPropostaTemplate): string {
+  const alvo = d.titularidades.trim()
+    ? `os grupos/titularidades aqui contratados (${esc(d.titularidades.trim())})`
+    : 'os grupos/titularidades aqui contratados';
+  return `Esta proposta contempla ${alvo} — demandas relativas a outras titularidades serão objeto de proposta complementar.`;
 }
 
 // ── Variação por TIPO de documento ──────────────────────────────────────────
@@ -323,6 +386,7 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
     <h2 class="text-4xl md:text-5xl font-bold text-principal mb-6">Sua Operação Financeira em Boas Mãos.</h2>
     <p class="text-xl md:text-2xl text-secundario leading-relaxed font-light max-w-4xl mx-auto">${intro}</p>
   </section>
+  ${oPlanoHTML(t, contr)}
   <div class="w-11/12 mx-auto border-t border-gray-200"></div>
 
   <section id="servicos" class="p-12 md:p-20" style="background:var(--cor-fundo-alternativo)">
@@ -387,7 +451,7 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
       <div class="max-w-5xl mx-auto">
         <h3 class="text-sm font-semibold text-secundario uppercase tracking-wide">Alinhamento</h3>
         <h2 class="text-3xl font-bold text-principal mt-1 mb-3">Escopo Contratado e Limites</h2>
-        <p class="text-secundario leading-relaxed mb-8 max-w-3xl">O escopo descrito reflete exatamente a volumetria precificada — você paga pelo esforço dimensionado, com renegociação transparente se os volumes crescerem.</p>
+        <p class="text-secundario leading-relaxed mb-8 max-w-3xl">O escopo descrito reflete exatamente a volumetria precificada — você paga pelo esforço dimensionado, com reajuste transparente se os volumes crescerem. ${titularidadesFrase(d)}</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">${blocosEscopo(d, t, contr)}</div>
         ${observacoesHTML(d)}
       </div>
@@ -400,7 +464,7 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Validade</strong><p class="text-secundario text-base mt-1">Esta proposta é válida por ${d.validadeDias} dias a partir da data de apresentação.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Pagamento</strong><p class="text-secundario text-base mt-1">Pagamento mensal via boleto, com vencimento todo dia ${d.diaVencimento}.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Rescisão</strong><p class="text-secundario text-base mt-1">O contrato pode ser rescindido por qualquer das partes mediante aviso prévio de 30 (trinta) dias. Nos 3 (três) primeiros meses de vigência — período de experiência — a rescisão pode ser solicitada a qualquer momento, sem necessidade de aviso prévio.</p></div>
-      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Excedentes</strong><p class="text-secundario text-base mt-1">${CLAUSULA_EXCEDENTE}</p></div>
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Reajuste por Volume Excedente</strong><p class="text-secundario text-base mt-1">${clausulaExcedente(d)}</p></div>
     </div>
   </section>
 

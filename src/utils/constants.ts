@@ -250,6 +250,16 @@ export const TEMPO_DEMANDA_JURIDICA_HORAS_DEFAULT = 2.5;     // 1,5 analisar + 1
 export const CUSTO_HORA_JURIDICO_DEFAULT = 82.88;
 export const FATOR_DEMANDA_JURIDICA_DEFAULT = 1.0;
 
+// ── POLÍTICA DE REAJUSTE POR VOLUME EXCEDENTE (texto da proposta) ──────────
+// Parâmetros da cláusula de excedente escrita no documento — NÃO entram no
+// cálculo do fee, apenas na redação. Globais e editáveis (Configurações →
+// Reajuste). Tolerância: folga sobre o volume contratado antes de reajustar.
+// Valor por faixa: acréscimo a cada bloco de {tolerância}% adicional. Medição:
+// periodicidade de aferição do volume real (não retroativo).
+export const TOLERANCIA_VOLUME_PCT_DEFAULT = 20;            // 20% de folga
+export const PERIODICIDADE_MEDICAO_MESES_DEFAULT = 3;       // medição trimestral
+export const VALOR_FAIXA_EXCEDENTE_DEFAULT = 500;          // R$ por faixa adicional
+
 // ── PARÂMETROS GLOBAIS DEFAULT ─────────────────────────────────────────
 export const PARAMETROS_DEFAULT: Parametros = {
   custo_juridico_mensal: 0,
@@ -265,6 +275,9 @@ export const PARAMETROS_DEFAULT: Parametros = {
   tempo_demanda_juridica_horas: TEMPO_DEMANDA_JURIDICA_HORAS_DEFAULT,
   custo_hora_juridico: CUSTO_HORA_JURIDICO_DEFAULT,
   fator_demanda_juridica: FATOR_DEMANDA_JURIDICA_DEFAULT,
+  tolerancia_volume_pct: TOLERANCIA_VOLUME_PCT_DEFAULT,
+  periodicidade_medicao_meses: PERIODICIDADE_MEDICAO_MESES_DEFAULT,
+  valor_faixa_excedente: VALOR_FAIXA_EXCEDENTE_DEFAULT,
 };
 
 // Lista de funções de alocação (usada em iterações)
