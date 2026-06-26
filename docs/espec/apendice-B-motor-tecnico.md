@@ -78,7 +78,7 @@ calcularFatorNormalizacao(colaboradores, somaPctPorColab): Record<string, number
 calcularOciosidade(colaboradores, somaPctPorColab): number
 calcularPctDistribuido(clientes, funcao, colaborador): Record<string, number>
 calcularFatorSobrecarga(clientes, funcao, colaborador): number
-somarHorasNormativas(clientes, funcao): number
+somarHorasDemanda(clientes, funcao): number
 horasProdutivasMes(colaborador): number
 ```
 

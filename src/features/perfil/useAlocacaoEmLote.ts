@@ -8,7 +8,7 @@ import { useApp } from '../../state/AppContext';
 import { salvarClienteBase, sincronizarVinculoFuncao, salvarVinculosPct } from '../../services/firebase';
 import {
   calcularPctDistribuido, calcularFatorSobrecarga,
-  somarHorasNormativas, horasProdutivasMes,
+  somarHorasDemanda, horasProdutivasMes,
   ocupacaoConsolidada as calcOcupacaoConsolidada,
 } from '../../utils/financials';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
@@ -214,16 +214,16 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
   ), [pctEditado, pctOriginal]);
 
   // Diagnóstico de capacidade.
-  const horasNormativasTotais = useMemo(
-    () => funcao ? somarHorasNormativas(clientesDoColaborador, funcao) : 0,
+  const horasDemandaTotais = useMemo(
+    () => funcao ? somarHorasDemanda(clientesDoColaborador, funcao) : 0,
     [clientesDoColaborador, funcao]);
   const horasProdutivas = colaboradorSelecionado ? horasProdutivasMes(colaboradorSelecionado) : 0;
   const fatorSobrecarga = useMemo(
     () => (funcao && colaboradorSelecionado)
       ? calcularFatorSobrecarga(clientesDoColaborador, funcao, colaboradorSelecionado) : 0,
     [clientesDoColaborador, funcao, colaboradorSelecionado]);
-  const capacidadeLivreHoras = horasProdutivas - horasNormativasTotais;
-  const emSobrecarga = horasNormativasTotais > horasProdutivas;
+  const capacidadeLivreHoras = horasProdutivas - horasDemandaTotais;
+  const emSobrecarga = horasDemandaTotais > horasProdutivas;
 
   const salvarTodos = useCallback(async (): Promise<number> => {
     if (!periodoSelecionado || !funcao || alteracoes === 0) return 0;
@@ -288,7 +288,7 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
     pctEditado, pctOriginal, pctSugerido, travados,
     setPct, resetCliente, recalcularTudo,
     alteracoes, ocupacaoTotal, ocupacaoConsolidada, percentualAlocavel,
-    horasNormativasTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
+    horasDemandaTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo: periodoSelecionado,
     removerCliente, removendo, periodoFechado,
   };

@@ -187,7 +187,7 @@ export function calcularFatorSobrecarga(
 
 /** Soma das horas de DEMANDA dos clientes na função — base de volume real
  *  (horasBaseClienteFuncao: horas reais quando há perfil, HORAS_PACOTE fallback). */
-export function somarHorasNormativas(
+export function somarHorasDemanda(
   clientes: Cliente[], funcao: FuncaoAlocacao,
 ): number {
   return clientes.reduce(

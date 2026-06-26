@@ -28,7 +28,7 @@ export { processarPeriodo } from './financials.pipeline';
 export {
   calcularPctDistribuido,
   calcularFatorSobrecarga,
-  somarHorasNormativas,
+  somarHorasDemanda,
   horasProdutivasMes,
   pctEfetivo,
   ocupacaoConsolidada,
