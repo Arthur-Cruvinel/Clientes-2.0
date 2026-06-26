@@ -164,10 +164,14 @@ export function calcularPctDistribuido(
 }
 
 /** Fator de sobrecarga POR COLABORADOR (não por cliente):
- *    fator = horasProdutivasMes(colab) / somaHorasNormativas
+ *    fator = horasProdutivasMes(colab) / somaHorasDemanda
  *    onde horasProdutivasMes já escala por percentual_alocavel (horas
  *    DISPONÍVEIS PARA CLIENTES, não o tempo integral da localidade).
- *    < 1.0 → colaborador não tem capacidade pra atender no nível dos pacotes
+ *    A demanda usa horas REAIS de volume (horasBaseClienteFuncao — mesma base
+ *    de calcularPctDistribuido: calcularHorasReais quando há perfil, HORAS_PACOTE
+ *    como fallback). Caminho 1: a sobrecarga reflete carga real, não a norma do
+ *    tier.
+ *    < 1.0 → colaborador não tem capacidade pra atender a demanda real
  *    ≥ 1.0 → capacidade ok, podendo absorver mais clientes */
 export function calcularFatorSobrecarga(
   clientes: Cliente[],
@@ -175,18 +179,19 @@ export function calcularFatorSobrecarga(
   colaborador: Colaborador,
 ): number {
   const somaHoras = clientes.reduce(
-    (s, c) => s + (HORAS_PACOTE[c.pacote_servico]?.[funcao] ?? 0), 0,
+    (s, c) => s + horasBaseClienteFuncao(c, funcao), 0,
   );
   if (somaHoras === 0) return 0;
   return horasProdutivasMes(colaborador) / somaHoras;
 }
 
-/** Soma das horas normativas dos pacotes dos clientes na função. */
+/** Soma das horas de DEMANDA dos clientes na função — base de volume real
+ *  (horasBaseClienteFuncao: horas reais quando há perfil, HORAS_PACOTE fallback). */
 export function somarHorasNormativas(
   clientes: Cliente[], funcao: FuncaoAlocacao,
 ): number {
   return clientes.reduce(
-    (s, c) => s + (HORAS_PACOTE[c.pacote_servico]?.[funcao] ?? 0), 0,
+    (s, c) => s + horasBaseClienteFuncao(c, funcao), 0,
   );
 }
 
