@@ -13,6 +13,8 @@ import {
   FUNCOES_ALOCACAO, HORAS_PACOTE, HORAS_CLT_MES, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE,
 } from '../../utils/constants';
 import { normalizarFuncao } from '../perfil/utilsAlocacao';
+import { pctEfetivo, calcularHorasReais } from '../../utils/financials';
+import { horasEfetivasMensais } from '../../utils/financials.alocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao, PacoteServico } from '../../types';
 
 // Pacotes elegíveis para absorção: asset_only não consome horas de CFO.
@@ -41,6 +43,29 @@ export interface ColaboradorCapacidade {
   extrapolaEscopo: boolean;            // algum cliente com fatorEscopo > 1
   porFuncao: Partial<Record<FuncaoAlocacao, UsoFuncao>>;
 }
+// ── Matriz funcionário × cliente (excesso) — Frente 1, Movimento 3 ──────────
+// Responde "qual colaborador gasta, num cliente, o tempo que faltava para
+// outro?". Por par (X, C) na FUNÇÃO PRINCIPAL de X:
+//   REAL     = horas que X dedica a C (horasEfetivasMensais do pct efetivo —
+//              mesma "Horas efet." da Alocação em Lote: pct × HORAS_CLT_MES ×
+//              percentual_alocavel). Fonte do pct = pctEfetivo (vínculo-first).
+//   ESPERADO = componente da FUNÇÃO de X na demanda de volume de C
+//              (calcularHorasReais(C).por_funcao[fp]; sem perfil → HORAS_PACOTE,
+//              mesmo gate de horasBaseClienteFuncao). NÃO o total do cliente.
+//   EXCESSO  = REAL − ESPERADO. Positivo = X super-serve C (capacidade que
+//              falta a outro).
+export interface ExcessoCliente {
+  nome_cliente: string; pacote: PacoteServico;
+  real: number; esperado: number; excesso: number;
+}
+export interface ExcessoColaborador {
+  colaborador: Colaborador;
+  funcao: FuncaoAlocacao;
+  label: string;
+  itens: ExcessoCliente[];        // só excesso > 0, ordenado desc
+  totalExcesso: number;
+}
+
 export interface CapacidadeFuncao { funcao: FuncaoAlocacao; horasLivres: number; demanda: number; capacidade: number; }
 export interface PacoteCapacidade {
   pacote: PacoteServico;
@@ -171,6 +196,42 @@ export function useCapacidade() {
     return out;
   }, [porColaborador]);
 
+  // Matriz de excesso por colaborador (Movimento 3). Itera os pares (X, C) e
+  // mantém só os clientes onde X super-serve (excesso > 0) na sua função
+  // principal. Reuso: pctEfetivo (real, vínculo-first), horasEfetivasMensais
+  // (mesma "Horas efet." da Alocação em Lote), calcularHorasReais (esperado).
+  const excessoPorColaborador = useMemo<ExcessoColaborador[]>(() => {
+    const out: ExcessoColaborador[] = [];
+    for (const colab of colaboradores) {
+      const fp = normalizarFuncao(colab.funcao_principal);
+      if (!fp) continue;
+      const alocavel = colab.percentual_alocavel ?? 0;
+      const itens: ExcessoCliente[] = [];
+      for (const cli of clientes) {
+        const pct = pctEfetivo(colab, cli, fp, vinculos);
+        if (pct <= 0) continue;                       // X não atende C nesta função
+        const real = horasEfetivasMensais(pct, alocavel);
+        // ESPERADO: componente da função fp na demanda de volume de C. Mesmo
+        // gate de horasBaseClienteFuncao — horas reais quando há perfil, senão
+        // a norma do pacote (evita ÷ perfil ausente).
+        const esperado = cli.perfil_complexidade
+          ? (calcularHorasReais(cli, cli.perfil_complexidade).por_funcao[fp] ?? 0)
+          : (HORAS_PACOTE[cli.pacote_servico]?.[fp] ?? 0);
+        const excesso = real - esperado;
+        if (excesso > 0.01) {
+          itens.push({ nome_cliente: cli.nome_cliente, pacote: cli.pacote_servico, real, esperado, excesso });
+        }
+      }
+      if (itens.length === 0) continue;
+      itens.sort((a, b) => b.excesso - a.excesso);
+      out.push({
+        colaborador: colab, funcao: fp, label: LABEL_FUNCAO[fp],
+        itens, totalExcesso: itens.reduce((s, i) => s + i.excesso, 0),
+      });
+    }
+    return out.sort((a, b) => b.totalExcesso - a.totalExcesso);
+  }, [colaboradores, clientes, vinculos]);
+
   const absorcaoPorPacote = useMemo(
     () => capacidadePorPacote(horasLivresPorFuncao), [horasLivresPorFuncao]);
 
@@ -189,5 +250,5 @@ export function useCapacidade() {
     return { porPacote: capacidadePorPacote(livres), custoEstimadoMensal: custo, totalContratacoes: total };
   }, [horasLivresPorFuncao, custoMedioPorFuncao, HORAS_NOVO_PADRAO]);
 
-  return { porColaborador, absorcaoPorPacote, horasLivresPorFuncao, custoMedioPorFuncao, simular, loading };
+  return { porColaborador, excessoPorColaborador, absorcaoPorPacote, horasLivresPorFuncao, custoMedioPorFuncao, simular, loading };
 }
