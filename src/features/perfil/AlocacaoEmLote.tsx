@@ -10,7 +10,8 @@ import { CapacidadeDrillDown } from '../capacidade/CapacidadeDrillDown';
 import { ReplicarAlocacaoModal } from './ReplicarAlocacaoModal';
 import { Modal } from '../../components/ui/Modal';
 import { useAuth } from '../../state/AuthContext';
-import { HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
+import { HORAS_PACOTE } from '../../utils/constants';
+import { horasReaisPorCliente } from '../../utils/financials.alocacao';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
 import type { ChaveOrdAlocacao } from './ordenacaoAlocacao';
 
@@ -229,7 +230,7 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                   const original = pctOriginal[cli.nome_cliente] ?? 0;
                   const alterado = Math.abs(novo - original) > 1e-9;
                   const manual = travados.has(cli.nome_cliente);
-                  const horasEfet = novo * HORAS_CLT_MES * percentualAlocavel;
+                  const horasEfet = horasReaisPorCliente(novo);
                   return (
                     <tr key={cli.id ?? cli.nome_cliente}>
                       <td className={TD} style={{ color: '#160F41' }}>{cli.nome_cliente}</td>

@@ -6,7 +6,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { formatPercent } from '../../utils/formatters';
-import { HORAS_CLT_MES, FUNCOES_ALOCACAO } from '../../utils/constants';
+import { FUNCOES_ALOCACAO } from '../../utils/constants';
+import { horasReaisPorCliente } from '../../utils/financials.alocacao';
 import { Modal } from '../../components/ui/Modal';
 import { useApp } from '../../state/AppContext';
 import { salvarVinculosPct } from '../../services/firebase';
@@ -155,7 +156,7 @@ export function ColaboradorAlocacao({ derivado, clientes, periodo }: Props) {
             <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
               {atendidos.map(cli => {
                 const pct = pcts[cli.nome_cliente] ?? 0;
-                const horasEfet = pct * HORAS_CLT_MES * pa;
+                const horasEfet = horasReaisPorCliente(pct);
                 const alterado = cli.id_estavel && Math.abs(pct - pctEfetivo(cli, funcao)) > 1e-9;
                 return (
                   <tr key={cli.nome_cliente}>

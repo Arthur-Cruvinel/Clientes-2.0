@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Pencil, UserPlus } from 'lucide-react';
 import { formatCurrency, formatPercent, encontrarPoupanca } from '../../utils/formatters';
-import { FUNCOES_ALOCACAO, HORAS_CLT_MES } from '../../utils/constants';
+import { FUNCOES_ALOCACAO } from '../../utils/constants';
+import { horasReaisPorCliente } from '../../utils/financials.alocacao';
 import type { Vinculo } from '../../types/vinculo';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
@@ -221,16 +222,15 @@ function ResumoTab({ c }: { c: import('../../types').DadosCliente }) {
 function AlocacaoTab({ c, hp, vinculos }: { c: import('../../types').DadosCliente; hp: Record<string, Record<string, number>>; vinculos: Vinculo[] }) {
   const pacoteHoras = hp[c.pacote_servico] ?? {};
   // Leitura dual (Fase 2.5 — Peça 6): pct vem do vínculo com pct>0; senão do
-  // campo legado cliente.pct_${funcao}. calcularFatoresEscopo (motor) lê só o
-  // legado, então o Fator/H.Efet são calculados inline aqui para refletir a
-  // alocação real dos vínculos. Função intacta — usada noutros pontos.
+  // campo legado cliente.pct_${funcao}. "H. Efet." usa a base canônica
+  // horasReaisPorCliente (pct × 164) — mesma do custo e da ocupação.
   const TH = 'px-2 py-1.5 text-[10px] font-bold uppercase text-left';
   const TD = 'px-2 py-1.5 text-sm';
   return (
     <table className="min-w-full text-sm">
       <thead style={{ backgroundColor: '#f9f9fb' }}>
         <tr><th className={TH}>Função</th><th className={TH}>Responsável</th><th className={`${TH} text-right`} title="Horas normativas do pacote (HORAS_PACOTE) — não é hora alocada">H. Pacote</th>
-          <th className={`${TH} text-right`} title="pct alocado ÷ pct normativo do pacote">Escopo</th><th className={`${TH} text-right`}>H. Efet.</th></tr>
+          <th className={`${TH} text-right`}>H. Efet.</th></tr>
       </thead>
       <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
         {FUNCOES_ALOCACAO.map(f => {
@@ -240,14 +240,11 @@ function AlocacaoTab({ c, hp, vinculos }: { c: import('../../types').DadosClient
             ? vinculos.find(v => v.id_estavel_cliente === c.id_estavel && v.funcao === f && v.pct > 0)
             : undefined;
           const pctReal = vinculo?.pct ?? ((c as unknown as Record<string, number>)[`pct_${f}`] ?? 0);
-          const pctNormativo = hDir / HORAS_CLT_MES;
-          const fator = pctNormativo > 0 ? pctReal / pctNormativo : 0;
-          const hEf = hDir * fator;
+          const hEf = horasReaisPorCliente(pctReal);
           return (
             <tr key={f}>
               <td className={TD}>{LABEL_F[f]}</td><td className={TD}>{resp}</td>
               <td className={`${TD} text-right`}>{hDir}h</td>
-              <td className={`${TD} text-right`} style={{ color: fator > 1 ? '#dc2626' : '#16a34a' }}>{fator.toFixed(2)}</td>
               <td className={`${TD} text-right`}>{hEf.toFixed(1)}h</td>
             </tr>
           );

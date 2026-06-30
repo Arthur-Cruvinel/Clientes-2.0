@@ -12,7 +12,7 @@ import {
   TABELA_INSS, TABELA_IRRF, REDUTOR_IR_2026, DEDUCAO_DEPENDENTE_IRRF,
   ANO_FOLHA_VIGENTE,
 } from './constants';
-import { horasEfetivasMensais, pctEfetivoFuncao } from './financials.alocacao';
+import { horasReaisPorCliente, pctEfetivoFuncao } from './financials.alocacao';
 
 // ============================================================
 // Tabelas progressivas — INSS e IRRF
@@ -424,7 +424,7 @@ export function detalharMaoDeObra(
       funcao,
       responsavel: colab.nome_colaborador,
       pct: pctEfetivo,
-      horas: horasEfetivasMensais(pctEfetivo, colab.percentual_alocavel ?? 0),
+      horas: horasReaisPorCliente(pctEfetivo),
       valor: colab.custo_total_mensal * pctEfetivo,
     });
   }

@@ -8,14 +8,18 @@
 
 import type { Cliente, Colaborador, FuncaoAlocacao } from '../types';
 import type { Vinculo } from '../types/vinculo';
-import { HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE, HORAS_CLT_MES, FUNCOES_ALOCACAO } from './constants';
+import { HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE, FUNCOES_ALOCACAO } from './constants';
 import { calcularHorasReais } from './financials.horasReais';
 
-/** Horas mensais que um pct de dedicação representa — MESMA fórmula da tela de
- *  Alocação ("Horas efet."): pct × HORAS_CLT_MES × percentual_alocavel. Fonte
- *  única para o drill-down de mão de obra reusar (não recriar a fórmula). */
-export function horasEfetivasMensais(pct: number, percentualAlocavel: number): number {
-  return pct * HORAS_CLT_MES * percentualAlocavel;
+/** Horas reais que um pct de dedicação representa no mês — FONTE ÚNICA da base de
+ *  "horas por cliente" (Frente 2). Convenção canônica, alinhada ao custo
+ *  (custo_total ÷ HORAS_PRODUTIVAS) e à ocupação da Capacidade: pct × 164
+ *  (HORAS_PRODUTIVAS_MES). O `pct` já é fração do tempo TOTAL trabalhado
+ *  (Σpct por colaborador = percentual_alocavel — custos.ts:366-369), por isso
+ *  NÃO se multiplica por percentual_alocavel de novo. SP e RJ valem 164, então
+ *  `.SP` serve aos dois; se as localidades divergirem, passar a localidade aqui. */
+export function horasReaisPorCliente(pct: number): number {
+  return pct * HORAS_PRODUTIVAS_MES_POR_LOCALIDADE.SP;
 }
 
 // ── Dual-read de alocação (FONTE CANÔNICA) ──────────────────────────────────

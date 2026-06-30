@@ -207,8 +207,8 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
       : { total: 0, porFuncao: {} as Record<string, number> },
     [colaboradorSelecionado, todosClientes, vinculos]);
   const clientesOrdenados = useMemo<Cliente[]>(() => [...clientesDoColaborador].sort(
-    compararClientes(ordenacao, { funcao, pctEditado, pctOriginal, percentualAlocavel }),
-  ), [clientesDoColaborador, ordenacao, funcao, pctEditado, pctOriginal, percentualAlocavel]);
+    compararClientes(ordenacao, { pctEditado, pctOriginal }),
+  ), [clientesDoColaborador, ordenacao, pctEditado, pctOriginal]);
   const alteracoes = useMemo(() => Object.keys(pctEditado).reduce(
     (n, k) => n + (Math.abs((pctEditado[k] ?? 0) - (pctOriginal[k] ?? 0)) > 1e-9 ? 1 : 0), 0,
   ), [pctEditado, pctOriginal]);

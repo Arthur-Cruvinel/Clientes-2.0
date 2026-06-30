@@ -1,9 +1,9 @@
 // --- Ordenação da tabela de Alocação em Lote ---
 // Mesmo padrão do features/colaboradores/ordenacao.ts (CLAUDE.md regra 10).
 
-import type { Cliente, FuncaoAlocacao } from '../../types';
+import type { Cliente } from '../../types';
 import type { OrdenacaoState } from '../../components/ui/HeaderOrdenavel';
-import { HORAS_CLT_MES } from '../../utils/constants';
+import { horasReaisPorCliente } from '../../utils/financials.alocacao';
 
 export type ChaveOrdAlocacao =
   | 'nome_cliente' | 'pacote_servico' | 'pct_atual'
@@ -11,17 +11,18 @@ export type ChaveOrdAlocacao =
 
 export type OrdenacaoAlocacao = OrdenacaoState<ChaveOrdAlocacao>;
 
+// funcao/percentualAlocavel saíram do Contexto: o comparador deixou de lê-los
+// (a ordenação por escopo saiu no Bloco 1; "horas_efetivas" agora usa a base
+// canônica pct × 164, sem percentual_alocavel).
 interface Contexto {
-  funcao: FuncaoAlocacao | null;
   pctEditado: Record<string, number>;
   pctOriginal: Record<string, number>;
-  percentualAlocavel: number;
 }
 
 export function compararClientes(o: OrdenacaoAlocacao, ctx: Contexto) {
   const dir = o.direcao === 'asc' ? 1 : -1;
   const horasDe = (cli: Cliente) =>
-    (ctx.pctEditado[cli.nome_cliente] ?? 0) * HORAS_CLT_MES * ctx.percentualAlocavel;
+    horasReaisPorCliente(ctx.pctEditado[cli.nome_cliente] ?? 0);
   return (a: Cliente, b: Cliente): number => {
     switch (o.coluna) {
       case 'nome_cliente':   return a.nome_cliente.localeCompare(b.nome_cliente, 'pt-BR') * dir;
