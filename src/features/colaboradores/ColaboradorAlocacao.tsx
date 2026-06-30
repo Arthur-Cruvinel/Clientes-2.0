@@ -6,7 +6,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { formatPercent } from '../../utils/formatters';
-import { HORAS_CLT_MES, HORAS_PACOTE, FUNCOES_ALOCACAO } from '../../utils/constants';
+import { HORAS_CLT_MES, FUNCOES_ALOCACAO } from '../../utils/constants';
 import { Modal } from '../../components/ui/Modal';
 import { useApp } from '../../state/AppContext';
 import { salvarVinculosPct } from '../../services/firebase';
@@ -32,11 +32,6 @@ function statusDe(ocupacao: number): StatusOcupacao {
   if (ocupacao > 1.2) return 'sobrecarga';
   if (ocupacao > 1.0) return 'atencao';
   return 'ok';
-}
-function corFator(fator: number): string {
-  if (fator > 1.5) return '#dc2626';
-  if (fator > 1.0) return '#ea580c';
-  return '#16a34a';
 }
 
 export function ColaboradorAlocacao({ derivado, clientes, periodo }: Props) {
@@ -155,18 +150,12 @@ export function ColaboradorAlocacao({ derivado, clientes, periodo }: Props) {
                 <th className={`${TH} text-left`} style={{ color: '#6b6b8a' }}>Pacote</th>
                 <th className={`${TH} text-right`} style={{ color: '#6b6b8a' }}>% Dedicação</th>
                 <th className={`${TH} text-right`} style={{ color: '#6b6b8a' }}>Horas efet.</th>
-                <th className={`${TH} text-right`} style={{ color: '#6b6b8a' }} title="pct alocado ÷ pct normativo do pacote">Escopo</th>
               </tr>
             </thead>
             <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
               {atendidos.map(cli => {
                 const pct = pcts[cli.nome_cliente] ?? 0;
                 const horasEfet = pct * HORAS_CLT_MES * pa;
-                const horasPacote = HORAS_PACOTE[cli.pacote_servico]?.[funcao] ?? 0;
-                // Escopo = horas efetivas (já com percentual_alocavel) ÷ horas-
-                // direito da função no pacote, coerente com a coluna "Horas efet.".
-                // 0 quando a função não tem horas-direito no pacote (evita ÷0).
-                const fator = horasPacote > 0 ? horasEfet / horasPacote : 0;
                 const alterado = cli.id_estavel && Math.abs(pct - pctEfetivo(cli, funcao)) > 1e-9;
                 return (
                   <tr key={cli.nome_cliente}>
@@ -179,9 +168,6 @@ export function ColaboradorAlocacao({ derivado, clientes, periodo }: Props) {
                         style={{ border: '1px solid #e2e2e8', color: '#160F41', backgroundColor: alterado ? '#fef3c7' : '#fff' }} />
                     </td>
                     <td className={`${TD} text-right`} style={{ color: '#6b6b8a' }}>{horasEfet.toFixed(1)}h</td>
-                    <td className={`${TD} text-right`}>
-                      <span className="font-medium" style={{ color: corFator(fator) }}>{fator.toFixed(2)}</span>
-                    </td>
                   </tr>
                 );
               })}

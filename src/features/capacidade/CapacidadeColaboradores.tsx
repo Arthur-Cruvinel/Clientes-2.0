@@ -36,7 +36,7 @@ export function CapacidadeColaboradores({ dados }: { dados: ColaboradorCapacidad
       fp,
       label: rotuloFuncao(fp),
       colabs: mapa[fp],
-      alerta: mapa[fp].some(d => d.extrapolaEscopo || d.ocupacaoPct > 1),
+      alerta: mapa[fp].some(d => d.ocupacaoPct > 1),
     }));
   }, [dados]);
 
@@ -64,7 +64,7 @@ export function CapacidadeColaboradores({ dados }: { dados: ColaboradorCapacidad
               <span className="flex items-center gap-2">
                 {g.alerta && (
                   <span className="flex items-center gap-1 text-[10px] font-medium" style={{ color: '#ea580c' }}
-                    title="Algum colaborador do grupo está sobrecarregado (>100%) ou extrapola o escopo do pacote">
+                    title="Algum colaborador do grupo está sobrecarregado (>100% da capacidade alocável)">
                     <AlertTriangle size={11} /> atenção
                   </span>
                 )}
@@ -91,13 +91,6 @@ export function CapacidadeColaboradores({ dados }: { dados: ColaboradorCapacidad
                           <span className="text-xs font-bold" style={{ color: cor(d.ocupacaoPct) }}>{pct.toFixed(0)}%</span>
                         </div>
                         <p className="text-[11px]" style={{ color: '#6b6b8a' }}>{d.colaborador.cargo}</p>
-                        {d.extrapolaEscopo && (
-                          <span className="inline-block mb-1 px-1.5 py-0.5 rounded text-[9px] font-medium"
-                            style={{ backgroundColor: '#fff7ed', color: '#ea580c' }}
-                            title="Algum cliente consome mais horas que o pacote prevê (escopo > 1)">
-                            ⚠ extrapola escopo
-                          </span>
-                        )}
                         <div className="mb-2" />
                         <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#eef0f4' }}>
                           <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: cor(d.ocupacaoPct) }} />

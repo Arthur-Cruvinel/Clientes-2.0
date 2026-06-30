@@ -10,7 +10,7 @@
 import { useMemo, useCallback } from 'react';
 import { useApp } from '../../state/AppContext';
 import {
-  FUNCOES_ALOCACAO, HORAS_PACOTE, HORAS_CLT_MES, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE,
+  FUNCOES_ALOCACAO, HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE,
 } from '../../utils/constants';
 import { normalizarFuncao } from '../perfil/utilsAlocacao';
 import { pctEfetivo, calcularHorasReais } from '../../utils/financials';
@@ -29,10 +29,6 @@ export const LABEL_FUNCAO: Record<FuncaoAlocacao, string> = {
 
 export interface ClienteAlocado {
   nome: string; pacote: PacoteServico; pct: number; horas: number;
-  // Aderência ao escopo do pacote: pct_real / pct_normativo (HORAS_PACOTE/HORAS_CLT_MES).
-  // > 1 = extrapola o pacote (gasta mais horas/cliente que o previsto). Infinity =
-  // função fora do pacote (pacote prevê 0h nessa função, mas há alocação). 0 = sem alocação.
-  fatorEscopo: number;
 }
 export interface UsoFuncao { horas: number; clientes: ClienteAlocado[]; }
 export interface ColaboradorCapacidade {
@@ -40,7 +36,6 @@ export interface ColaboradorCapacidade {
   horasDisponiveis: number;
   horasUsadas: number;
   ocupacaoPct: number;                 // horasUsadas / horasDisponiveis (0 se disp=0)
-  extrapolaEscopo: boolean;            // algum cliente com fatorEscopo > 1
   porFuncao: Partial<Record<FuncaoAlocacao, UsoFuncao>>;
 }
 // ── Matriz funcionário × cliente (excesso) — Frente 1, Movimento 3 ──────────
@@ -139,7 +134,6 @@ export function useCapacidade() {
       const horasDisponiveis = horasProd * (colab.percentual_alocavel ?? 0);
       const porFuncao: Partial<Record<FuncaoAlocacao, UsoFuncao>> = {};
       let horasUsadas = 0;
-      let extrapolaEscopo = false;
       for (const f of FUNCOES_ALOCACAO) {
         const clis = cliPorFuncaoColab.get(`${f}|${colab.nome_colaborador}`) ?? [];
         if (clis.length === 0) continue;
@@ -152,17 +146,13 @@ export function useCapacidade() {
           const pct = (vinc !== undefined && vinc > 0) ? vinc : legado;
           const horas = pct * horasProd;
           horasFuncao += horas;
-          // Escopo: pct real vs normativo do pacote nessa função.
-          const pctNormativo = (HORAS_PACOTE[cli.pacote_servico]?.[f] ?? 0) / HORAS_CLT_MES;
-          const fatorEscopo = pctNormativo > 0 ? pct / pctNormativo : (pct > 0 ? Infinity : 0);
-          if (fatorEscopo > 1) extrapolaEscopo = true;
-          lista.push({ nome: cli.nome_cliente, pacote: cli.pacote_servico, pct, horas, fatorEscopo });
+          lista.push({ nome: cli.nome_cliente, pacote: cli.pacote_servico, pct, horas });
         }
         porFuncao[f] = { horas: horasFuncao, clientes: lista };
         horasUsadas += horasFuncao;
       }
       const ocupacaoPct = horasDisponiveis > 0 ? horasUsadas / horasDisponiveis : 0;
-      return { colaborador: colab, horasDisponiveis, horasUsadas, ocupacaoPct, extrapolaEscopo, porFuncao };
+      return { colaborador: colab, horasDisponiveis, horasUsadas, ocupacaoPct, porFuncao };
     }).sort((a, b) => b.ocupacaoPct - a.ocupacaoPct);
   }, [colaboradores, indices]);
 

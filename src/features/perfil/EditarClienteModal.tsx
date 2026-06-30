@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
-import { FUNCOES_ALOCACAO, HORAS_CLT_MES, HORAS_PACOTE } from '../../utils/constants';
+import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { buscarHistoricoAlteracoes, excluirClientePeriodo, excluirClientePermanente } from '../../services/firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { useAuth } from '../../state/AuthContext';
@@ -292,21 +292,9 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
               </select>
             </div>
             {FUNCOES_ALOCACAO.map(f => {
-              const colabFuncao = ((form as Record<string, unknown>)[f] as string | undefined) ?? '';
-              const semColab = !colabFuncao.trim();
               const pctPercentual = (form as Record<string, unknown>)[`pct_${f}`] as number;
-              const horasPacote = HORAS_PACOTE[form.pacote_servico]?.[f] ?? 0;
-              const pctNorm = horasPacote / HORAS_CLT_MES;
-              const fator = (form.pacote_servico === 'asset_only' || pctNorm <= 0)
-                ? 0 : (pctPercentual / 100) / pctNorm;
-              // Fator só faz sentido quando há colaborador atribuído E pct > 0;
-              // caso contrário renderiza '—' em cinza.
-              const semFator = semColab || pctPercentual <= 0;
-              const corFator = semFator ? '#9ca3af'
-                : fator > 1.5 ? '#dc2626'
-                : fator > 1.0 ? '#ea580c' : '#16a34a';
               return (
-                <div key={f} className="grid grid-cols-3 gap-2 items-end">
+                <div key={f} className="grid grid-cols-2 gap-2 items-end">
                   <div>
                     <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>{LABEL_F[f]}</label>
                     <select value={(form as Record<string, unknown>)[f] as string ?? ''}
@@ -329,13 +317,6 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
                     <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>% dedicação</label>
                     <div className={INP} style={{ ...BRD, backgroundColor: '#f9f9fb', color: '#6b6b8a' }}>
                       {pctPercentual.toFixed(1)}%
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-medium" style={{ color: '#6b6b8a' }}>Fator</label>
-                    <div className="text-xs font-medium px-2 py-1.5 rounded text-center"
-                      style={{ backgroundColor: '#f9f9fb', color: corFator }}>
-                      {semFator ? '—' : fator.toFixed(2)}
                     </div>
                   </div>
                 </div>
