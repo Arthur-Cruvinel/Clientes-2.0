@@ -27,7 +27,7 @@ const ABAS = ['Resumo', 'Alocação', 'Configuração', 'Cadastral'] as const;
 export function Perfil() {
   const {
     clientes, clienteSelecionado, selecionar, busca, setBusca,
-    modalAberto, setModalAberto, colaboradores, parametros, salvarCliente, salvando,
+    modalAberto, setModalAberto, colaboradores, salvarCliente, salvando,
     avisoSalvar, setAvisoSalvar,
     loading, periodoLabel, bankersUnicos, empresariosUnicos, atualizarCampoEmLote, carregar,
     ordenacaoLista, setOrdenacaoLista, filtroNomeColuna, setFiltroNomeColuna,
@@ -168,7 +168,7 @@ export function Perfil() {
             {/* Conteúdo */}
             <div className="rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
               {aba === 'Resumo' && <ResumoTab c={c} />}
-              {aba === 'Alocação' && <AlocacaoTab c={c} hp={parametros.horas_pacote} vinculos={dadosPeriodo?.vinculos ?? []} />}
+              {aba === 'Alocação' && <AlocacaoTab c={c} vinculos={dadosPeriodo?.vinculos ?? []} />}
               {aba === 'Configuração' && <ConfigTab c={c} />}
               {aba === 'Cadastral' && <CadastralTab c={c} poupanca={poupancaCliente} periodoLabel={periodoLabel} />}
             </div>
@@ -219,8 +219,7 @@ function ResumoTab({ c }: { c: import('../../types').DadosCliente }) {
   );
 }
 
-function AlocacaoTab({ c, hp, vinculos }: { c: import('../../types').DadosCliente; hp: Record<string, Record<string, number>>; vinculos: Vinculo[] }) {
-  const pacoteHoras = hp[c.pacote_servico] ?? {};
+function AlocacaoTab({ c, vinculos }: { c: import('../../types').DadosCliente; vinculos: Vinculo[] }) {
   // Leitura dual (Fase 2.5 — Peça 6): pct vem do vínculo com pct>0; senão do
   // campo legado cliente.pct_${funcao}. "H. Efet." usa a base canônica
   // horasReaisPorCliente (pct × 164) — mesma do custo e da ocupação.
@@ -229,13 +228,12 @@ function AlocacaoTab({ c, hp, vinculos }: { c: import('../../types').DadosClient
   return (
     <table className="min-w-full text-sm">
       <thead style={{ backgroundColor: '#f9f9fb' }}>
-        <tr><th className={TH}>Função</th><th className={TH}>Responsável</th><th className={`${TH} text-right`} title="Horas normativas do pacote (HORAS_PACOTE) — não é hora alocada">H. Pacote</th>
+        <tr><th className={TH}>Função</th><th className={TH}>Responsável</th>
           <th className={`${TH} text-right`}>H. Efet.</th></tr>
       </thead>
       <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
         {FUNCOES_ALOCACAO.map(f => {
           const resp = (c as unknown as Record<string, unknown>)[f] as string ?? '—';
-          const hDir = pacoteHoras[f] ?? 0;
           const vinculo = c.id_estavel
             ? vinculos.find(v => v.id_estavel_cliente === c.id_estavel && v.funcao === f && v.pct > 0)
             : undefined;
@@ -244,7 +242,6 @@ function AlocacaoTab({ c, hp, vinculos }: { c: import('../../types').DadosClient
           return (
             <tr key={f}>
               <td className={TD}>{LABEL_F[f]}</td><td className={TD}>{resp}</td>
-              <td className={`${TD} text-right`}>{hDir}h</td>
               <td className={`${TD} text-right`}>{hEf.toFixed(1)}h</td>
             </tr>
           );
