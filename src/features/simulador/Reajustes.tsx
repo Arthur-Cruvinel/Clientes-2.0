@@ -22,7 +22,7 @@ const PERFIL_LABEL: Record<PerfilStatus, { txt: string; cor: string; bg: string 
   parcial:  { txt: 'Parcial',  cor: '#92400e', bg: '#fef3c7' },
   ausente:  { txt: 'Ausente',  cor: '#6b7280', bg: '#f3f4f6' },
 };
-const PERFIL_TIP = 'Base do cálculo de horas: completo = perfil + volumetria; parcial = perfil sem volumetria mensal (consumo zero REAL, não pendência); ausente = sem perfil → fallback HORAS_PACOTE.';
+const PERFIL_TIP = 'Base do cálculo de horas: completo = perfil + volumetria; parcial = perfil sem volumetria mensal (consumo zero REAL, não pendência); ausente = sem perfil → sem demanda estimável (sem diagnóstico de atendimento).';
 
 function badgeView(r: ReajusteRow) {
   switch (r.badge) {

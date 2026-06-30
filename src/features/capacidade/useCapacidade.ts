@@ -13,7 +13,7 @@ import {
   FUNCOES_ALOCACAO, HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE,
 } from '../../utils/constants';
 import { normalizarFuncao } from '../perfil/utilsAlocacao';
-import { pctEfetivo, calcularHorasReais } from '../../utils/financials';
+import { calcularHorasReais } from '../../utils/financials';
 import { horasReaisPorCliente } from '../../utils/financials.alocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao, PacoteServico } from '../../types';
 
@@ -40,13 +40,15 @@ export interface ColaboradorCapacidade {
 }
 // ── Matriz funcionário × cliente (excesso) — Frente 1, Movimento 3 ──────────
 // Responde "qual colaborador gasta, num cliente, o tempo que faltava para
-// outro?". Por par (X, C) na FUNÇÃO PRINCIPAL de X:
-//   REAL     = horas que X dedica a C (horasReaisPorCliente do pct efetivo —
-//              base canônica pct × 164, a mesma do custo e da ocupação). Fonte
-//              do pct = pctEfetivo (vínculo-first).
+// outro?". Vista da CARTEIRA de cada colaborador (Frente 3): só entram os
+// clientes com VÍNCULO (colab, cliente, função) e pct>0 — match por id_estavel.
+// Por par (X, C) na FUNÇÃO PRINCIPAL de X:
+//   REAL     = horas que X dedica a C (horasReaisPorCliente do pct do vínculo —
+//              base canônica pct × 164, a mesma do custo e da ocupação).
 //   ESPERADO = componente da FUNÇÃO de X na demanda de volume de C
-//              (calcularHorasReais(C).por_funcao[fp]; sem perfil → HORAS_PACOTE,
-//              mesmo gate de horasBaseClienteFuncao). NÃO o total do cliente.
+//              (calcularHorasReais(C).por_funcao[fp]). NÃO o total do cliente.
+//              Cliente SEM perfil_complexidade fica FORA da matriz (sem demanda
+//              estimável — sem fallback ao tier).
 //   EXCESSO  = REAL − ESPERADO. Positivo = X super-serve C (capacidade que
 //              falta a outro).
 export interface ExcessoCliente {
@@ -186,26 +188,27 @@ export function useCapacidade() {
     return out;
   }, [porColaborador]);
 
-  // Matriz de excesso por colaborador (Movimento 3). Itera os pares (X, C) e
-  // mantém só os clientes onde X super-serve (excesso > 0) na sua função
-  // principal. Reuso: pctEfetivo (real, vínculo-first), horasReaisPorCliente
-  // (mesma "Horas efet." da Alocação em Lote), calcularHorasReais (esperado).
+  // Matriz de excesso por colaborador (Movimento 3 + Frente 3). Para cada par
+  // (X, C) na função principal de X, inclui C SÓ se há vínculo (X, C, fp) com
+  // pct>0 (carteira real, via índice vincPct por id_estavel — NÃO o campo legado
+  // cliente[pct_funcao], que vazava clientes alheios pelo fallback do pctEfetivo).
   const excessoPorColaborador = useMemo<ExcessoColaborador[]>(() => {
+    const { vincPct } = indices;
     const out: ExcessoColaborador[] = [];
     for (const colab of colaboradores) {
       const fp = normalizarFuncao(colab.funcao_principal);
       if (!fp) continue;
       const itens: ExcessoCliente[] = [];
       for (const cli of clientes) {
-        const pct = pctEfetivo(colab, cli, fp, vinculos);
-        if (pct <= 0) continue;                       // X não atende C nesta função
+        // CARTEIRA: exige vínculo (colab, cliente, função) com pct>0.
+        const pct = (colab.id_estavel && cli.id_estavel)
+          ? (vincPct.get(`${colab.id_estavel}|${cli.id_estavel}|${fp}`) ?? 0) : 0;
+        if (pct <= 0) continue;
+        // Sem perfil de complexidade não há demanda de volume estimável → fora
+        // da matriz (consistente com a Reajustes; sem fallback ao tier).
+        if (!cli.perfil_complexidade) continue;
         const real = horasReaisPorCliente(pct);
-        // ESPERADO: componente da função fp na demanda de volume de C. Mesmo
-        // gate de horasBaseClienteFuncao — horas reais quando há perfil, senão
-        // a norma do pacote (evita ÷ perfil ausente).
-        const esperado = cli.perfil_complexidade
-          ? (calcularHorasReais(cli, cli.perfil_complexidade).por_funcao[fp] ?? 0)
-          : (HORAS_PACOTE[cli.pacote_servico]?.[fp] ?? 0);
+        const esperado = calcularHorasReais(cli, cli.perfil_complexidade).por_funcao[fp] ?? 0;
         const excesso = real - esperado;
         if (excesso > 0.01) {
           itens.push({ nome_cliente: cli.nome_cliente, pacote: cli.pacote_servico, real, esperado, excesso });
@@ -219,7 +222,7 @@ export function useCapacidade() {
       });
     }
     return out.sort((a, b) => b.totalExcesso - a.totalExcesso);
-  }, [colaboradores, clientes, vinculos]);
+  }, [colaboradores, clientes, indices]);
 
   const absorcaoPorPacote = useMemo(
     () => capacidadePorPacote(horasLivresPorFuncao), [horasLivresPorFuncao]);
