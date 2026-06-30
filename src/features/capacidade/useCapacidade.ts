@@ -13,7 +13,7 @@ import {
   FUNCOES_ALOCACAO, HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE,
 } from '../../utils/constants';
 import { normalizarFuncao } from '../perfil/utilsAlocacao';
-import { calcularHorasReais } from '../../utils/financials';
+import { calcularHorasReais, somarHorasDemanda, calcularFatorSobrecarga, horasProdutivasMes } from '../../utils/financials';
 import { horasReaisPorCliente } from '../../utils/financials.alocacao';
 import type { Colaborador, Cliente, FuncaoAlocacao, PacoteServico } from '../../types';
 
@@ -61,6 +61,19 @@ export interface ExcessoColaborador {
   label: string;
   itens: ExcessoCliente[];        // só excesso > 0, ordenado desc
   totalExcesso: number;
+}
+
+// Vista provisória per-colaborador (Frente 3) — capacidade livre por pessoa.
+export interface CapacidadeLivreColaborador {
+  colaborador: Colaborador;
+  funcao: FuncaoAlocacao;
+  label: string;
+  horasProdutivas: number;
+  horasDemanda: number;
+  capacidadeLivre: number;
+  fatorSobrecarga: number;
+  emSobrecarga: boolean;
+  clientesFullLivre: number;
 }
 
 export interface CapacidadeFuncao { funcao: FuncaoAlocacao; horasLivres: number; demanda: number; capacidade: number; }
@@ -224,6 +237,32 @@ export function useCapacidade() {
     return out.sort((a, b) => b.totalExcesso - a.totalExcesso);
   }, [colaboradores, clientes, indices]);
 
+  // ── VISTA PROVISÓRIA — capacidade livre POR COLABORADOR (Frente 3) ──────────
+  // Realojada aqui da Alocação em Lote (onde era métrica de nível errado numa
+  // tela individual). Forma MÍNIMA, sem acabamento: a ser redesenhada na futura
+  // reforma do módulo Capacidade (módulo hoje de baixo nível). Reusa os helpers
+  // que vieram junto (somarHorasDemanda, horasProdutivasMes, calcularFatorSobrecarga).
+  const capacidadeLivrePorColaborador = useMemo<CapacidadeLivreColaborador[]>(() => {
+    const { cliPorFuncaoColab } = indices;
+    const out: CapacidadeLivreColaborador[] = [];
+    for (const colab of colaboradores) {
+      const fp = normalizarFuncao(colab.funcao_principal);
+      if (!fp) continue;
+      const clientesDoColab = cliPorFuncaoColab.get(`${fp}|${colab.nome_colaborador}`) ?? [];
+      const horasProdutivas = horasProdutivasMes(colab);
+      const horasDemanda = somarHorasDemanda(clientesDoColab, fp);
+      const fatorSobrecarga = calcularFatorSobrecarga(clientesDoColab, fp, colab);
+      const capacidadeLivre = horasProdutivas - horasDemanda;
+      const clientesFullLivre = Math.floor(capacidadeLivre / (HORAS_PACOTE.full[fp] || 1));
+      out.push({
+        colaborador: colab, funcao: fp, label: LABEL_FUNCAO[fp],
+        horasProdutivas, horasDemanda, capacidadeLivre, fatorSobrecarga,
+        emSobrecarga: horasDemanda > horasProdutivas, clientesFullLivre,
+      });
+    }
+    return out.sort((a, b) => a.capacidadeLivre - b.capacidadeLivre);
+  }, [colaboradores, indices]);
+
   const absorcaoPorPacote = useMemo(
     () => capacidadePorPacote(horasLivresPorFuncao), [horasLivresPorFuncao]);
 
@@ -242,5 +281,5 @@ export function useCapacidade() {
     return { porPacote: capacidadePorPacote(livres), custoEstimadoMensal: custo, totalContratacoes: total };
   }, [horasLivresPorFuncao, custoMedioPorFuncao, HORAS_NOVO_PADRAO]);
 
-  return { porColaborador, excessoPorColaborador, absorcaoPorPacote, horasLivresPorFuncao, custoMedioPorFuncao, simular, loading };
+  return { porColaborador, excessoPorColaborador, capacidadeLivrePorColaborador, absorcaoPorPacote, horasLivresPorFuncao, custoMedioPorFuncao, simular, loading };
 }

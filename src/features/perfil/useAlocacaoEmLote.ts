@@ -7,8 +7,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useApp } from '../../state/AppContext';
 import { salvarClienteBase, sincronizarVinculoFuncao, salvarVinculosPct } from '../../services/firebase';
 import {
-  calcularPctDistribuido, calcularFatorSobrecarga,
-  somarHorasDemanda, horasProdutivasMes,
+  calcularPctDistribuido,
   ocupacaoConsolidada as calcOcupacaoConsolidada,
 } from '../../utils/financials';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
@@ -213,17 +212,6 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
     (n, k) => n + (Math.abs((pctEditado[k] ?? 0) - (pctOriginal[k] ?? 0)) > 1e-9 ? 1 : 0), 0,
   ), [pctEditado, pctOriginal]);
 
-  // Diagnóstico de capacidade.
-  const horasDemandaTotais = useMemo(
-    () => funcao ? somarHorasDemanda(clientesDoColaborador, funcao) : 0,
-    [clientesDoColaborador, funcao]);
-  const horasProdutivas = colaboradorSelecionado ? horasProdutivasMes(colaboradorSelecionado) : 0;
-  const fatorSobrecarga = useMemo(
-    () => (funcao && colaboradorSelecionado)
-      ? calcularFatorSobrecarga(clientesDoColaborador, funcao, colaboradorSelecionado) : 0,
-    [clientesDoColaborador, funcao, colaboradorSelecionado]);
-  const capacidadeLivreHoras = horasProdutivas - horasDemandaTotais;
-  const emSobrecarga = horasDemandaTotais > horasProdutivas;
 
   const salvarTodos = useCallback(async (): Promise<number> => {
     if (!periodoSelecionado || !funcao || alteracoes === 0) return 0;
@@ -288,7 +276,6 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
     pctEditado, pctOriginal, pctSugerido, travados,
     setPct, resetCliente, recalcularTudo,
     alteracoes, ocupacaoTotal, ocupacaoConsolidada, percentualAlocavel,
-    horasDemandaTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo: periodoSelecionado,
     removerCliente, removendo, periodoFechado,
   };

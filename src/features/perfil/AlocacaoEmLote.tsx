@@ -2,7 +2,7 @@
 // Distribuição automática + override manual; fator = sobrecarga por colaborador.
 
 import { useState } from 'react';
-import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, CheckCircle2, Trash2, ChevronDown, ChevronUp, Copy, Download } from 'lucide-react';
+import { Loader2, AlertTriangle, Save, RotateCcw, RefreshCw, Trash2, ChevronDown, ChevronUp, Copy, Download } from 'lucide-react';
 import { useAlocacaoEmLote } from './useAlocacaoEmLote';
 import { exportAlocacaoExcel } from '../../utils/exportAlocacao';
 import { useCapacidade } from '../capacidade/useCapacidade';
@@ -10,7 +10,6 @@ import { CapacidadeDrillDown } from '../capacidade/CapacidadeDrillDown';
 import { ReplicarAlocacaoModal } from './ReplicarAlocacaoModal';
 import { Modal } from '../../components/ui/Modal';
 import { useAuth } from '../../state/AuthContext';
-import { HORAS_PACOTE } from '../../utils/constants';
 import { horasReaisPorCliente } from '../../utils/financials.alocacao';
 import { HeaderOrdenavel } from '../../components/ui/HeaderOrdenavel';
 import type { ChaveOrdAlocacao } from './ordenacaoAlocacao';
@@ -38,7 +37,6 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
     funcao, clientesOrdenados, pctEditado, pctOriginal, travados,
     setPct, resetCliente, recalcularTudo,
     alteracoes, ocupacaoConsolidada, percentualAlocavel,
-    horasDemandaTotais, horasProdutivas, fatorSobrecarga, capacidadeLivreHoras, emSobrecarga,
     ordenacao, setOrdenarPor, salvando, salvarTodos, periodo,
     removerCliente, removendo, periodoFechado,
     colaboradores, todosClientes, vinculos,
@@ -86,8 +84,6 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
 
   const TH = 'px-3 py-2 text-[10px] font-bold uppercase tracking-wider';
   const TD = 'px-3 py-2 text-xs';
-  const horasLightLivre = funcao ? Math.floor(capacidadeLivreHoras / (HORAS_PACOTE.light[funcao] || 1)) : 0;
-  const horasFullLivre = funcao ? Math.floor(capacidadeLivreHoras / (HORAS_PACOTE.full[funcao] || 1)) : 0;
   // Guarda de sobre-alocação (avisa, não bloqueia) — usa a ocupação CONSOLIDADA
   // (todas as 6 funções), pois a sobre-alocação cruza funções.
   const piColab = colaboradorSelecionado?.percentual_institucional ?? 0;
@@ -273,29 +269,6 @@ export function AlocacaoEmLote({ selecaoInicial }: { selecaoInicial?: { nome: st
                 })}
               </tbody>
             </table>
-          </div>
-
-          <div className="rounded-lg p-3 space-y-2" style={{ backgroundColor: '#f9f9fb' }}>
-            <p className="text-xs font-medium" style={{ color: '#160F41' }}>
-              Demanda dos clientes — {LABEL_FUNCAO_CURTA[funcao] ?? funcao}
-            </p>
-            <p className="text-[10px]" style={{ color: '#6b6b8a' }}>
-              <strong>{horasDemandaTotais.toFixed(0)}h</strong> de demanda real dos clientes desta função (volume quando há perfil; senão pacote) · de <strong>{horasProdutivas.toFixed(0)}h</strong> disponíveis/mês
-            </p>
-            {emSobrecarga ? (
-              <p className="flex items-center gap-1 text-xs" style={{ color: '#dc2626' }}>
-                <AlertTriangle size={12} /> Sobrecarga: <strong>{(horasDemandaTotais - horasProdutivas).toFixed(0)}h</strong> acima da capacidade — nível de serviço comprometido (fator {fatorSobrecarga.toFixed(2)})
-              </p>
-            ) : (
-              <>
-                <p className="flex items-center gap-1 text-xs" style={{ color: '#166534' }}>
-                  <CheckCircle2 size={12} /> Capacidade livre (teórica): <strong>{capacidadeLivreHoras.toFixed(0)}h</strong> (~{horasLightLivre} clientes light ou {horasFullLivre} clientes full)
-                </p>
-                <p className="text-[10px]" style={{ color: '#9ca3af' }}>
-                  baseada no escopo dos pacotes, não na alocação efetiva
-                </p>
-              </>
-            )}
           </div>
 
           {toast && <div className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-700">{toast}</div>}
