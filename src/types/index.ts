@@ -643,6 +643,11 @@ export interface FaixaExtraordinario {
   clausula_pct_min?: number;  // faixa % informativa — mínimo (success fee / % da causa)
   clausula_pct_max?: number;  // faixa % informativa — máximo
   clausula_minimo?: number;   // R$ mínimo (contencioso)
+  // Textos-padrão do serviço (Frente A) — preenchem o cabeçalho ao adicionar no
+  // Orçador, editáveis por orçamento. Nascem VAZIOS (o CFO preenche na config).
+  descricao_padrao?: string;
+  prazo_padrao?: string;
+  dependencias_padrao?: string;
 }
 
 export interface Parametros {

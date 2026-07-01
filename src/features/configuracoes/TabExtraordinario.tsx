@@ -22,6 +22,9 @@ export function TabExtraordinario({ parametros, onSalvar, salvando }: Props) {
   const setCampo = (tipo: TipoExtraordinario, campo: keyof FaixaExtraordinario, valor: number) => {
     setExt(prev => ({ ...prev, [tipo]: { ...prev[tipo], [campo]: valor } }));
   };
+  const setTexto = (tipo: TipoExtraordinario, campo: 'descricao_padrao' | 'prazo_padrao' | 'dependencias_padrao', valor: string) => {
+    setExt(prev => ({ ...prev, [tipo]: { ...prev[tipo], [campo]: valor } }));
+  };
 
   const salvar = () => {
     if (!confirm('Estas faixas/percentuais são GLOBAIS — afetam todos os orçamentos extraordinários novos. Confirmar?')) return;
@@ -78,6 +81,26 @@ export function TabExtraordinario({ parametros, onSalvar, salvando }: Props) {
                       <input type="number" step="100" value={f.clausula_minimo ?? 0} onChange={e => setCampo(cat.tipo, 'clausula_minimo', Number(e.target.value))} className={INP} style={BRD} />
                     </label>
                   )}
+                </div>
+                {/* Textos-padrão do serviço (Frente A) — preenchem o cabeçalho no Orçador. */}
+                <div className="mt-3 space-y-2 pt-3 border-t" style={{ borderColor: '#f3f4f6' }}>
+                  <label className="block">
+                    <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Descrição padrão</span>
+                    <textarea rows={2} value={f.descricao_padrao ?? ''} onChange={e => setTexto(cat.tipo, 'descricao_padrao', e.target.value)}
+                      className="rounded-lg px-2 py-1.5 text-sm w-full" style={BRD} placeholder="Descrição canônica do serviço (editável por orçamento)" />
+                  </label>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="block flex-1 min-w-40">
+                      <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Prazo típico</span>
+                      <input value={f.prazo_padrao ?? ''} onChange={e => setTexto(cat.tipo, 'prazo_padrao', e.target.value)}
+                        className="rounded-lg px-2 py-1.5 text-sm w-full" style={BRD} placeholder="ex.: 30–45 dias úteis" />
+                    </label>
+                    <label className="block flex-1 min-w-40">
+                      <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Dependências do cliente</span>
+                      <input value={f.dependencias_padrao ?? ''} onChange={e => setTexto(cat.tipo, 'dependencias_padrao', e.target.value)}
+                        className="rounded-lg px-2 py-1.5 text-sm w-full" style={BRD} placeholder="ex.: documentação societária, acesso a demonstrativos" />
+                    </label>
+                  </div>
                 </div>
               </div>
             );

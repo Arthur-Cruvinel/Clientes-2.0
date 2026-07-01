@@ -98,7 +98,18 @@ export function Orcador() {
     setIdEstavelCliente(cli?.id_estavel);
   }
 
+  // Semeia o cabeçalho do serviço (do catálogo em parametros) na 1ª cobrança de um
+  // tipo; se já existe, preserva o que o CFO editou por orçamento.
+  function garantirMeta(tipo: TipoExtraordinario) {
+    setServicosMeta(prev => {
+      if (prev[tipo]) return prev;
+      const fx = parametros.extraordinario[tipo];
+      return { ...prev, [tipo]: { descricao: fx?.descricao_padrao ?? '', prazo: fx?.prazo_padrao ?? '', dependencias: fx?.dependencias_padrao ?? '' } };
+    });
+  }
+
   function adicionarItem() {
+    garantirMeta(tipoNovo);
     const cat = CATALOGO_POR_TIPO[tipoNovo];
     // CALCULADO (por esforço): nasce com horas zeradas + margem default; preço 0
     // até o usuário informar horas (recalculado em setItemCalc).
