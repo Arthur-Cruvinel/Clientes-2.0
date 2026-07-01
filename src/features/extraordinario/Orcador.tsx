@@ -51,7 +51,13 @@ export function Orcador() {
     [...(dadosPeriodo?.clientes ?? [])].map(c => c.nome_cliente).sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [dadosPeriodo]);
 
-  const valorTotal = useMemo(() => itens.reduce((s, it) => s + (it.valor || 0), 0), [itens]);
+  // Total HETEROGÊNEO: bloco FECHADO (tabelado + calculado, em R$) separado do
+  // CONDICIONAL (success fee — regras + projeções estimadas, que NUNCA fecham).
+  const totalFechado = useMemo(
+    () => itens.filter(it => (it.natureza ?? 'tabelado') !== 'success_fee').reduce((s, it) => s + (it.valor || 0), 0),
+    [itens]);
+  const successFees = useMemo(() => itens.filter(it => it.natureza === 'success_fee'), [itens]);
+  const totalProjecao = useMemo(() => successFees.reduce((s, it) => s + (it.projecao_success ?? 0), 0), [successFees]);
 
   useEffect(() => { buscarOrcamentos().then(setOrcamentos).catch(() => {}); }, []);
 
@@ -151,7 +157,7 @@ export function Orcador() {
       nome_cliente: nomeCliente.trim() || 'Cliente',
       id_estavel_cliente: idEstavelCliente,
       itens,
-      valor_total: valorTotal,
+      valor_total: totalFechado,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
       observacoes: observacoes.trim() || undefined,
     };
@@ -360,10 +366,16 @@ export function Orcador() {
                 </div>
               );
             })}
-            <div className="flex items-center justify-between px-1 pt-1">
-              <span className="text-sm font-semibold" style={{ color: '#160F41' }}>Valor total</span>
-              <span className="text-lg font-bold" style={{ color: '#732AD8' }}>{formatCurrency(valorTotal)}</span>
+            <div className="flex items-center justify-between px-1 pt-1 border-t" style={{ borderColor: '#e2e2e8' }}>
+              <span className="text-sm font-semibold" style={{ color: '#160F41' }}>Total fechado <span className="text-[10px] font-normal" style={{ color: '#9ca3af' }}>(tabelado + calculado)</span></span>
+              <span className="text-lg font-bold" style={{ color: '#732AD8' }}>{formatCurrency(totalFechado)}</span>
             </div>
+            {successFees.length > 0 && (
+              <div className="flex items-center justify-between px-1" style={{ color: '#92400e' }}>
+                <span className="text-xs font-medium">Condicional — {successFees.length} success fee{successFees.length > 1 ? 's' : ''} (não fecha)</span>
+                <span className="text-xs font-semibold">projeção estimada ~{formatCurrency(totalProjecao)}</span>
+              </div>
+            )}
           </div>
         )}
 

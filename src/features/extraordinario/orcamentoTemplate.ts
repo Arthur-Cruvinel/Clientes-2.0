@@ -97,9 +97,15 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
     <p class="text-secundario leading-relaxed mb-6 max-w-3xl">Serviços extraordinários — pontuais e não-recorrentes, fora do fee mensal — orçados a preço de mercado.</p>
     <div>${itensHTML(d)}</div>
     <div class="flex items-center justify-between mt-6 pt-4">
-      <span class="text-base font-semibold text-principal uppercase tracking-wide">Valor Total</span>
+      <span class="text-base font-semibold text-principal uppercase tracking-wide">Total (fechado)</span>
       <span class="text-3xl font-extrabold text-primario">${brl(d.valor_total)}</span>
     </div>
+    ${(() => {
+      const sf = d.itens.filter(it => it.natureza === 'success_fee');
+      if (!sf.length) return '';
+      const proj = sf.reduce((s, it) => s + (it.projecao_success ?? 0), 0);
+      return `<div class="flex items-center justify-between mt-2 text-secundario"><span class="text-sm font-medium">Condicional — ${sf.length} success fee${sf.length > 1 ? 's' : ''} (não fecha)</span><span class="text-sm font-semibold">projeção estimada ~${brl(proj)}</span></div>`;
+    })()}
     ${temClausula ? `<p class="text-[12px] text-secundario mt-4 italic">As cláusulas percentuais acima são informativas e independem do valor fixo orçado; o êxito/mais-valia é apurado no resultado.</p>` : ''}
   </section>
 
