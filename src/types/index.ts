@@ -614,6 +614,7 @@ export interface ServicoOrcamento {
   descricao: string;                 // texto-padrão do catálogo, editável (nasce vazio)
   prazo: string;                     // prazo típico, editável (nasce vazio)
   dependencias: string;              // dependências do cliente, editável (nasce vazio)
+  ressalvas?: string;                // ressalvas do serviço (após dependências); opcional (retrocompat)
   cobrancas: ItemOrcamento[];        // as linhas de cobrança (tabelado/calculado/success_fee)
 }
 
@@ -648,6 +649,7 @@ export interface FaixaExtraordinario {
   descricao_padrao?: string;
   prazo_padrao?: string;
   dependencias_padrao?: string;
+  ressalvas_padrao?: string;   // ressalvas específicas do serviço (após dependências)
 }
 
 export interface Parametros {

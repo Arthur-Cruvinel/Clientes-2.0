@@ -77,6 +77,9 @@ function servicoHTML(s: ServicoOrcamento, mostrarSubtotal: boolean): string {
     s.dependencias?.trim() ? `<span><strong>Dependências:</strong> ${esc(s.dependencias)}</span>` : '',
   ].filter(Boolean).join(' · ');
   const metaHTML = meta ? `<p class="text-[13px] text-secundario mt-1">${meta}</p>` : '';
+  // Ressalvas do serviço — após dependências, texto menor.
+  const ressalvasHTML = s.ressalvas?.trim()
+    ? `<p class="text-[11px] text-secundario mt-1"><strong>Ressalvas:</strong> ${esc(s.ressalvas)}</p>` : '';
   const fechado = s.cobrancas.filter(c => (c.natureza ?? 'tabelado') !== 'success_fee').reduce((a, c) => a + (c.valor || 0), 0);
   const sf = s.cobrancas.filter(c => c.natureza === 'success_fee');
   const proj = sf.reduce((a, c) => a + (c.projecao_success ?? 0), 0);
@@ -87,7 +90,7 @@ function servicoHTML(s: ServicoOrcamento, mostrarSubtotal: boolean): string {
   </div>${sf.length ? `<div class="flex items-center justify-between mt-1 text-secundario"><span class="text-sm">Success fee devido no êxito (não somado ao total fechado)</span><span class="text-sm font-semibold">estimativa de referência ~${brl(proj)}</span></div>` : ''}`
     : '';
   return `<div class="py-5 border-b border-gray-200">
-    <strong class="text-principal text-xl">${esc(titulo)}</strong>${desc}${metaHTML}
+    <strong class="text-principal text-xl">${esc(titulo)}</strong>${desc}${metaHTML}${ressalvasHTML}
     <div class="mt-3">${s.cobrancas.map(cobrancaHTML).join('')}</div>
     ${rodape}
   </div>`;
@@ -156,6 +159,10 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
     <div class="max-w-3xl mx-auto space-y-4">
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Validade</strong><p class="text-secundario text-base mt-1">Este orçamento é válido por ${d.validadeDias} dias a partir da data de apresentação.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Natureza</strong><p class="text-secundario text-base mt-1">Serviços extraordinários são pontuais e não-recorrentes, cobrados à parte do fee mensal de gestão.</p></div>
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Natureza da obrigação</strong><p class="text-secundario text-base mt-1">Os serviços constituem obrigação de meio, não de resultado. A assessoria não garante a conclusão da operação nem resultado específico.</p></div>
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Informações do cliente</strong><p class="text-secundario text-base mt-1">As análises e trabalhos baseiam-se em informações e documentos fornecidos pelo cliente, presumidos completos, atualizados e verídicos. A Galácticos não responde por conclusões afetadas por omissão ou inexatidão nas informações recebidas.</p></div>
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Despesas de terceiros</strong><p class="text-secundario text-base mt-1">Custos de terceiros (certidões, cartórios, auditorias externas, pareceres de especialistas, traduções, viagens) não estão incluídos e serão repassados mediante aprovação prévia do cliente.</p></div>
+      <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Escopo delimitado</strong><p class="text-secundario text-base mt-1">Este orçamento contempla exclusivamente os serviços aqui descritos. Demandas adicionais serão objeto de orçamento específico.</p></div>
       ${d.observacoes && d.observacoes.trim() ? `<div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Observações</strong><p class="text-secundario text-base mt-1">${esc(d.observacoes)}</p></div>` : ''}
     </div>
   </section>

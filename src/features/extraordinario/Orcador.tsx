@@ -30,8 +30,8 @@ const horasZero = (): Record<FuncaoAlocacao, number> => ({
 });
 
 // Cabeçalho editável do serviço (por tipo, por orçamento). Cobranças ficam nos itens.
-type ServicoMeta = { titulo?: string; descricao: string; prazo: string; dependencias: string };
-const metaVazia = (): ServicoMeta => ({ descricao: '', prazo: '', dependencias: '' });
+type ServicoMeta = { titulo?: string; descricao: string; prazo: string; dependencias: string; ressalvas: string };
+const metaVazia = (): ServicoMeta => ({ descricao: '', prazo: '', dependencias: '', ressalvas: '' });
 
 /** Monta os serviços a partir da lista PLANA de cobranças (agrupada por tipo, na
  *  ordem da 1ª aparição) + os cabeçalhos editáveis (servicosMeta). VIEW/escrita. */
@@ -44,7 +44,7 @@ function montarServicos(itens: ItemOrcamento[], meta: Partial<Record<TipoExtraor
   }
   return ordem.map(tipo => {
     const m = meta[tipo] ?? metaVazia();
-    return { tipo, titulo: m.titulo, descricao: m.descricao, prazo: m.prazo, dependencias: m.dependencias, cobrancas: porTipo.get(tipo)! };
+    return { tipo, titulo: m.titulo, descricao: m.descricao, prazo: m.prazo, dependencias: m.dependencias, ressalvas: m.ressalvas, cobrancas: porTipo.get(tipo)! };
   });
 }
 
@@ -54,7 +54,7 @@ function desmontarServicos(servicos: ServicoOrcamento[]): { itens: ItemOrcamento
   const meta: Partial<Record<TipoExtraordinario, ServicoMeta>> = {};
   for (const s of servicos) {
     itens.push(...s.cobrancas);
-    meta[s.tipo] = { titulo: s.titulo, descricao: s.descricao ?? '', prazo: s.prazo ?? '', dependencias: s.dependencias ?? '' };
+    meta[s.tipo] = { titulo: s.titulo, descricao: s.descricao ?? '', prazo: s.prazo ?? '', dependencias: s.dependencias ?? '', ressalvas: s.ressalvas ?? '' };
   }
   return { itens, meta };
 }
@@ -104,7 +104,7 @@ export function Orcador() {
     setServicosMeta(prev => {
       if (prev[tipo]) return prev;
       const fx = parametros.extraordinario[tipo];
-      return { ...prev, [tipo]: { descricao: fx?.descricao_padrao ?? '', prazo: fx?.prazo_padrao ?? '', dependencias: fx?.dependencias_padrao ?? '' } };
+      return { ...prev, [tipo]: { descricao: fx?.descricao_padrao ?? '', prazo: fx?.prazo_padrao ?? '', dependencias: fx?.dependencias_padrao ?? '', ressalvas: fx?.ressalvas_padrao ?? '' } };
     });
   }
 
@@ -273,7 +273,7 @@ export function Orcador() {
   }
 
   // Edita o cabeçalho do serviço (por tipo).
-  const setMetaCampo = (tipo: TipoExtraordinario, campo: 'titulo' | 'descricao' | 'prazo' | 'dependencias', valor: string) => {
+  const setMetaCampo = (tipo: TipoExtraordinario, campo: 'titulo' | 'descricao' | 'prazo' | 'dependencias' | 'ressalvas', valor: string) => {
     setServicosMeta(prev => ({ ...prev, [tipo]: { ...(prev[tipo] ?? metaVazia()), [campo]: valor } }));
   };
 
@@ -450,6 +450,8 @@ export function Orcador() {
                       <input value={meta.prazo} onChange={e => setMetaCampo(g.tipo, 'prazo', e.target.value)} className="rounded px-2 py-1 text-sm w-full" style={BRD} placeholder="Prazo" />
                       <input value={meta.dependencias} onChange={e => setMetaCampo(g.tipo, 'dependencias', e.target.value)} className="rounded px-2 py-1 text-sm w-full" style={BRD} placeholder="Dependências do cliente" />
                     </div>
+                    <textarea rows={2} value={meta.ressalvas} onChange={e => setMetaCampo(g.tipo, 'ressalvas', e.target.value)}
+                      className="rounded px-2 py-1 text-[12px] w-full" style={{ ...BRD, color: '#6b6b8a' }} placeholder="Ressalvas (após dependências) — opcional" />
                   </div>
                   {/* Cobranças do serviço */}
                   <div className="space-y-2 pl-2 border-l-2" style={{ borderColor: '#e0edff' }}>

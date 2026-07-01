@@ -22,7 +22,7 @@ export function TabExtraordinario({ parametros, onSalvar, salvando }: Props) {
   const setCampo = (tipo: TipoExtraordinario, campo: keyof FaixaExtraordinario, valor: number) => {
     setExt(prev => ({ ...prev, [tipo]: { ...prev[tipo], [campo]: valor } }));
   };
-  const setTexto = (tipo: TipoExtraordinario, campo: 'descricao_padrao' | 'prazo_padrao' | 'dependencias_padrao', valor: string) => {
+  const setTexto = (tipo: TipoExtraordinario, campo: 'descricao_padrao' | 'prazo_padrao' | 'dependencias_padrao' | 'ressalvas_padrao', valor: string) => {
     setExt(prev => ({ ...prev, [tipo]: { ...prev[tipo], [campo]: valor } }));
   };
 
@@ -101,6 +101,11 @@ export function TabExtraordinario({ parametros, onSalvar, salvando }: Props) {
                         className="rounded-lg px-2 py-1.5 text-sm w-full" style={BRD} placeholder="ex.: documentação societária, acesso a demonstrativos" />
                     </label>
                   </div>
+                  <label className="block mt-2">
+                    <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Ressalvas padrão (após dependências)</span>
+                    <textarea rows={2} value={f.ressalvas_padrao ?? ''} onChange={e => setTexto(cat.tipo, 'ressalvas_padrao', e.target.value)}
+                      className="rounded-lg px-2 py-1.5 text-sm w-full" style={BRD} placeholder="ressalvas específicas do serviço (opcional)" />
+                  </label>
                 </div>
               </div>
             );
