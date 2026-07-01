@@ -275,6 +275,126 @@ export function Orcador() {
     setOrcamentos(await buscarOrcamentos());
   }
 
+  // Edita o cabeçalho do serviço (por tipo).
+  const setMetaCampo = (tipo: TipoExtraordinario, campo: 'titulo' | 'descricao' | 'prazo' | 'dependencias', valor: string) => {
+    setServicosMeta(prev => ({ ...prev, [tipo]: { ...(prev[tipo] ?? metaVazia()), [campo]: valor } }));
+  };
+
+  // Agrupamento por tipo (VIEW), preservando a ordem de 1ª aparição; guarda os
+  // índices originais na lista plana `itens` para os setters continuarem por idx.
+  const grupos = useMemo(() => {
+    const ordem: TipoExtraordinario[] = [];
+    const idxPorTipo = new Map<TipoExtraordinario, number[]>();
+    itens.forEach((it, idx) => {
+      if (!idxPorTipo.has(it.tipo)) { idxPorTipo.set(it.tipo, []); ordem.push(it.tipo); }
+      idxPorTipo.get(it.tipo)!.push(idx);
+    });
+    return ordem.map(tipo => ({ tipo, indices: idxPorTipo.get(tipo)! }));
+  }, [itens]);
+
+  // Render de UMA cobrança — SEM badge de natureza (a natureza sai da apresentação).
+  const renderCobranca = (it: ItemOrcamento, idx: number) => {
+    const natureza = it.natureza ?? 'tabelado';
+    if (natureza === 'success_fee') {
+      const baseLabel = it.base_success === 'mais_valia' ? 'mais-valia' : 'transação';
+      return (
+        <div key={idx} className="rounded border p-2 space-y-2" style={{ borderColor: '#e2e2e8' }}>
+          <div className="flex gap-2 items-center">
+            <input value={it.descricao} onChange={e => setItemCampo(idx, 'descricao', e.target.value)} className="rounded px-2 py-1.5 text-sm flex-grow" style={BRD} />
+            <button onClick={() => removerItem(idx)} className="px-2 py-1.5 rounded text-xs" style={{ border: '1px solid #fca5a5', color: '#dc2626' }}>✕</button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <label className="block">
+              <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Base</span>
+              <select value={it.base_success ?? 'transacao'} onChange={e => setItemSuccess(idx, { base_success: e.target.value as ItemOrcamento['base_success'] })} className="rounded px-2 py-1 text-sm w-full" style={BRD}>
+                <option value="transacao">Transação</option>
+                <option value="mais_valia">Mais-valia</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Percentual (%)</span>
+              <input type="number" step={0.5} min={0} value={Math.round((it.percentual_success ?? 0) * 1000) / 10}
+                onChange={e => setItemSuccess(idx, { percentual_success: Number(e.target.value) / 100 })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+            </label>
+            <label className="block">
+              <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Base estimada (R$)</span>
+              <input type="number" step={1000} min={0} value={it.valor_base_estimado ?? 0}
+                onChange={e => setItemSuccess(idx, { valor_base_estimado: Number(e.target.value) })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+            </label>
+          </div>
+          <div className="text-[11px]" style={{ color: '#92400e' }}>
+            Regra: <strong>{Math.round((it.percentual_success ?? 0) * 1000) / 10}%</strong> sobre {baseLabel} · projeção estimada <strong>~{formatCurrency(it.projecao_success ?? 0)}</strong> — não fecha no total.
+          </div>
+        </div>
+      );
+    }
+    if (natureza === 'calculado') {
+      const r = precoCalc(it);
+      return (
+        <div key={idx} className="rounded border p-2 space-y-2" style={{ borderColor: '#e2e2e8' }}>
+          <div className="flex gap-2 items-center">
+            <input value={it.descricao} onChange={e => setItemCampo(idx, 'descricao', e.target.value)} className="rounded px-2 py-1.5 text-sm flex-grow" style={BRD} />
+            <button onClick={() => removerItem(idx)} className="px-2 py-1.5 rounded text-xs" style={{ border: '1px solid #fca5a5', color: '#dc2626' }}>✕</button>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {FUNCOES_ALOCACAO.map(f => (
+              <label key={f} className="block">
+                <span className="text-[10px]" style={{ color: '#6b6b8a' }}>{LABEL_FUNCAO_ORC[f]} (h)</span>
+                <input type="number" step={0.5} min={0} value={it.horas_por_funcao?.[f] ?? 0}
+                  onChange={e => setHoraFuncao(idx, f, Number(e.target.value))} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+              </label>
+            ))}
+            <label className="block">
+              <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Jurídico (h)</span>
+              <input type="number" step={0.5} min={0} value={it.horas_juridicas ?? 0}
+                onChange={e => setItemCalc(idx, { horas_juridicas: Number(e.target.value) })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+            </label>
+            <label className="block">
+              <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Margem (%)</span>
+              <input type="number" step={1} min={0} max={99} value={Math.round((it.margem ?? parametros.margem_alvo) * 100)}
+                onChange={e => setItemCalc(idx, { margem: Number(e.target.value) / 100 })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+            </label>
+          </div>
+          <div className="flex items-center justify-between text-[11px]" style={{ color: '#6b6b8a' }}>
+            <span>Custo direto {formatCurrency(r.custoDireto)} · jurídico {formatCurrency(r.custoJuridico)} · overhead ×{parametros.overhead_ratio_referencia.toFixed(2)} · margem {Math.round((it.margem ?? parametros.margem_alvo) * 100)}%</span>
+            <span className="font-bold text-sm" style={{ color: r.denomInvalido ? '#991b1b' : '#160F41' }}>
+              {r.denomInvalido ? 'margem+imposto ≥ 100%' : `Preço ${formatCurrency(it.valor)}`}
+            </span>
+          </div>
+        </div>
+      );
+    }
+    // tabelado
+    const faixa = parametros.extraordinario[it.tipo];
+    return (
+      <div key={idx} className="rounded border p-2" style={{ borderColor: '#e2e2e8' }}>
+        <div className="flex gap-2 items-start">
+          <input value={it.descricao} onChange={e => setItemCampo(idx, 'descricao', e.target.value)} className="rounded px-2 py-1.5 text-sm flex-grow" style={BRD} />
+          <input type="number" step={50} value={it.valor} onChange={e => setItemCampo(idx, 'valor', Number(e.target.value))} className="rounded px-2 py-1.5 text-sm w-32 text-right" style={BRD} />
+          <button onClick={() => removerItem(idx)} className="px-2 py-1.5 rounded text-xs" style={{ border: '1px solid #fca5a5', color: '#dc2626' }}>✕</button>
+        </div>
+        <div className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>
+          Faixa sugerida: {faixa.faixa_max > 0 ? `${formatCurrency(faixa.faixa_min)} – ${formatCurrency(faixa.faixa_max)}` : 'a cravar (Configurações → Extraordinário)'}
+        </div>
+        {CATALOGO_POR_TIPO[it.tipo].clausula && (
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-[11px] font-medium" style={{ color: '#160F41' }}>
+              {CATALOGO_POR_TIPO[it.tipo].clausula === 'success_fee' ? 'Success fee (%)' : '% da causa'}
+            </span>
+            <input type="number" step={0.5} value={it.clausula_pct ?? 0} onChange={e => setItemPct(idx, Number(e.target.value))}
+              className="rounded px-2 py-1 text-sm w-20" style={BRD} />
+            <span className="text-[10px]" style={{ color: '#9ca3af' }}>
+              faixa {faixa.clausula_pct_min ?? 0}–{faixa.clausula_pct_max ?? 0}%
+            </span>
+          </div>
+        )}
+        {it.clausula_informativa && (
+          <div className="text-[11px] mt-1 italic" style={{ color: '#6b6b8a' }}>↳ {it.clausula_informativa}</div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       {/* Form */}
@@ -315,110 +435,29 @@ export function Orcador() {
           </div>
         </div>
 
-        {/* Lista de itens */}
-        {itens.length > 0 && (
-          <div className="space-y-2">
-            {itens.map((it, idx) => {
-              // ── LINHA SUCCESS FEE (condicional — não fecha no total) ──────
-              if (it.natureza === 'success_fee') {
-                const baseLabel = it.base_success === 'mais_valia' ? 'mais-valia' : 'transação';
-                return (
-                  <div key={idx} className="rounded-lg border p-3 space-y-2" style={{ borderColor: '#92400e' }}>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>Success fee · condicional</span>
-                      <input value={it.descricao} onChange={e => setItemCampo(idx, 'descricao', e.target.value)} className="rounded px-2 py-1.5 text-sm flex-grow" style={BRD} />
-                      <button onClick={() => removerItem(idx)} className="px-2 py-1.5 rounded text-xs" style={{ border: '1px solid #fca5a5', color: '#dc2626' }}>✕</button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <label className="block">
-                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Base</span>
-                        <select value={it.base_success ?? 'transacao'} onChange={e => setItemSuccess(idx, { base_success: e.target.value as ItemOrcamento['base_success'] })} className="rounded px-2 py-1 text-sm w-full" style={BRD}>
-                          <option value="transacao">Transação</option>
-                          <option value="mais_valia">Mais-valia</option>
-                        </select>
-                      </label>
-                      <label className="block">
-                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Percentual (%)</span>
-                        <input type="number" step={0.5} min={0} value={Math.round((it.percentual_success ?? 0) * 1000) / 10}
-                          onChange={e => setItemSuccess(idx, { percentual_success: Number(e.target.value) / 100 })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
-                      </label>
-                      <label className="block">
-                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Base estimada (R$)</span>
-                        <input type="number" step={1000} min={0} value={it.valor_base_estimado ?? 0}
-                          onChange={e => setItemSuccess(idx, { valor_base_estimado: Number(e.target.value) })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
-                      </label>
-                    </div>
-                    <div className="text-[11px]" style={{ color: '#92400e' }}>
-                      Regra: <strong>{Math.round((it.percentual_success ?? 0) * 1000) / 10}%</strong> sobre {baseLabel} · projeção estimada <strong>~{formatCurrency(it.projecao_success ?? 0)}</strong> — não fecha no total.
-                    </div>
-                  </div>
-                );
-              }
-              // ── LINHA CALCULADA (por esforço) ─────────────────────────────
-              if ((it.natureza ?? 'tabelado') === 'calculado') {
-                const r = precoCalc(it);
-                return (
-                  <div key={idx} className="rounded-lg border p-3 space-y-2" style={{ borderColor: '#0065FF' }}>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ backgroundColor: '#e0edff', color: '#0065FF' }}>Calculado</span>
-                      <input value={it.descricao} onChange={e => setItemCampo(idx, 'descricao', e.target.value)} className="rounded px-2 py-1.5 text-sm flex-grow" style={BRD} />
-                      <button onClick={() => removerItem(idx)} className="px-2 py-1.5 rounded text-xs" style={{ border: '1px solid #fca5a5', color: '#dc2626' }}>✕</button>
-                    </div>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {FUNCOES_ALOCACAO.map(f => (
-                        <label key={f} className="block">
-                          <span className="text-[10px]" style={{ color: '#6b6b8a' }}>{LABEL_FUNCAO_ORC[f]} (h)</span>
-                          <input type="number" step={0.5} min={0} value={it.horas_por_funcao?.[f] ?? 0}
-                            onChange={e => setHoraFuncao(idx, f, Number(e.target.value))} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
-                        </label>
-                      ))}
-                      <label className="block">
-                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Jurídico (h)</span>
-                        <input type="number" step={0.5} min={0} value={it.horas_juridicas ?? 0}
-                          onChange={e => setItemCalc(idx, { horas_juridicas: Number(e.target.value) })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
-                      </label>
-                      <label className="block">
-                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Margem (%)</span>
-                        <input type="number" step={1} min={0} max={99} value={Math.round((it.margem ?? parametros.margem_alvo) * 100)}
-                          onChange={e => setItemCalc(idx, { margem: Number(e.target.value) / 100 })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
-                      </label>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px]" style={{ color: '#6b6b8a' }}>
-                      <span>Custo direto {formatCurrency(r.custoDireto)} · jurídico {formatCurrency(r.custoJuridico)} · overhead ×{parametros.overhead_ratio_referencia.toFixed(2)} · margem {Math.round((it.margem ?? parametros.margem_alvo) * 100)}%</span>
-                      <span className="font-bold text-sm" style={{ color: r.denomInvalido ? '#991b1b' : '#160F41' }}>
-                        {r.denomInvalido ? 'margem+imposto ≥ 100%' : `Preço ${formatCurrency(it.valor)}`}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
-              // ── LINHA TABELADA (valor fixo) ───────────────────────────────
-              const faixa = parametros.extraordinario[it.tipo];
+        {/* Serviços (cobranças agrupadas por tipo) */}
+        {grupos.length > 0 && (
+          <div className="space-y-3">
+            {grupos.map(g => {
+              const cat = CATALOGO_POR_TIPO[g.tipo];
+              const meta = servicosMeta[g.tipo] ?? metaVazia();
               return (
-                <div key={idx} className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
-                  <div className="flex gap-2 items-start">
-                    <input value={it.descricao} onChange={e => setItemCampo(idx, 'descricao', e.target.value)} className="rounded px-2 py-1.5 text-sm flex-grow" style={BRD} />
-                    <input type="number" step={50} value={it.valor} onChange={e => setItemCampo(idx, 'valor', Number(e.target.value))} className="rounded px-2 py-1.5 text-sm w-32 text-right" style={BRD} />
-                    <button onClick={() => removerItem(idx)} className="px-2 py-1.5 rounded text-xs" style={{ border: '1px solid #fca5a5', color: '#dc2626' }}>✕</button>
-                  </div>
-                  <div className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>
-                    Faixa sugerida: {faixa.faixa_max > 0 ? `${formatCurrency(faixa.faixa_min)} – ${formatCurrency(faixa.faixa_max)}` : 'a cravar (Configurações → Extraordinário)'}
-                  </div>
-                  {CATALOGO_POR_TIPO[it.tipo].clausula && (
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[11px] font-medium" style={{ color: '#160F41' }}>
-                        {CATALOGO_POR_TIPO[it.tipo].clausula === 'success_fee' ? 'Success fee (%)' : '% da causa'}
-                      </span>
-                      <input type="number" step={0.5} value={it.clausula_pct ?? 0} onChange={e => setItemPct(idx, Number(e.target.value))}
-                        className="rounded px-2 py-1 text-sm w-20" style={BRD} />
-                      <span className="text-[10px]" style={{ color: '#9ca3af' }}>
-                        faixa {faixa.clausula_pct_min ?? 0}–{faixa.clausula_pct_max ?? 0}%
-                      </span>
+                <div key={g.tipo} className="rounded-lg border p-3 space-y-3" style={{ borderColor: '#e2e2e8' }}>
+                  {/* Cabeçalho do serviço (editável) */}
+                  <div className="space-y-2">
+                    <input value={meta.titulo ?? cat.label} onChange={e => setMetaCampo(g.tipo, 'titulo', e.target.value)}
+                      className="rounded px-2 py-1.5 text-sm font-semibold w-full" style={BRD} placeholder={cat.label} />
+                    <textarea rows={2} value={meta.descricao} onChange={e => setMetaCampo(g.tipo, 'descricao', e.target.value)}
+                      className="rounded px-2 py-1.5 text-sm w-full" style={BRD} placeholder="Descrição do serviço (do catálogo, editável)" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={meta.prazo} onChange={e => setMetaCampo(g.tipo, 'prazo', e.target.value)} className="rounded px-2 py-1 text-sm w-full" style={BRD} placeholder="Prazo" />
+                      <input value={meta.dependencias} onChange={e => setMetaCampo(g.tipo, 'dependencias', e.target.value)} className="rounded px-2 py-1 text-sm w-full" style={BRD} placeholder="Dependências do cliente" />
                     </div>
-                  )}
-                  {it.clausula_informativa && (
-                    <div className="text-[11px] mt-1 italic" style={{ color: '#6b6b8a' }}>↳ {it.clausula_informativa}</div>
-                  )}
+                  </div>
+                  {/* Cobranças do serviço */}
+                  <div className="space-y-2 pl-2 border-l-2" style={{ borderColor: '#e0edff' }}>
+                    {g.indices.map(idx => renderCobranca(itens[idx], idx))}
+                  </div>
                 </div>
               );
             })}
