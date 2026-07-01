@@ -39,29 +39,37 @@ function servicosDe(d: DadosOrcamento): ServicoOrcamento[] {
   return ordem.map(tipo => ({ tipo, descricao: '', prazo: '', dependencias: '', cobrancas: map.get(tipo)! }));
 }
 
-// UMA cobrança (SEM nota de natureza). success_fee = condicional (não fecha).
+// UMA cobrança (SEM nota de natureza). success_fee = devido no êxito (não fecha).
 function cobrancaHTML(it: ItemOrcamento): string {
   if (it.natureza === 'success_fee') {
+    // Não repete o título do serviço — a própria frase se identifica.
     const baseLabel = it.base_success === 'mais_valia' ? 'mais-valia' : 'transação';
     const pct = Math.round((it.percentual_success ?? 0) * 1000) / 10;
     return `<div class="flex items-start justify-between gap-6 py-3 border-b border-gray-100">
-      <div class="flex-grow"><span class="text-principal text-base">${esc(it.descricao)}</span>
-        <p class="text-[13px] text-secundario mt-1">Success fee: <strong>${pct}%</strong> sobre ${baseLabel} · projeção estimada <strong>~${brl(it.projecao_success ?? 0)}</strong> (condicional — não fecha no total).</p>
+      <div class="flex-grow">
+        <p class="text-[13px] text-secundario">Success fee: <strong>${pct}%</strong> sobre ${baseLabel} — devido no êxito da operação. Estimativa de referência: <strong>~${brl(it.projecao_success ?? 0)}</strong>.</p>
       </div>
-      <div class="text-right text-secundario text-sm whitespace-nowrap">condicional</div>
+      <div class="text-right text-secundario text-sm whitespace-nowrap">Devido no êxito</div>
     </div>`;
   }
+  // Calculado: o cabeçalho do serviço já nomeia o serviço → a linha é "Honorários"
+  // (a menos que o CFO tenha customizado a descrição para algo != o rótulo do tipo).
+  const rotuloTipo = CATALOGO_POR_TIPO[it.tipo]?.label;
+  const texto = it.natureza === 'calculado'
+    ? ((it.descricao && it.descricao.trim() && it.descricao !== rotuloTipo) ? it.descricao : 'Honorários')
+    : it.descricao;
   const clausula = it.clausula_informativa
     ? `<p class="text-[13px] text-secundario mt-1 italic">${esc(it.clausula_informativa)}</p>` : '';
   return `<div class="flex items-start justify-between gap-6 py-3 border-b border-gray-100">
-    <div class="flex-grow"><span class="text-principal text-base">${esc(it.descricao)}</span>${clausula}</div>
+    <div class="flex-grow"><span class="text-principal text-base">${esc(texto)}</span>${clausula}</div>
     <div class="text-right text-principal text-lg font-semibold whitespace-nowrap">${brl(it.valor)}</div>
   </div>`;
 }
 
 // UM serviço: cabeçalho (título/descrição/prazo/dependências) + cobranças +
-// fechado/condicional DO SERVIÇO.
-function servicoHTML(s: ServicoOrcamento): string {
+// (quando há +de 1 serviço) subtotal fechado/condicional DO SERVIÇO. Com UM
+// serviço só, o subtotal é omitido — o total geral já é ele.
+function servicoHTML(s: ServicoOrcamento, mostrarSubtotal: boolean): string {
   const titulo = (s.titulo && s.titulo.trim()) || CATALOGO_POR_TIPO[s.tipo]?.label || s.tipo;
   const desc = s.descricao?.trim() ? `<p class="text-secundario text-base mt-1">${esc(s.descricao)}</p>` : '';
   const meta = [
@@ -72,10 +80,12 @@ function servicoHTML(s: ServicoOrcamento): string {
   const fechado = s.cobrancas.filter(c => (c.natureza ?? 'tabelado') !== 'success_fee').reduce((a, c) => a + (c.valor || 0), 0);
   const sf = s.cobrancas.filter(c => c.natureza === 'success_fee');
   const proj = sf.reduce((a, c) => a + (c.projecao_success ?? 0), 0);
-  const rodape = `<div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
+  const rodape = mostrarSubtotal
+    ? `<div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
     <span class="text-sm font-semibold text-principal">Subtotal (fechado)</span>
     <span class="text-lg font-bold text-primario">${brl(fechado)}</span>
-  </div>${sf.length ? `<div class="flex items-center justify-between mt-1 text-secundario"><span class="text-sm">Condicional — ${sf.length} success fee${sf.length > 1 ? 's' : ''} (não fecha)</span><span class="text-sm font-semibold">projeção ~${brl(proj)}</span></div>` : ''}`;
+  </div>${sf.length ? `<div class="flex items-center justify-between mt-1 text-secundario"><span class="text-sm">Success fee devido no êxito (não somado ao total fechado)</span><span class="text-sm font-semibold">estimativa de referência ~${brl(proj)}</span></div>` : ''}`
+    : '';
   return `<div class="py-5 border-b border-gray-200">
     <strong class="text-principal text-xl">${esc(titulo)}</strong>${desc}${metaHTML}
     <div class="mt-3">${s.cobrancas.map(cobrancaHTML).join('')}</div>
@@ -86,7 +96,8 @@ function servicoHTML(s: ServicoOrcamento): string {
 function servicosHTML(d: DadosOrcamento): string {
   const servicos = servicosDe(d);
   if (!servicos.length) return `<p class="text-secundario text-base">Nenhum serviço neste orçamento.</p>`;
-  return servicos.map(servicoHTML).join('');
+  const varios = servicos.length > 1;   // subtotal por serviço só quando há +de 1
+  return servicos.map(s => servicoHTML(s, varios)).join('');
 }
 
 export function gerarOrcamentoHTML(d: DadosOrcamento, opts: { paraPdf?: boolean } = {}): string {
@@ -135,7 +146,7 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
       const sf = servicosDe(d).flatMap(s => s.cobrancas).filter(it => it.natureza === 'success_fee');
       if (!sf.length) return '';
       const proj = sf.reduce((s, it) => s + (it.projecao_success ?? 0), 0);
-      return `<div class="flex items-center justify-between mt-2 text-secundario"><span class="text-sm font-medium">Condicional — ${sf.length} success fee${sf.length > 1 ? 's' : ''} (não fecha)</span><span class="text-sm font-semibold">projeção estimada ~${brl(proj)}</span></div>`;
+      return `<div class="flex items-center justify-between mt-2 text-secundario"><span class="text-sm font-medium">Success fee devido no êxito (não somado ao total fechado)</span><span class="text-sm font-semibold">estimativa de referência ~${brl(proj)}</span></div>`;
     })()}
     ${temClausula ? `<p class="text-[12px] text-secundario mt-4 italic">As cláusulas percentuais acima são informativas e independem do valor fixo orçado; o êxito/mais-valia é apurado no resultado.</p>` : ''}
   </section>

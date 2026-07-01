@@ -320,7 +320,7 @@ export function Orcador() {
             </label>
           </div>
           <div className="text-[11px]" style={{ color: '#92400e' }}>
-            Regra: <strong>{Math.round((it.percentual_success ?? 0) * 1000) / 10}%</strong> sobre {baseLabel} · projeção estimada <strong>~{formatCurrency(it.projecao_success ?? 0)}</strong> — não fecha no total.
+            Success fee: <strong>{Math.round((it.percentual_success ?? 0) * 1000) / 10}%</strong> sobre {baseLabel} — devido no êxito da operação. Estimativa de referência: <strong>~{formatCurrency(it.projecao_success ?? 0)}</strong>.
           </div>
         </div>
       );
@@ -464,8 +464,8 @@ export function Orcador() {
             </div>
             {successFees.length > 0 && (
               <div className="flex items-center justify-between px-1" style={{ color: '#92400e' }}>
-                <span className="text-xs font-medium">Condicional — {successFees.length} success fee{successFees.length > 1 ? 's' : ''} (não fecha)</span>
-                <span className="text-xs font-semibold">projeção estimada ~{formatCurrency(totalProjecao)}</span>
+                <span className="text-xs font-medium">Success fee devido no êxito (não somado ao total fechado)</span>
+                <span className="text-xs font-semibold">estimativa de referência ~{formatCurrency(totalProjecao)}</span>
               </div>
             )}
           </div>
