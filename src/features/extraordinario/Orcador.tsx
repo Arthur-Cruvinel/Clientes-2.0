@@ -199,9 +199,6 @@ export function Orcador() {
       nome_cliente: nomeCliente.trim() || 'Cliente',
       id_estavel_cliente: idEstavelCliente,
       servicos: montarServicos(itens, servicosMeta),
-      // Espelho plano legado — mantém o PDF (que ainda lê itens) coerente até o
-      // Commit 4 migrar o template para servicos. Removido lá.
-      itens,
       valor_total: totalFechado,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
       observacoes: observacoes.trim() || undefined,

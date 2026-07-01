@@ -5,7 +5,8 @@
 // Logo re-importado do raw (decisão: NÃO extrair de propostaTemplate).
 
 import logoRaw from '../simulador/logoGalaticos.svg?raw';
-import type { DadosOrcamento } from '../../types';
+import type { DadosOrcamento, ServicoOrcamento, ItemOrcamento, TipoExtraordinario } from '../../types';
+import { CATALOGO_POR_TIPO } from './catalogoExtraordinario';
 
 const brl = (n: number) => 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -27,40 +28,69 @@ function logoSVG(cor: string, suffix: string): string {
     .replace(/id="fill1h"/g, `id="fill1${suffix}"`).replace(/url\(#fill1h\)/g, `url(#fill1${suffix})`);
 }
 
-function itensHTML(d: DadosOrcamento): string {
-  const itens = d.itens ?? [];
-  if (!itens.length) {
-    return `<p class="text-secundario text-base">Nenhum item neste orçamento.</p>`;
-  }
-  return itens.map(it => {
-    // SUCCESS FEE: condicional — mostra regra + projeção estimada, SEM valor
-    // fechado (não soma no total). Bloco à parte do fechado.
-    if (it.natureza === 'success_fee') {
-      const baseLabel = it.base_success === 'mais_valia' ? 'mais-valia' : 'transação';
-      const pct = Math.round((it.percentual_success ?? 0) * 1000) / 10;
-      return `<div class="flex items-start justify-between gap-6 py-4 border-b border-gray-200">
-      <div class="flex-grow"><strong class="text-principal text-base">${esc(it.descricao)}</strong>
+// Serviços a renderizar: usa d.servicos (novo); sem ele, deriva dos itens legado
+// (1 serviço por tipo, cabeçalho vazio) — retrocompat de PDFs antigos.
+function servicosDe(d: DadosOrcamento): ServicoOrcamento[] {
+  if (d.servicos && d.servicos.length) return d.servicos;
+  const its = d.itens ?? [];
+  const ordem: TipoExtraordinario[] = [];
+  const map = new Map<TipoExtraordinario, ItemOrcamento[]>();
+  for (const it of its) { if (!map.has(it.tipo)) { map.set(it.tipo, []); ordem.push(it.tipo); } map.get(it.tipo)!.push(it); }
+  return ordem.map(tipo => ({ tipo, descricao: '', prazo: '', dependencias: '', cobrancas: map.get(tipo)! }));
+}
+
+// UMA cobrança (SEM nota de natureza). success_fee = condicional (não fecha).
+function cobrancaHTML(it: ItemOrcamento): string {
+  if (it.natureza === 'success_fee') {
+    const baseLabel = it.base_success === 'mais_valia' ? 'mais-valia' : 'transação';
+    const pct = Math.round((it.percentual_success ?? 0) * 1000) / 10;
+    return `<div class="flex items-start justify-between gap-6 py-3 border-b border-gray-100">
+      <div class="flex-grow"><span class="text-principal text-base">${esc(it.descricao)}</span>
         <p class="text-[13px] text-secundario mt-1">Success fee: <strong>${pct}%</strong> sobre ${baseLabel} · projeção estimada <strong>~${brl(it.projecao_success ?? 0)}</strong> (condicional — não fecha no total).</p>
       </div>
       <div class="text-right text-secundario text-sm whitespace-nowrap">condicional</div>
     </div>`;
-    }
-    const clausula = it.clausula_informativa
-      ? `<p class="text-[13px] text-secundario mt-1 italic">${esc(it.clausula_informativa)}</p>`
-      : '';
-    // Nota de natureza: linha calculada por esforço (preço = custo + margem).
-    const nota = (it.natureza ?? 'tabelado') === 'calculado'
-      ? `<p class="text-[12px] text-secundario mt-1">Serviço calculado por esforço (horas dedicadas × custo + margem).</p>`
-      : '';
-    return `<div class="flex items-start justify-between gap-6 py-4 border-b border-gray-200">
-      <div class="flex-grow"><strong class="text-principal text-base">${esc(it.descricao)}</strong>${nota}${clausula}</div>
-      <div class="text-right text-principal text-lg font-semibold whitespace-nowrap">${brl(it.valor)}</div>
-    </div>`;
-  }).join('');
+  }
+  const clausula = it.clausula_informativa
+    ? `<p class="text-[13px] text-secundario mt-1 italic">${esc(it.clausula_informativa)}</p>` : '';
+  return `<div class="flex items-start justify-between gap-6 py-3 border-b border-gray-100">
+    <div class="flex-grow"><span class="text-principal text-base">${esc(it.descricao)}</span>${clausula}</div>
+    <div class="text-right text-principal text-lg font-semibold whitespace-nowrap">${brl(it.valor)}</div>
+  </div>`;
+}
+
+// UM serviço: cabeçalho (título/descrição/prazo/dependências) + cobranças +
+// fechado/condicional DO SERVIÇO.
+function servicoHTML(s: ServicoOrcamento): string {
+  const titulo = (s.titulo && s.titulo.trim()) || CATALOGO_POR_TIPO[s.tipo]?.label || s.tipo;
+  const desc = s.descricao?.trim() ? `<p class="text-secundario text-base mt-1">${esc(s.descricao)}</p>` : '';
+  const meta = [
+    s.prazo?.trim() ? `<span><strong>Prazo:</strong> ${esc(s.prazo)}</span>` : '',
+    s.dependencias?.trim() ? `<span><strong>Dependências:</strong> ${esc(s.dependencias)}</span>` : '',
+  ].filter(Boolean).join(' · ');
+  const metaHTML = meta ? `<p class="text-[13px] text-secundario mt-1">${meta}</p>` : '';
+  const fechado = s.cobrancas.filter(c => (c.natureza ?? 'tabelado') !== 'success_fee').reduce((a, c) => a + (c.valor || 0), 0);
+  const sf = s.cobrancas.filter(c => c.natureza === 'success_fee');
+  const proj = sf.reduce((a, c) => a + (c.projecao_success ?? 0), 0);
+  const rodape = `<div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
+    <span class="text-sm font-semibold text-principal">Subtotal (fechado)</span>
+    <span class="text-lg font-bold text-primario">${brl(fechado)}</span>
+  </div>${sf.length ? `<div class="flex items-center justify-between mt-1 text-secundario"><span class="text-sm">Condicional — ${sf.length} success fee${sf.length > 1 ? 's' : ''} (não fecha)</span><span class="text-sm font-semibold">projeção ~${brl(proj)}</span></div>` : ''}`;
+  return `<div class="py-5 border-b border-gray-200">
+    <strong class="text-principal text-xl">${esc(titulo)}</strong>${desc}${metaHTML}
+    <div class="mt-3">${s.cobrancas.map(cobrancaHTML).join('')}</div>
+    ${rodape}
+  </div>`;
+}
+
+function servicosHTML(d: DadosOrcamento): string {
+  const servicos = servicosDe(d);
+  if (!servicos.length) return `<p class="text-secundario text-base">Nenhum serviço neste orçamento.</p>`;
+  return servicos.map(servicoHTML).join('');
 }
 
 export function gerarOrcamentoHTML(d: DadosOrcamento, opts: { paraPdf?: boolean } = {}): string {
-  const temClausula = (d.itens ?? []).some(it => it.clausula_informativa);
+  const temClausula = servicosDe(d).some(s => s.cobrancas.some(it => it.clausula_informativa));
   return `<!DOCTYPE html>
 <html lang="pt-br" class="scroll-smooth"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -94,15 +124,15 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
 
   <section id="itens" class="p-12 md:p-20 bg-white">
     <h3 class="text-sm font-semibold text-secundario uppercase tracking-wide mb-1">Detalhamento</h3>
-    <h2 class="text-3xl font-bold text-principal mb-6">Itens do Orçamento</h2>
+    <h2 class="text-3xl font-bold text-principal mb-6">Serviços do Orçamento</h2>
     <p class="text-secundario leading-relaxed mb-6 max-w-3xl">Serviços extraordinários — pontuais e não-recorrentes, fora do fee mensal — orçados a preço de mercado.</p>
-    <div>${itensHTML(d)}</div>
+    <div>${servicosHTML(d)}</div>
     <div class="flex items-center justify-between mt-6 pt-4">
       <span class="text-base font-semibold text-principal uppercase tracking-wide">Total (fechado)</span>
       <span class="text-3xl font-extrabold text-primario">${brl(d.valor_total)}</span>
     </div>
     ${(() => {
-      const sf = (d.itens ?? []).filter(it => it.natureza === 'success_fee');
+      const sf = servicosDe(d).flatMap(s => s.cobrancas).filter(it => it.natureza === 'success_fee');
       if (!sf.length) return '';
       const proj = sf.reduce((s, it) => s + (it.projecao_success ?? 0), 0);
       return `<div class="flex items-center justify-between mt-2 text-secundario"><span class="text-sm font-medium">Condicional — ${sf.length} success fee${sf.length > 1 ? 's' : ''} (não fecha)</span><span class="text-sm font-semibold">projeção estimada ~${brl(proj)}</span></div>`;
