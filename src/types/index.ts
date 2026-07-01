@@ -573,12 +573,36 @@ export type TipoExtraordinario =
   | 'valuation'
   | 'viabilidade';
 
+// Natureza de preço da linha (Frente 3 naturezas):
+//   'tabelado'    → valor fixo (faixa por tipo). Comportamento histórico.
+//   'calculado'   → esforço: horas por função (6 + jurídica) × custo/hora + margem.
+//   'success_fee' → % sobre base (transação | mais-valia) + projeção estimada.
+// Ausente na leitura = 'tabelado' (retrocompat com orçamentos salvos pré-frente).
+export type NaturezaOrcamento = 'tabelado' | 'calculado' | 'success_fee';
+export type BaseSuccessFee = 'transacao' | 'mais_valia';
+
 export interface ItemOrcamento {
   tipo: TipoExtraordinario;
   descricao: string;                 // descrição livre do serviço (default = label do catálogo)
-  valor: number;                     // valor fixo escolhido dentro da faixa (editável)
+  natureza?: NaturezaOrcamento;      // ausente = 'tabelado' (retrocompat)
+  valor: number;                     // valor fixo (tabelado) OU preço derivado (calculado);
+                                     // success_fee não tem valor absoluto (fora do total fechado)
   clausula_pct?: number;             // % escolhido dentro da faixa % (representação/contencioso)
   clausula_informativa?: string;     // texto da cláusula derivado do % escolhido; só exibição
+
+  // ── CALCULADO (esforço) ─────────────────────────────────────────────────
+  horas_por_funcao?: Record<FuncaoAlocacao, number>;  // horas nas 6 funções da DRE
+  horas_juridicas?: number;                           // 7ª rubrica (custo_hora_juridico)
+  margem?: number;                                    // margem alvo da linha (decimal; default 0,25)
+  // custo/preço derivados (persistidos p/ auditoria; recomputáveis)
+  custo_direto_calc?: number;
+  custo_total_calc?: number;
+
+  // ── SUCCESS FEE (condicional) ───────────────────────────────────────────
+  base_success?: BaseSuccessFee;     // sobre transação ou mais-valia
+  percentual_success?: number;       // % (decimal) aplicado à base
+  valor_base_estimado?: number;      // base estimada (R$) — só para projeção
+  projecao_success?: number;         // valor_base_estimado × percentual_success (estimativa, NÃO fecha)
 }
 
 export interface DadosOrcamento {

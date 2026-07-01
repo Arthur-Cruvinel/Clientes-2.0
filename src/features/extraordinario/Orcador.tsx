@@ -56,6 +56,7 @@ export function Orcador() {
     const novo: ItemOrcamento = {
       tipo: tipoNovo,
       descricao: cat.label,
+      natureza: 'tabelado',
       valor: sugerido,
       clausula_pct: pctEsc,
       clausula_informativa: montarClausulaInformativa(tipoNovo, pctEsc, faixa),
