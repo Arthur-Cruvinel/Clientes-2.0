@@ -605,6 +605,18 @@ export interface ItemOrcamento {
   projecao_success?: number;         // valor_base_estimado × percentual_success (estimativa, NÃO fecha)
 }
 
+// Camada de SERVIÇO (Frente A): agrupa 1..N cobranças do MESMO tipo sob um
+// serviço com cabeçalho editável (título/descrição/prazo/dependências). O
+// agrupamento por tipo é VIEW; o cabeçalho é dado editável por orçamento.
+export interface ServicoOrcamento {
+  tipo: TipoExtraordinario;
+  titulo?: string;                   // default = label do catálogo
+  descricao: string;                 // texto-padrão do catálogo, editável (nasce vazio)
+  prazo: string;                     // prazo típico, editável (nasce vazio)
+  dependencias: string;              // dependências do cliente, editável (nasce vazio)
+  cobrancas: ItemOrcamento[];        // as linhas de cobrança (tabelado/calculado/success_fee)
+}
+
 export interface DadosOrcamento {
   id?: string;
   id_estavel: string;
@@ -613,8 +625,11 @@ export interface DadosOrcamento {
   status: 'rascunho' | 'enviado' | 'aceito' | 'recusado';
   nome_cliente: string;
   id_estavel_cliente?: string;
-  itens: ItemOrcamento[];
-  valor_total: number;               // Σ dos itens.valor
+  // servicos = fonte nova (agrupada). itens = legado plano (retrocompat de leitura:
+  // orçamento salvo só com itens[] abre como serviços de 1 cobrança cada).
+  servicos?: ServicoOrcamento[];
+  itens?: ItemOrcamento[];
+  valor_total: number;               // Σ fechado das cobranças (tabelado + calculado)
   validadeDias: number;              // validade do orçamento em dias (default 15)
   observacoes?: string;              // texto livre adicional
 }

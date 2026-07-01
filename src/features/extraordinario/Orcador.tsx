@@ -13,7 +13,7 @@ import { gerarOrcamentoHTML } from './orcamentoTemplate';
 import { CATALOGO_EXTRAORDINARIO, CATALOGO_POR_TIPO, montarClausulaInformativa, pctDefault } from './catalogoExtraordinario';
 import { precificarLinhaCalculada, type LinhaCalculadaResult } from '../simulador/precificacaoBase';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
-import type { DadosOrcamento, ItemOrcamento, TipoExtraordinario, NaturezaOrcamento, FuncaoAlocacao } from '../../types';
+import type { DadosOrcamento, ItemOrcamento, TipoExtraordinario, NaturezaOrcamento, FuncaoAlocacao, ServicoOrcamento } from '../../types';
 
 const INP = 'rounded px-2 py-1.5 text-sm w-full';
 const BRD = { border: '1px solid #e2e2e8', color: '#160F41' };
@@ -29,6 +29,36 @@ const horasZero = (): Record<FuncaoAlocacao, number> => ({
   operacional_financeiro: 0, serv_adm: 0, serv_aux_adm: 0,
 });
 
+// Cabeçalho editável do serviço (por tipo, por orçamento). Cobranças ficam nos itens.
+type ServicoMeta = { titulo?: string; descricao: string; prazo: string; dependencias: string };
+const metaVazia = (): ServicoMeta => ({ descricao: '', prazo: '', dependencias: '' });
+
+/** Monta os serviços a partir da lista PLANA de cobranças (agrupada por tipo, na
+ *  ordem da 1ª aparição) + os cabeçalhos editáveis (servicosMeta). VIEW/escrita. */
+function montarServicos(itens: ItemOrcamento[], meta: Partial<Record<TipoExtraordinario, ServicoMeta>>): ServicoOrcamento[] {
+  const ordem: TipoExtraordinario[] = [];
+  const porTipo = new Map<TipoExtraordinario, ItemOrcamento[]>();
+  for (const it of itens) {
+    if (!porTipo.has(it.tipo)) { porTipo.set(it.tipo, []); ordem.push(it.tipo); }
+    porTipo.get(it.tipo)!.push(it);
+  }
+  return ordem.map(tipo => {
+    const m = meta[tipo] ?? metaVazia();
+    return { tipo, titulo: m.titulo, descricao: m.descricao, prazo: m.prazo, dependencias: m.dependencias, cobrancas: porTipo.get(tipo)! };
+  });
+}
+
+/** Inverso (migração on-read): serviços → { itens planos, servicosMeta }. */
+function desmontarServicos(servicos: ServicoOrcamento[]): { itens: ItemOrcamento[]; meta: Partial<Record<TipoExtraordinario, ServicoMeta>> } {
+  const itens: ItemOrcamento[] = [];
+  const meta: Partial<Record<TipoExtraordinario, ServicoMeta>> = {};
+  for (const s of servicos) {
+    itens.push(...s.cobrancas);
+    meta[s.tipo] = { titulo: s.titulo, descricao: s.descricao ?? '', prazo: s.prazo ?? '', dependencias: s.dependencias ?? '' };
+  }
+  return { itens, meta };
+}
+
 export function Orcador() {
   const { dadosPeriodo, parametros } = useApp();
 
@@ -39,6 +69,7 @@ export function Orcador() {
   const [observacoes, setObservacoes] = useState('');
   const [tipoNovo, setTipoNovo] = useState<TipoExtraordinario>('juridico_parecer');
   const [naturezaNova, setNaturezaNova] = useState<NaturezaOrcamento>('tabelado');
+  const [servicosMeta, setServicosMeta] = useState<Partial<Record<TipoExtraordinario, ServicoMeta>>>({});
   const [editId, setEditId] = useState<string | undefined>();
 
   const regime = dadosPeriodo?.parametros?.regime ?? 'presumido';
@@ -156,6 +187,9 @@ export function Orcador() {
       status: ant?.status ?? 'rascunho',
       nome_cliente: nomeCliente.trim() || 'Cliente',
       id_estavel_cliente: idEstavelCliente,
+      servicos: montarServicos(itens, servicosMeta),
+      // Espelho plano legado — mantém o PDF (que ainda lê itens) coerente até o
+      // Commit 4 migrar o template para servicos. Removido lá.
       itens,
       valor_total: totalFechado,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
@@ -198,17 +232,28 @@ export function Orcador() {
     } finally { setGerandoPdf(false); }
   }
 
+  // Migração on-read: usa servicos[] (novo); sem ele, cai nos itens[] legado —
+  // que viram serviços de 1 cobrança cada (via render agrupado + meta vazia).
+  function carregarEstado(o: DadosOrcamento) {
+    if (o.servicos && o.servicos.length) {
+      const { itens: its, meta } = desmontarServicos(o.servicos);
+      setItens(its); setServicosMeta(meta);
+    } else {
+      setItens(o.itens ?? []); setServicosMeta({});
+    }
+    setValidadeDias(o.validadeDias ?? 15); setObservacoes(o.observacoes ?? '');
+  }
   function reabrir(o: DadosOrcamento) {
     setEditId(o.id_estavel); setNomeCliente(o.nome_cliente); setIdEstavelCliente(o.id_estavel_cliente);
-    setItens(o.itens ?? []); setValidadeDias(o.validadeDias ?? 15); setObservacoes(o.observacoes ?? '');
+    carregarEstado(o);
   }
   function duplicar(o: DadosOrcamento) {
     setEditId(undefined); setNomeCliente(`${o.nome_cliente} (cópia)`); setIdEstavelCliente(o.id_estavel_cliente);
-    setItens(o.itens ?? []); setValidadeDias(o.validadeDias ?? 15); setObservacoes(o.observacoes ?? '');
+    carregarEstado(o);
   }
   function novo() {
     setEditId(undefined); setNomeCliente(''); setIdEstavelCliente(undefined);
-    setItens([]); setValidadeDias(15); setObservacoes('');
+    setItens([]); setServicosMeta({}); setValidadeDias(15); setObservacoes('');
   }
   async function mudarStatus(o: DadosOrcamento, status: DadosOrcamento['status']) {
     await atualizarOrcamentoStatus(o.id_estavel, status); setOrcamentos(await buscarOrcamentos());

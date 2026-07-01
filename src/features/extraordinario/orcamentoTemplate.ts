@@ -28,10 +28,11 @@ function logoSVG(cor: string, suffix: string): string {
 }
 
 function itensHTML(d: DadosOrcamento): string {
-  if (!d.itens.length) {
+  const itens = d.itens ?? [];
+  if (!itens.length) {
     return `<p class="text-secundario text-base">Nenhum item neste orçamento.</p>`;
   }
-  return d.itens.map(it => {
+  return itens.map(it => {
     // SUCCESS FEE: condicional — mostra regra + projeção estimada, SEM valor
     // fechado (não soma no total). Bloco à parte do fechado.
     if (it.natureza === 'success_fee') {
@@ -59,7 +60,7 @@ function itensHTML(d: DadosOrcamento): string {
 }
 
 export function gerarOrcamentoHTML(d: DadosOrcamento, opts: { paraPdf?: boolean } = {}): string {
-  const temClausula = d.itens.some(it => it.clausula_informativa);
+  const temClausula = (d.itens ?? []).some(it => it.clausula_informativa);
   return `<!DOCTYPE html>
 <html lang="pt-br" class="scroll-smooth"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -101,7 +102,7 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
       <span class="text-3xl font-extrabold text-primario">${brl(d.valor_total)}</span>
     </div>
     ${(() => {
-      const sf = d.itens.filter(it => it.natureza === 'success_fee');
+      const sf = (d.itens ?? []).filter(it => it.natureza === 'success_fee');
       if (!sf.length) return '';
       const proj = sf.reduce((s, it) => s + (it.projecao_success ?? 0), 0);
       return `<div class="flex items-center justify-between mt-2 text-secundario"><span class="text-sm font-medium">Condicional — ${sf.length} success fee${sf.length > 1 ? 's' : ''} (não fecha)</span><span class="text-sm font-semibold">projeção estimada ~${brl(proj)}</span></div>`;
