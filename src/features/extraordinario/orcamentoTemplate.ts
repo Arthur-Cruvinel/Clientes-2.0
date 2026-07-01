@@ -32,6 +32,18 @@ function itensHTML(d: DadosOrcamento): string {
     return `<p class="text-secundario text-base">Nenhum item neste orçamento.</p>`;
   }
   return d.itens.map(it => {
+    // SUCCESS FEE: condicional — mostra regra + projeção estimada, SEM valor
+    // fechado (não soma no total). Bloco à parte do fechado.
+    if (it.natureza === 'success_fee') {
+      const baseLabel = it.base_success === 'mais_valia' ? 'mais-valia' : 'transação';
+      const pct = Math.round((it.percentual_success ?? 0) * 1000) / 10;
+      return `<div class="flex items-start justify-between gap-6 py-4 border-b border-gray-200">
+      <div class="flex-grow"><strong class="text-principal text-base">${esc(it.descricao)}</strong>
+        <p class="text-[13px] text-secundario mt-1">Success fee: <strong>${pct}%</strong> sobre ${baseLabel} · projeção estimada <strong>~${brl(it.projecao_success ?? 0)}</strong> (condicional — não fecha no total).</p>
+      </div>
+      <div class="text-right text-secundario text-sm whitespace-nowrap">condicional</div>
+    </div>`;
+    }
     const clausula = it.clausula_informativa
       ? `<p class="text-[13px] text-secundario mt-1 italic">${esc(it.clausula_informativa)}</p>`
       : '';

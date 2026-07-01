@@ -73,6 +73,16 @@ export function Orcador() {
       setItens(prev => [...prev, novo]);
       return;
     }
+    // SUCCESS FEE (condicional): % sobre base (transação|mais-valia) → projeção
+    // estimada. valor=0 — NÃO entra no total fechado (só regra + projeção).
+    if (naturezaNova === 'success_fee') {
+      const novo: ItemOrcamento = {
+        tipo: tipoNovo, descricao: cat.label, natureza: 'success_fee', valor: 0,
+        base_success: 'transacao', percentual_success: 0.10, valor_base_estimado: 0, projecao_success: 0,
+      };
+      setItens(prev => [...prev, novo]);
+      return;
+    }
     // TABELADO (valor fixo — comportamento histórico).
     const faixa = parametros.extraordinario[tipoNovo];
     const sugerido = faixa.faixa_max > 0 ? Math.round((faixa.faixa_min + faixa.faixa_max) / 2 / 50) * 50 : 0;
@@ -105,6 +115,16 @@ export function Orcador() {
   const setHoraFuncao = (idx: number, f: FuncaoAlocacao, h: number) => {
     const atual = itens[idx].horas_por_funcao ?? horasZero();
     setItemCalc(idx, { horas_por_funcao: { ...atual, [f]: h } });
+  };
+  // Success fee: aplica patch E recomputa projeção (base_estimado × percentual).
+  // valor fica 0 — não entra no total fechado.
+  const setItemSuccess = (idx: number, patch: Partial<ItemOrcamento>) => {
+    setItens(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const m = { ...it, ...patch };
+      const proj = (m.valor_base_estimado ?? 0) * (m.percentual_success ?? 0);
+      return { ...m, projecao_success: proj, valor: 0 };
+    }));
   };
   const setItemCampo = (idx: number, campo: 'descricao' | 'valor', valor: string | number) => {
     setItens(prev => prev.map((it, i) => i === idx ? { ...it, [campo]: valor } : it));
@@ -222,6 +242,7 @@ export function Orcador() {
             <select value={naturezaNova} onChange={e => setNaturezaNova(e.target.value as NaturezaOrcamento)} className={INP} style={BRD}>
               <option value="tabelado">Tabelado (valor fixo)</option>
               <option value="calculado">Calculado (por esforço)</option>
+              <option value="success_fee">Success fee (% sobre base)</option>
             </select>
             <select value={tipoNovo} onChange={e => setTipoNovo(e.target.value as TipoExtraordinario)} className={INP} style={BRD}>
               {CATALOGO_EXTRAORDINARIO.map(c => (
@@ -236,6 +257,41 @@ export function Orcador() {
         {itens.length > 0 && (
           <div className="space-y-2">
             {itens.map((it, idx) => {
+              // ── LINHA SUCCESS FEE (condicional — não fecha no total) ──────
+              if (it.natureza === 'success_fee') {
+                const baseLabel = it.base_success === 'mais_valia' ? 'mais-valia' : 'transação';
+                return (
+                  <div key={idx} className="rounded-lg border p-3 space-y-2" style={{ borderColor: '#92400e' }}>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>Success fee · condicional</span>
+                      <input value={it.descricao} onChange={e => setItemCampo(idx, 'descricao', e.target.value)} className="rounded px-2 py-1.5 text-sm flex-grow" style={BRD} />
+                      <button onClick={() => removerItem(idx)} className="px-2 py-1.5 rounded text-xs" style={{ border: '1px solid #fca5a5', color: '#dc2626' }}>✕</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="block">
+                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Base</span>
+                        <select value={it.base_success ?? 'transacao'} onChange={e => setItemSuccess(idx, { base_success: e.target.value as ItemOrcamento['base_success'] })} className="rounded px-2 py-1 text-sm w-full" style={BRD}>
+                          <option value="transacao">Transação</option>
+                          <option value="mais_valia">Mais-valia</option>
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Percentual (%)</span>
+                        <input type="number" step={0.5} min={0} value={Math.round((it.percentual_success ?? 0) * 1000) / 10}
+                          onChange={e => setItemSuccess(idx, { percentual_success: Number(e.target.value) / 100 })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Base estimada (R$)</span>
+                        <input type="number" step={1000} min={0} value={it.valor_base_estimado ?? 0}
+                          onChange={e => setItemSuccess(idx, { valor_base_estimado: Number(e.target.value) })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+                      </label>
+                    </div>
+                    <div className="text-[11px]" style={{ color: '#92400e' }}>
+                      Regra: <strong>{Math.round((it.percentual_success ?? 0) * 1000) / 10}%</strong> sobre {baseLabel} · projeção estimada <strong>~{formatCurrency(it.projecao_success ?? 0)}</strong> — não fecha no total.
+                    </div>
+                  </div>
+                );
+              }
               // ── LINHA CALCULADA (por esforço) ─────────────────────────────
               if ((it.natureza ?? 'tabelado') === 'calculado') {
                 const r = precoCalc(it);
