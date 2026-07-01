@@ -11,11 +11,23 @@ import { formatCurrency } from '../../utils/formatters';
 import { salvarOrcamento, buscarOrcamentos, atualizarOrcamentoStatus, excluirOrcamento } from '../../services/firebase';
 import { gerarOrcamentoHTML } from './orcamentoTemplate';
 import { CATALOGO_EXTRAORDINARIO, CATALOGO_POR_TIPO, montarClausulaInformativa, pctDefault } from './catalogoExtraordinario';
-import type { DadosOrcamento, ItemOrcamento, TipoExtraordinario } from '../../types';
+import { precificarLinhaCalculada, type LinhaCalculadaResult } from '../simulador/precificacaoBase';
+import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
+import type { DadosOrcamento, ItemOrcamento, TipoExtraordinario, NaturezaOrcamento, FuncaoAlocacao } from '../../types';
 
 const INP = 'rounded px-2 py-1.5 text-sm w-full';
 const BRD = { border: '1px solid #e2e2e8', color: '#160F41' };
 const STATUS: DadosOrcamento['status'][] = ['rascunho', 'enviado', 'aceito', 'recusado'];
+
+// Rótulos curtos das 6 funções + jurídica (linha calculada por esforço).
+const LABEL_FUNCAO_ORC: Record<FuncaoAlocacao, string> = {
+  consultoria_gestao: 'Gestão', consultoria_planejamento: 'Planej.', consultoria_financeira: 'Financ.',
+  operacional_financeiro: 'Operac.', serv_adm: 'Adm.', serv_aux_adm: 'Aux.',
+};
+const horasZero = (): Record<FuncaoAlocacao, number> => ({
+  consultoria_gestao: 0, consultoria_planejamento: 0, consultoria_financeira: 0,
+  operacional_financeiro: 0, serv_adm: 0, serv_aux_adm: 0,
+});
 
 export function Orcador() {
   const { dadosPeriodo, parametros } = useApp();
@@ -26,7 +38,10 @@ export function Orcador() {
   const [validadeDias, setValidadeDias] = useState(15);
   const [observacoes, setObservacoes] = useState('');
   const [tipoNovo, setTipoNovo] = useState<TipoExtraordinario>('juridico_parecer');
+  const [naturezaNova, setNaturezaNova] = useState<NaturezaOrcamento>('tabelado');
   const [editId, setEditId] = useState<string | undefined>();
+
+  const regime = dadosPeriodo?.parametros?.regime ?? 'presumido';
   const [orcamentos, setOrcamentos] = useState<DadosOrcamento[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
@@ -48,21 +63,49 @@ export function Orcador() {
 
   function adicionarItem() {
     const cat = CATALOGO_POR_TIPO[tipoNovo];
+    // CALCULADO (por esforço): nasce com horas zeradas + margem default; preço 0
+    // até o usuário informar horas (recalculado em setItemCalc).
+    if (naturezaNova === 'calculado') {
+      const novo: ItemOrcamento = {
+        tipo: tipoNovo, descricao: cat.label, natureza: 'calculado', valor: 0,
+        horas_por_funcao: horasZero(), horas_juridicas: 0, margem: parametros.margem_alvo,
+      };
+      setItens(prev => [...prev, novo]);
+      return;
+    }
+    // TABELADO (valor fixo — comportamento histórico).
     const faixa = parametros.extraordinario[tipoNovo];
-    // Valor sugerido: ponto médio da faixa (arredondado a R$50); 0 = placeholder.
     const sugerido = faixa.faixa_max > 0 ? Math.round((faixa.faixa_min + faixa.faixa_max) / 2 / 50) * 50 : 0;
-    // % escolhido: default = mínimo da faixa % (editável). undefined = sem cláusula.
     const pctEsc = pctDefault(tipoNovo, faixa);
     const novo: ItemOrcamento = {
-      tipo: tipoNovo,
-      descricao: cat.label,
-      natureza: 'tabelado',
-      valor: sugerido,
-      clausula_pct: pctEsc,
-      clausula_informativa: montarClausulaInformativa(tipoNovo, pctEsc, faixa),
+      tipo: tipoNovo, descricao: cat.label, natureza: 'tabelado', valor: sugerido,
+      clausula_pct: pctEsc, clausula_informativa: montarClausulaInformativa(tipoNovo, pctEsc, faixa),
     };
     setItens(prev => [...prev, novo]);
   }
+
+  // Preço derivado de uma linha calculada (reusa as entranhas de precificacaoBase).
+  const precoCalc = (it: ItemOrcamento): LinhaCalculadaResult => precificarLinhaCalculada({
+    colaboradores: dadosPeriodo?.colaboradores ?? [], clientes: dadosPeriodo?.clientes ?? [],
+    vinculos: dadosPeriodo?.vinculos ?? [],
+    horasPorFuncao: it.horas_por_funcao ?? horasZero(), horasJuridicas: it.horas_juridicas ?? 0,
+    custoHoraJuridico: parametros.custo_hora_juridico, fatorJuridico: parametros.fator_demanda_juridica,
+    overheadRatio: parametros.overhead_ratio_referencia, margem: it.margem ?? parametros.margem_alvo,
+    aliqFat: ALIQUOTAS[regime].faturamento,
+  });
+  // Aplica patch numa linha calculada E recomputa preço/custo (valor = preço).
+  const setItemCalc = (idx: number, patch: Partial<ItemOrcamento>) => {
+    setItens(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const merged = { ...it, ...patch };
+      const r = precoCalc(merged);
+      return { ...merged, valor: Math.round(r.preco), custo_direto_calc: r.custoDireto, custo_total_calc: r.custoTotal };
+    }));
+  };
+  const setHoraFuncao = (idx: number, f: FuncaoAlocacao, h: number) => {
+    const atual = itens[idx].horas_por_funcao ?? horasZero();
+    setItemCalc(idx, { horas_por_funcao: { ...atual, [f]: h } });
+  };
   const setItemCampo = (idx: number, campo: 'descricao' | 'valor', valor: string | number) => {
     setItens(prev => prev.map((it, i) => i === idx ? { ...it, [campo]: valor } : it));
   };
@@ -176,6 +219,10 @@ export function Orcador() {
         <div className="rounded-lg p-3" style={{ backgroundColor: '#f0f6ff' }}>
           <span className="text-[11px] font-semibold" style={{ color: '#160F41' }}>Adicionar serviço</span>
           <div className="flex gap-2 mt-1">
+            <select value={naturezaNova} onChange={e => setNaturezaNova(e.target.value as NaturezaOrcamento)} className={INP} style={BRD}>
+              <option value="tabelado">Tabelado (valor fixo)</option>
+              <option value="calculado">Calculado (por esforço)</option>
+            </select>
             <select value={tipoNovo} onChange={e => setTipoNovo(e.target.value as TipoExtraordinario)} className={INP} style={BRD}>
               {CATALOGO_EXTRAORDINARIO.map(c => (
                 <option key={c.tipo} value={c.tipo}>{c.grupo} — {c.label}{c.placeholder ? ' (a cravar)' : ''}</option>
@@ -189,6 +236,45 @@ export function Orcador() {
         {itens.length > 0 && (
           <div className="space-y-2">
             {itens.map((it, idx) => {
+              // ── LINHA CALCULADA (por esforço) ─────────────────────────────
+              if ((it.natureza ?? 'tabelado') === 'calculado') {
+                const r = precoCalc(it);
+                return (
+                  <div key={idx} className="rounded-lg border p-3 space-y-2" style={{ borderColor: '#0065FF' }}>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ backgroundColor: '#e0edff', color: '#0065FF' }}>Calculado</span>
+                      <input value={it.descricao} onChange={e => setItemCampo(idx, 'descricao', e.target.value)} className="rounded px-2 py-1.5 text-sm flex-grow" style={BRD} />
+                      <button onClick={() => removerItem(idx)} className="px-2 py-1.5 rounded text-xs" style={{ border: '1px solid #fca5a5', color: '#dc2626' }}>✕</button>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {FUNCOES_ALOCACAO.map(f => (
+                        <label key={f} className="block">
+                          <span className="text-[10px]" style={{ color: '#6b6b8a' }}>{LABEL_FUNCAO_ORC[f]} (h)</span>
+                          <input type="number" step={0.5} min={0} value={it.horas_por_funcao?.[f] ?? 0}
+                            onChange={e => setHoraFuncao(idx, f, Number(e.target.value))} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+                        </label>
+                      ))}
+                      <label className="block">
+                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Jurídico (h)</span>
+                        <input type="number" step={0.5} min={0} value={it.horas_juridicas ?? 0}
+                          onChange={e => setItemCalc(idx, { horas_juridicas: Number(e.target.value) })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px]" style={{ color: '#6b6b8a' }}>Margem (%)</span>
+                        <input type="number" step={1} min={0} max={99} value={Math.round((it.margem ?? parametros.margem_alvo) * 100)}
+                          onChange={e => setItemCalc(idx, { margem: Number(e.target.value) / 100 })} className="rounded px-2 py-1 text-sm w-full text-right" style={BRD} />
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]" style={{ color: '#6b6b8a' }}>
+                      <span>Custo direto {formatCurrency(r.custoDireto)} · jurídico {formatCurrency(r.custoJuridico)} · overhead ×{parametros.overhead_ratio_referencia.toFixed(2)} · margem {Math.round((it.margem ?? parametros.margem_alvo) * 100)}%</span>
+                      <span className="font-bold text-sm" style={{ color: r.denomInvalido ? '#991b1b' : '#160F41' }}>
+                        {r.denomInvalido ? 'margem+imposto ≥ 100%' : `Preço ${formatCurrency(it.valor)}`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              // ── LINHA TABELADA (valor fixo) ───────────────────────────────
               const faixa = parametros.extraordinario[it.tipo];
               return (
                 <div key={idx} className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>

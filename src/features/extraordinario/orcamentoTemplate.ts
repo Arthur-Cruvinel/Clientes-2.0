@@ -35,8 +35,12 @@ function itensHTML(d: DadosOrcamento): string {
     const clausula = it.clausula_informativa
       ? `<p class="text-[13px] text-secundario mt-1 italic">${esc(it.clausula_informativa)}</p>`
       : '';
+    // Nota de natureza: linha calculada por esforço (preço = custo + margem).
+    const nota = (it.natureza ?? 'tabelado') === 'calculado'
+      ? `<p class="text-[12px] text-secundario mt-1">Serviço calculado por esforço (horas dedicadas × custo + margem).</p>`
+      : '';
     return `<div class="flex items-start justify-between gap-6 py-4 border-b border-gray-200">
-      <div class="flex-grow"><strong class="text-principal text-base">${esc(it.descricao)}</strong>${clausula}</div>
+      <div class="flex-grow"><strong class="text-principal text-base">${esc(it.descricao)}</strong>${nota}${clausula}</div>
       <div class="text-right text-principal text-lg font-semibold whitespace-nowrap">${brl(it.valor)}</div>
     </div>`;
   }).join('');

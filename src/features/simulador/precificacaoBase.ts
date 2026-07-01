@@ -63,3 +63,31 @@ export function custoDiretoDemanda(
 ): number {
   return FUNCOES_ALOCACAO.reduce((s, f) => s + (horasPorFuncao[f] ?? 0) * (custoHoraMedio[f] ?? 0), 0);
 }
+
+// ── Precificação de LINHA CALCULADA (extraordinário por esforço) ────────────
+// Irmão do calcularFee que reusa as MESMAS entranhas (custoHoraMedioPorFuncao +
+// custoDiretoDemanda + overhead + gross-up), mas recebe HORAS por função direto
+// (não deriva de volume) e trata o jurídico como 7ª rubrica (custo_hora_juridico).
+// SEM rebate (o rebate subsidia o fee mensal, não o serviço avulso). Margem é POR
+// LINHA. NÃO chama calcularFee (o contrato de entrada dele — volume — fica intocado).
+export interface LinhaCalculadaInputs {
+  colaboradores: Colaborador[]; clientes: Cliente[]; vinculos: Vinculo[];
+  horasPorFuncao: Record<FuncaoAlocacao, number>;
+  horasJuridicas: number; custoHoraJuridico: number; fatorJuridico: number;
+  overheadRatio: number; margem: number; aliqFat: number;
+}
+export interface LinhaCalculadaResult {
+  custoDireto: number; custoJuridico: number; overhead: number;
+  custoTotal: number; preco: number; denomInvalido: boolean;
+}
+export function precificarLinhaCalculada(i: LinhaCalculadaInputs): LinhaCalculadaResult {
+  const custoHoraMedio = custoHoraMedioPorFuncao(i.colaboradores, i.clientes, i.vinculos);
+  const custoFuncoes = custoDiretoDemanda(i.horasPorFuncao, custoHoraMedio);
+  const custoJuridico = i.horasJuridicas * i.custoHoraJuridico * i.fatorJuridico;
+  const custoDireto = custoFuncoes + custoJuridico;
+  const overhead = custoDireto * i.overheadRatio;
+  const custoTotal = custoDireto + overhead;
+  const denom = 1 - i.aliqFat - i.margem;
+  const preco = denom > 0 ? custoTotal / denom : 0;
+  return { custoDireto, custoJuridico, overhead, custoTotal, preco, denomInvalido: denom <= 0 };
+}
