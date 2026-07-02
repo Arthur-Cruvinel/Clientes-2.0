@@ -176,7 +176,7 @@ function blocosEscopo(d: DadosPropostaTemplate, t: Ticks, contr: { adm: boolean;
     // NUNCA exibir "até 0 demandas": com N=0 mantém a redação histórica.
     // SEM PREÇO no documento — só o N e a fronteira incluído/extraordinário.
     const base = d.qtdDemandasJuridicas > 0
-      ? `Jurídico consultivo incluído — até ${d.qtdDemandasJuridicas} demanda${d.qtdDemandasJuridicas === 1 ? '' : 's'}/mês${it.length ? ` (${it.join(', ')})` : ''}. Serviços extraordinários (elaboração de documentos do zero, representação/negociação, contencioso, parecer aprofundado ou direcionamento a escritório externo) são orçados sob demanda, à parte.`
+      ? `Jurídico consultivo incluído — até ${d.qtdDemandasJuridicas} demanda${d.qtdDemandasJuridicas === 1 ? '' : 's'}/mês${it.length ? ` (${it.join(', ')})` : ''}. Análise ou revisão de contrato conta como 1 demanda. Serviços extraordinários (elaboração de documentos do zero, representação/negociação, contencioso, parecer aprofundado ou direcionamento a escritório externo) são orçados sob demanda, à parte.`
       : `Apoio consultivo contínuo${it.length ? `: ${it.join(', ')}` : ''}.`;
     blocos.push({ titulo: 'Escopo Jurídico', texto: base });
   }

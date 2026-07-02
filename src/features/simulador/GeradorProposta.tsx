@@ -529,7 +529,6 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
             </Secao>
             <div className="flex flex-wrap gap-4">
               <Chk label={`Planej. tributário${planTrib ? ` (+${fmtH(horaBool('planejamento_tributario'))}h)` : ''}`} v={planTrib} set={setPlanTrib} />
-              <Chk label={`Revisão contratos${revContr ? ` (+${fmtH(horaBool('revisao_contratos'))}h)` : ''}`} v={revContr} set={setRevContr} />
             </div>
           </fieldset>
 
