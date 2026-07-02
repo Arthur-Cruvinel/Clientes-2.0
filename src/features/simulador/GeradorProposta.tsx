@@ -17,7 +17,12 @@ import { calcularFee } from './calcularFee';
 import { salvarProposta, buscarPropostas, atualizarPropostaStatus, excluirProposta } from '../../services/firebase';
 import { gerarPropostaHTML } from './propostaTemplate';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
+import { ATIVIDADES_SERVICO } from '../../utils/atividadesServico';
 import type { FuncaoAlocacao, PacoteServico, RegimeTributario, DadosProposta, PropostaInputs, PropostaOutputs } from '../../types';
+
+// Coeficiente de horas do catálogo (não hardcoded) — feedback dos checkboxes que calculam.
+const horaBool = (campo: string): number => Object.values(ATIVIDADES_SERVICO).find(a => a.boolean_campo === campo)?.horas_base ?? 0;
+const fmtH = (h: number) => h.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const LABEL_F: Record<FuncaoAlocacao, string> = {
   consultoria_gestao: 'Gestão', consultoria_planejamento: 'Planejamento',
@@ -495,88 +500,103 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           </div>
         )}
 
-        <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Pacote</span>
-              <select value={pacote} onChange={e => setPacote(e.target.value as PacoteServico)} className={INP} style={BRD}>
-                {PACOTES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </label>
-            <label className="block">
+        {/* ═══ ZONA 1 — Define o preço ═══ */}
+        <div className="rounded-lg border p-3 space-y-4" style={{ borderColor: '#0065FF', backgroundColor: '#f8fbff' }}>
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#0065FF' }}>Define o preço</p>
+          <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
+            <label className="block w-40">
               <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Regime</span>
               <select value={regime} onChange={e => setRegime(e.target.value as RegimeTributario)} className={INP} style={BRD}>
                 <option value="presumido">Presumido</option><option value="real">Real</option>
               </select>
             </label>
-          </div>
+            <Secao titulo="Perfil de complexidade">
+              <Num label="Veículos" v={veic} set={setVeic} /><Num label="Imóveis" v={imov} set={setImov} />
+              <Num label="Func. domésticos" v={domest} set={setDomest} />
+            </Secao>
+            <Secao titulo="Volumetria mensal — mov.→pagamentos/fluxo; contratações→indicação; recebíveis→conciliação">
+              <Num label="Movimentos / mês" v={volMov} set={setVolMov} /><Num label="Contratações / mês" v={contratacoes} set={setContratacoes} />
+              <Num label="Recebíveis / mês" v={recebiveis} set={setRecebiveis} />
+            </Secao>
+            <Secao titulo="Patrimônio (rebate) e taxas">
+              <Num label="PL onshore (R$)" v={plOn} set={setPlOn} step={1000} /><Num label="PL offshore (R$)" v={plOff} set={setPlOff} step={1000} />
+              <Num label="Taxa rebate on (% a.a.)" v={taxaOn} set={setTaxaOn} step={0.01} /><Num label="Taxa rebate off (% a.a.)" v={taxaOff} set={setTaxaOff} step={0.01} />
+            </Secao>
+            <Secao titulo="Custos dedicados estimados (R$/mês)">
+              <Num label="Contabilidade" v={dContab} set={setDContab} step={0.01} /><Num label="Plataforma pgto" v={dPgto} set={setDPgto} step={0.01} />
+              <Num label="Administrativo" v={dAdm} set={setDAdm} step={0.01} /><Num label="Viagem" v={dViagem} set={setDViagem} step={0.01} />
+            </Secao>
+            <div className="flex flex-wrap gap-4">
+              <Chk label={`Planej. tributário${planTrib ? ` (+${fmtH(horaBool('planejamento_tributario'))}h)` : ''}`} v={planTrib} set={setPlanTrib} />
+              <Chk label={`Revisão contratos${revContr ? ` (+${fmtH(horaBool('revisao_contratos'))}h)` : ''}`} v={revContr} set={setRevContr} />
+            </div>
+          </fieldset>
 
-          <Secao titulo="Perfil de complexidade (fixo)">
-            <Num label="Veículos" v={veic} set={setVeic} /><Num label="Imóveis" v={imov} set={setImov} />
-            <Num label="Grupos financeiros" v={grupos} set={setGrupos} /><Num label="Func. domésticos" v={domest} set={setDomest} />
-          </Secao>
-          <div className="flex flex-wrap gap-4">
-            <Chk label="Planej. tributário" v={planTrib} set={setPlanTrib} /><Chk label="Revisão contratos" v={revContr} set={setRevContr} />
-            <Chk label="Gestão de obra" v={obra} set={setObra} /><Chk label="Serv. jurídico" v={usaJur} set={setUsaJur} /><Chk label="Conciliação" v={usaConc} set={setUsaConc} />
-          </div>
-        </fieldset>
-
-        {/* ADIÇÕES: prospect = linha normal de jurídico N (parte do escopo). Aditivo
-            = seção incremental agrupada (ampliado = baseline + inc), fora do
-            fieldset travado. Conciliação NÃO é campo — acompanha o movimento. */}
-        {tipo === 'prospect' ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-medium" style={{ color: '#160F41' }}>Demandas jurídicas / mês (N)</span>
-            <input type="number" step={1} min={0} value={demandasJur}
-              onChange={e => setDemandasJur(Math.max(0, Number(e.target.value)))}
-              className="rounded px-2 py-1 text-sm w-24" style={BRD} />
-            <span className="text-[10px]" style={{ color: '#9ca3af' }}>jurídico consultivo incluído no fee · 0 = sem parcela</span>
-          </div>
-        ) : baseline && (
-          <div className="rounded-lg border-2 p-3 space-y-3" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
-            <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#0065FF' }}>＋ Adições ao escopo (editável)</p>
-            <p className="text-[10px]" style={{ color: '#6b6b8a' }}>Digite <strong>quanto a mais</strong> de cada item — o acréscimo cobrado = (escopo atual + adições) − escopo atual. A conciliação acompanha o movimento automaticamente — não precisa marcar.</p>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Financeiro / volumetria</p>
-              <div className="grid grid-cols-3 gap-3">
-                <AdicaoNum label="Movimentos / mês" atual={baseline.volMov} v={inc.volMov} set={setIncF('volMov')} />
-                <AdicaoNum label="Recebíveis / mês" atual={baseline.recebiveis} v={inc.recebiveis} set={setIncF('recebiveis')} />
-                <AdicaoNum label="Contratações / mês" atual={baseline.contratacoes} v={inc.contratacoes} set={setIncF('contratacoes')} />
+          {/* Demandas jurídicas — prospect: input promovido + efeito em R$; aditivo: bloco Adições. */}
+          {tipo === 'prospect' ? (
+            <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8', backgroundColor: '#fff' }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold" style={{ color: '#160F41' }}>Demandas jurídicas / mês (N)</span>
+                <input type="number" step={1} min={0} value={demandasJur}
+                  onChange={e => setDemandasJur(Math.max(0, Number(e.target.value)))}
+                  className="rounded px-2 py-1 text-sm w-20" style={BRD} />
+                {prop && demandasJur > 0 && (
+                  <span className="text-[12px] font-semibold" style={{ color: '#0065FF' }}>
+                    {demandasJur} × {formatCurrency(prop.custoDemandaJuridica)} = {formatCurrency(prop.parcelaJuridica)}/mês na parcela jurídica
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>jurídico consultivo incluído no fee · 0 = sem parcela</p>
+            </div>
+          ) : baseline && (
+            <div className="rounded-lg border-2 p-3 space-y-3" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#0065FF' }}>＋ Adições ao escopo (editável)</p>
+              <p className="text-[10px]" style={{ color: '#6b6b8a' }}>Digite <strong>quanto a mais</strong> de cada item — o acréscimo cobrado = (escopo atual + adições) − escopo atual. A conciliação acompanha o movimento automaticamente — não precisa marcar.</p>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Financeiro / volumetria</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <AdicaoNum label="Movimentos / mês" atual={baseline.volMov} v={inc.volMov} set={setIncF('volMov')} />
+                  <AdicaoNum label="Recebíveis / mês" atual={baseline.recebiveis} v={inc.recebiveis} set={setIncF('recebiveis')} />
+                  <AdicaoNum label="Contratações / mês" atual={baseline.contratacoes} v={inc.contratacoes} set={setIncF('contratacoes')} />
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Perfil / bens</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <AdicaoNum label="Imóveis" atual={baseline.imov} v={inc.imov} set={setIncF('imov')} />
+                  <AdicaoNum label="Veículos" atual={baseline.veic} v={inc.veic} set={setIncF('veic')} />
+                  <AdicaoNum label="Func. domésticos" atual={baseline.domest} v={inc.domest} set={setIncF('domest')} />
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Jurídico</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <AdicaoNum label="Demandas jurídicas / mês (N)" atual={baseline.demandasJur} v={inc.demandasJur} set={setIncF('demandasJur')} />
+                </div>
               </div>
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Perfil / bens</p>
-              <div className="grid grid-cols-2 gap-3">
-                <AdicaoNum label="Imóveis" atual={baseline.imov} v={inc.imov} set={setIncF('imov')} />
-                <AdicaoNum label="Veículos" atual={baseline.veic} v={inc.veic} set={setIncF('veic')} />
-                <AdicaoNum label="Func. domésticos" atual={baseline.domest} v={inc.domest} set={setIncF('domest')} />
-                <AdicaoNum label="Grupos financeiros" atual={baseline.grupos} v={inc.grupos} set={setIncF('grupos')} />
-              </div>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Jurídico</p>
-              <div className="grid grid-cols-2 gap-3">
-                <AdicaoNum label="Demandas jurídicas / mês (N)" atual={baseline.demandasJur} v={inc.demandasJur} set={setIncF('demandasJur')} />
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
-          <Secao titulo="Volumetria mensal — alimenta: mov.→pagamentos/fluxo; contratações→indicação; recebíveis→conciliação">
-            <Num label="Movimentos / mês" v={volMov} set={setVolMov} /><Num label="Contratações / mês" v={contratacoes} set={setContratacoes} />
-            <Num label="Recebíveis / mês" v={recebiveis} set={setRecebiveis} /><Num label="Contas bancárias" v={contas} set={setContas} />
-          </Secao>
-
-          <Secao titulo="Patrimônio (rebate) e taxas">
-            <Num label="PL onshore (R$)" v={plOn} set={setPlOn} step={1000} /><Num label="PL offshore (R$)" v={plOff} set={setPlOff} step={1000} />
-            <Num label="Taxa rebate on (% a.a.)" v={taxaOn} set={setTaxaOn} step={0.01} /><Num label="Taxa rebate off (% a.a.)" v={taxaOff} set={setTaxaOff} step={0.01} />
-          </Secao>
-          <Secao titulo="Custos dedicados estimados (R$/mês)">
-            <Num label="Contabilidade" v={dContab} set={setDContab} step={0.01} /><Num label="Plataforma pgto" v={dPgto} set={setDPgto} step={0.01} />
-            <Num label="Administrativo" v={dAdm} set={setDAdm} step={0.01} /><Num label="Viagem" v={dViagem} set={setDViagem} step={0.01} />
-          </Secao>
-        </fieldset>
+        {/* ═══ ZONA 2 — Perfil e documento (não altera o fee) ═══ */}
+        <div className="rounded-lg border p-3 space-y-4" style={{ borderColor: '#e2e2e8', backgroundColor: '#fafafa' }}>
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Perfil e documento (não altera o fee)</p>
+          <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
+            <label className="block w-48">
+              <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Pacote</span>
+              <select value={pacote} onChange={e => setPacote(e.target.value as PacoteServico)} className={INP} style={BRD}>
+                {PACOTES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <span className="text-[10px] block mt-0.5" style={{ color: '#9ca3af' }}>define o rótulo da proposta</span>
+            </label>
+            <Secao titulo="Perfil / documento (informativo)">
+              <Num label="Grupos financeiros" v={grupos} set={setGrupos} /><Num label="Contas bancárias" v={contas} set={setContas} />
+            </Secao>
+            <div className="flex flex-wrap gap-4">
+              <Chk label="Serv. jurídico" v={usaJur} set={setUsaJur} /><Chk label="Conciliação" v={usaConc} set={setUsaConc} />
+            </div>
+          </fieldset>
+        </div>
       </div>
 
       {/* SAÍDA */}
