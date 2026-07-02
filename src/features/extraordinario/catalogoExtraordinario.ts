@@ -9,7 +9,7 @@ import type { TipoExtraordinario, FaixaExtraordinario } from '../../types';
 export interface CatalogoExtraordinarioEntry {
   tipo: TipoExtraordinario;
   label: string;
-  grupo: 'Jurídico' | 'Estratégico';
+  grupo: 'Jurídico' | 'Estratégico' | 'Gestão';
   // Modelo da cláusula informativa (texto — NÃO calcula). undefined = sem cláusula.
   //  'success_fee' → success fee % sobre a mais-valia (resultado futuro).
   //  'pct_causa'   → % sobre o valor da causa, com mínimo em R$.
@@ -27,6 +27,7 @@ export const CATALOGO_EXTRAORDINARIO: CatalogoExtraordinarioEntry[] = [
   { tipo: 'ma',          label: 'M&A — Fusões e Aquisições', grupo: 'Estratégico', placeholder: true },
   { tipo: 'valuation',   label: 'Valuation',                 grupo: 'Estratégico', placeholder: true },
   { tipo: 'viabilidade', label: 'Estudo de viabilidade',     grupo: 'Estratégico', placeholder: true },
+  { tipo: 'gestao_obra', label: 'Gestão de Obra',            grupo: 'Gestão',      placeholder: false },
 ];
 
 export const CATALOGO_POR_TIPO: Record<TipoExtraordinario, CatalogoExtraordinarioEntry> =

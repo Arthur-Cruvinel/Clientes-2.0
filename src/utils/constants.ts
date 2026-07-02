@@ -273,6 +273,7 @@ export const EXTRAORDINARIO_DEFAULT: Record<TipoExtraordinario, FaixaExtraordina
   ma:                           { faixa_min: 0,    faixa_max: 0 },   // plugável (placeholder)
   valuation:                    { faixa_min: 0,    faixa_max: 0 },   // plugável (placeholder)
   viabilidade:                  { faixa_min: 0,    faixa_max: 0 },   // plugável (placeholder)
+  gestao_obra:                  { faixa_min: 0,    faixa_max: 0 },   // natureza calculada — faixa inerte
 };
 
 // ── PARÂMETROS GLOBAIS DEFAULT ─────────────────────────────────────────

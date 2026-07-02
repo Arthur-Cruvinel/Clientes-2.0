@@ -571,7 +571,8 @@ export type TipoExtraordinario =
   | 'juridico_contencioso'
   | 'ma'
   | 'valuation'
-  | 'viabilidade';
+  | 'viabilidade'
+  | 'gestao_obra';
 
 // Natureza de preço da linha (Frente 3 naturezas):
 //   'tabelado'    → valor fixo (faixa por tipo). Comportamento histórico.

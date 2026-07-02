@@ -130,3 +130,22 @@ as tratativas.
 ressalvas: Resultado da negociação: a composição depende da vontade da contraparte. O trabalho
 constitui obrigação de meio — a condução diligente das tratativas — sem garantia de acordo ou de
 termos específicos.
+
+## gestao_obra
+descricao: Gestão administrativa e financeira de obra ou reforma de interesse do cliente,
+compreendendo: análise dos contratos com construtora, arquitetos e fornecedores; acompanhamento
+do cronograma físico-financeiro; conferência de medições e liberação de pagamentos contra o
+avanço real da obra; controle do orçado versus realizado; e prestação de contas periódica ao
+cliente, com a documentação comprobatória organizada.
+prazo: Acompanha a duração da obra, conforme o cronograma físico-financeiro estabelecido com a
+construtora no início do trabalho.
+dependencias: Fornecimento dos contratos, projetos e orçamentos da obra; canal de comunicação com
+a construtora e os fornecedores; e aprovação tempestiva dos pagamentos e das decisões que alterem
+escopo ou orçamento.
+ressalvas: Natureza do serviço: o trabalho é de gestão administrativa e financeira. A execução da
+obra, sua qualidade técnica e o cumprimento das normas de engenharia são de responsabilidade da
+construtora e do responsável técnico contratados pelo cliente. Prazos da obra: o cronograma
+depende da construtora, de fornecedores e de fatores externos (clima, licenças, disponibilidade
+de materiais). Atrasos dessas origens não decorrem da gestão e não geram responsabilidade da
+Galácticos. Custos da obra: os custos da obra (materiais, mão de obra, projetos, taxas) são do
+cliente e não integram os honorários de gestão.

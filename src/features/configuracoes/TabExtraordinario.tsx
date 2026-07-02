@@ -33,7 +33,7 @@ export function TabExtraordinario({ parametros, onSalvar, salvando }: Props) {
 
   const INP = 'rounded-lg px-2 py-1.5 text-sm w-28';
   const BRD = { border: '1px solid #e2e2e8', color: '#160F41' };
-  const grupos = ['Jurídico', 'Estratégico'] as const;
+  const grupos = ['Jurídico', 'Estratégico', 'Gestão'] as const;
 
   return (
     <div className="space-y-6">
