@@ -6,11 +6,30 @@
 // PROSPECT (Parte 2, onde não há alocação). Estes helpers são a fonte única do
 // "custo de demanda" — usados tanto no cenário da Parte 1 quanto no gerador.
 
-import type { Colaborador, CustoIndireto, Cliente, FuncaoAlocacao, ResultadoCliente } from '../../types';
+import type { Colaborador, CustoIndireto, Cliente, FuncaoAlocacao, ResultadoCliente, Parametros } from '../../types';
 import type { Vinculo } from '../../types/vinculo';
 import { FUNCOES_ALOCACAO } from '../../utils/constants';
 import { somarPctPorColaborador, somarPctPorFuncaoColaborador, calcularCustoInstitucional } from '../../utils/financials.custos';
 import { calcularOciosidade } from '../../utils/financials.alocacao';
+
+// ── Custo do jurídico consultivo — fonte ÚNICA (fee da proposta + 7ª rubrica) ──
+// Quando pool E capacidade > 0 → custo por demanda = pool ÷ capacidade. Senão,
+// FALLBACK ao cálculo por hora (tempo × custo_hora × fator ≈ R$207). Com os dois
+// defaults 0, devolve exatamente o valor atual (byte a byte).
+export function custoDemandaJuridicaEfetivo(p: Parametros): number {
+  if (p.pool_mensal_juridico > 0 && p.capacidade_demandas_mes > 0) {
+    return p.pool_mensal_juridico / p.capacidade_demandas_mes;
+  }
+  return p.tempo_demanda_juridica_horas * p.custo_hora_juridico * p.fator_demanda_juridica;
+}
+// Salário-hora efetivo do jurídico (7ª rubrica do Orçador): custo_demanda ÷ tempo
+// quando derivado por pool; senão o custo_hora cru (fallback 82,88, byte a byte).
+export function custoHoraJuridicoEfetivo(p: Parametros): number {
+  if (p.pool_mensal_juridico > 0 && p.capacidade_demandas_mes > 0) {
+    return custoDemandaJuridicaEfetivo(p) / (p.tempo_demanda_juridica_horas || 1);
+  }
+  return p.custo_hora_juridico;
+}
 
 /** Custo/hora MÉDIO por função — ponderado pelos VÍNCULOS reais: peso = Σpct dos
  *  colaboradores que ATENDEM a função no período (mesma atribuição do custo

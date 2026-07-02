@@ -17,15 +17,21 @@ export function TabJuridico({ parametros, onSalvar, salvando }: Props) {
   const [tempo, setTempo] = useState(parametros.tempo_demanda_juridica_horas);
   const [custoHora, setCustoHora] = useState(parametros.custo_hora_juridico);
   const [fator, setFator] = useState(parametros.fator_demanda_juridica);
+  const [pool, setPool] = useState(parametros.pool_mensal_juridico);
+  const [capacidade, setCapacidade] = useState(parametros.capacidade_demandas_mes);
 
   useEffect(() => {
     setTempo(parametros.tempo_demanda_juridica_horas);
     setCustoHora(parametros.custo_hora_juridico);
     setFator(parametros.fator_demanda_juridica);
+    setPool(parametros.pool_mensal_juridico);
+    setCapacidade(parametros.capacidade_demandas_mes);
   }, [parametros]);
 
-  // Derivado ao vivo — espelha exatamente a conta usada no fee da proposta.
-  const custoDemanda = tempo * custoHora * fator;
+  // Custo por demanda EFETIVO — espelha a fonte única usada no fee/orçador:
+  // pool ÷ capacidade quando ambos > 0; senão fallback tempo × custo_hora × fator.
+  const derivadoPorPool = pool > 0 && capacidade > 0;
+  const custoDemanda = derivadoPorPool ? pool / capacidade : tempo * custoHora * fator;
 
   const salvar = () => {
     if (!confirm('Estes parâmetros são GLOBAIS — afetam o custo do jurídico consultivo em TODAS as propostas novas. Confirmar?')) return;
@@ -34,6 +40,8 @@ export function TabJuridico({ parametros, onSalvar, salvando }: Props) {
       tempo_demanda_juridica_horas: tempo,
       custo_hora_juridico: custoHora,
       fator_demanda_juridica: fator,
+      pool_mensal_juridico: pool,
+      capacidade_demandas_mes: capacidade,
     });
   };
 
@@ -68,12 +76,34 @@ export function TabJuridico({ parametros, onSalvar, salvando }: Props) {
         </div>
       </div>
 
-      {/* Derivado read-only — recalcula ao vivo conforme edita os 3 campos. */}
+      {/* Derivação por POOL (opcional) — quando ambos > 0, custo/demanda = pool ÷
+          capacidade e substitui a conta por hora acima. Ambos vazios/0 = fallback. */}
+      <div>
+        <p className="text-xs mb-3" style={{ color: '#6b6b8a' }}>
+          <strong>Alternativa por pool</strong> — se preencher os dois campos abaixo, o custo por
+          demanda passa a ser <strong>pool ÷ capacidade</strong> e substitui a conta por hora acima.
+          Deixe em 0 para manter o cálculo por hora.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium" style={{ color: '#160F41' }}>Pool mensal do jurídico (R$)</label>
+            <input type="number" step="100" value={pool} onChange={e => setPool(Number(e.target.value))} className={INP} style={BRD} />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium" style={{ color: '#160F41' }}>Capacidade (demandas/mês)</label>
+            <input type="number" step="1" value={capacidade} onChange={e => setCapacidade(Number(e.target.value))} className={INP} style={BRD} />
+          </div>
+        </div>
+      </div>
+
+      {/* Custo por demanda EFETIVO read-only — a fonte que o fee/orçador realmente usa. */}
       <div className="rounded-lg border p-4" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
-        <p className="text-xs uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Custo por demanda (derivado)</p>
+        <p className="text-xs uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Custo por demanda (efetivo)</p>
         <p className="text-2xl font-bold" style={{ color: '#160F41' }}>{formatCurrency(custoDemanda)}</p>
         <p className="text-[11px] mt-1" style={{ color: '#6b6b8a' }}>
-          {tempo.toLocaleString('pt-BR')}h × {formatCurrency(custoHora)} × {fator.toLocaleString('pt-BR')}
+          {derivadoPorPool
+            ? `${formatCurrency(pool)} ÷ ${capacidade.toLocaleString('pt-BR')} demandas/mês (por pool)`
+            : `${tempo.toLocaleString('pt-BR')}h × ${formatCurrency(custoHora)} × ${fator.toLocaleString('pt-BR')} (por hora)`}
         </p>
       </div>
 

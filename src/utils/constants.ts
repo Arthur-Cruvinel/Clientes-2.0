@@ -249,6 +249,9 @@ export const OVERHEAD_RATIO_REFERENCIA_DEFAULT = 1.3116;
 export const TEMPO_DEMANDA_JURIDICA_HORAS_DEFAULT = 2.5;     // 1,5 analisar + 1 elaborar
 export const CUSTO_HORA_JURIDICO_DEFAULT = 82.88;
 export const FATOR_DEMANDA_JURIDICA_DEFAULT = 1.0;
+// Derivação por pool (opcional). Ambos 0 = fallback ao cálculo por hora acima.
+export const POOL_MENSAL_JURIDICO_DEFAULT = 0;              // R$/mês; 0 = usar fallback
+export const CAPACIDADE_DEMANDAS_MES_DEFAULT = 0;          // demandas/mês; 0 = usar fallback
 
 // ── POLÍTICA DE REAJUSTE POR VOLUME EXCEDENTE (texto da proposta) ──────────
 // Parâmetros da cláusula de excedente escrita no documento — NÃO entram no
@@ -291,6 +294,8 @@ export const PARAMETROS_DEFAULT: Parametros = {
   tempo_demanda_juridica_horas: TEMPO_DEMANDA_JURIDICA_HORAS_DEFAULT,
   custo_hora_juridico: CUSTO_HORA_JURIDICO_DEFAULT,
   fator_demanda_juridica: FATOR_DEMANDA_JURIDICA_DEFAULT,
+  pool_mensal_juridico: POOL_MENSAL_JURIDICO_DEFAULT,
+  capacidade_demandas_mes: CAPACIDADE_DEMANDAS_MES_DEFAULT,
   tolerancia_volume_pct: TOLERANCIA_VOLUME_PCT_DEFAULT,
   periodicidade_medicao_meses: PERIODICIDADE_MEDICAO_MESES_DEFAULT,
   valor_faixa_excedente: VALOR_FAIXA_EXCEDENTE_DEFAULT,

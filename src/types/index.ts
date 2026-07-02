@@ -677,6 +677,10 @@ export interface Parametros {
   tempo_demanda_juridica_horas: number;   // horas por demanda consultiva (default 2,5)
   custo_hora_juridico: number;            // salário-hora cru do jurídico (default 82,88)
   fator_demanda_juridica: number;         // multiplicador de calibração (default 1,0)
+  // Derivação por POOL (opcional): quando AMBOS > 0, custo_demanda = pool ÷ capacidade
+  // substitui tempo×custo_hora×fator. Ambos 0 (default) = fallback ao cálculo por hora.
+  pool_mensal_juridico: number;           // pool mensal do jurídico (R$); 0 = usar fallback
+  capacidade_demandas_mes: number;        // capacidade de demandas/mês; 0 = usar fallback
   // ── POLÍTICA DE REAJUSTE POR VOLUME EXCEDENTE (só redação da proposta) ──────
   // Estes 3 NÃO entram no cálculo do fee — alimentam apenas a cláusula de
   // excedente escrita no documento. Globais e ajustáveis (Configurações →
