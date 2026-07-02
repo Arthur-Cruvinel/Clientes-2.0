@@ -108,7 +108,7 @@ export function Reajustes({ onUpsell }: { onUpsell?: (p: PrefillProposta) => voi
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-xs font-medium mb-1" style={{ color: '#6b6b8a' }}>Margem EBITDA alvo (GLOBAL %)</label>
+          <label className="block text-xs font-medium mb-1" style={{ color: '#6b6b8a' }}>Margem EBITDA alvo (%) — aplicada a todos</label>
           <div className="flex items-center gap-2">
             <input type="number" step="0.5" value={margemInput} onChange={e => setMargemInput(Number(e.target.value))}
               className="rounded px-2 py-1.5 text-sm w-28" style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
@@ -119,12 +119,12 @@ export function Reajustes({ onUpsell }: { onUpsell?: (p: PrefillProposta) => voi
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium mb-1" style={{ color: '#6b6b8a' }}>Materialidade (|gap| ≥ %)</label>
+          <label className="block text-xs font-medium mb-1" style={{ color: '#6b6b8a' }} title="|gap| = distância do fee sugerido, para cima ou para baixo">Materialidade — destacar só gap ≥ %</label>
           <input type="number" step="1" value={materialidade} onChange={e => setMaterialidade(Number(e.target.value))}
             className="rounded px-2 py-1.5 text-sm w-24" style={{ border: '1px solid #e2e2e8', color: '#160F41' }} />
         </div>
         <p className="text-xs" style={{ color: '#6b6b8a' }}>
-          Fee sugerido = custo ÷ (1 − imp.fat {formatPercent(aliqImpFat * 100)} − margem {formatPercent(margemAlvo * 100)}) − rebate líquido.
+          Fee sugerido = custo ÷ (1 − impostos s/ faturamento {formatPercent(aliqImpFat * 100)} − margem {formatPercent(margemAlvo * 100)}) − rebate líquido (parcela do rebate que abate o fee).
         </p>
       </div>
 
@@ -171,8 +171,8 @@ export function Reajustes({ onUpsell }: { onUpsell?: (p: PrefillProposta) => voi
                   <th className={`${TH} text-right`}><Ord chave="feeSugerido" titulo="Fee sugerido" align="right" /></th>
                   <th className={`${TH} text-right`}><Ord chave="gap" titulo="Gap" align="right" /></th>
                   <th className={`${TH} text-center`}>Status</th>
-                  <th className={`${TH} text-center`} title="Horas alocadas vs demanda — diagnóstico de staffing, não muda o custo."><Ord chave="deltaAtendimento" titulo="Atend." align="center" /></th>
-                  <th className={`${TH} text-right`} title="Fee hipotético SE a mão de obra fosse refeita conforme a demanda. Cenário, não ação.">Fee cenário</th>
+                  <th className={`${TH} text-center`} title="Horas alocadas vs demanda — diagnóstico de staffing, não muda o custo."><Ord chave="deltaAtendimento" titulo="Atendimento" align="center" /></th>
+                  <th className={`${TH} text-right`} title="Fee hipotético SE a mão de obra fosse refeita conforme a demanda. Cenário, não ação.">Fee se realocado à demanda</th>
                 </tr>
               </thead>
               <tbody>

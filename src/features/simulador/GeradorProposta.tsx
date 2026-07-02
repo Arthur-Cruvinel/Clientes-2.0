@@ -48,7 +48,7 @@ function Chk({ label, v, set }: { label: string; v: boolean; set: (b: boolean) =
 function AdicaoNum({ label, atual, v, set }: { label: string; atual: number | string; v: number; set: (n: number) => void }) {
   return (
     <label className="block">
-      <span className="text-[11px]" style={{ color: '#6b6b8a' }}>{label} <span style={{ color: '#9ca3af' }}>· atual {atual}</span></span>
+      <span className="text-[11px]" style={{ color: '#6b6b8a' }}>＋ a mais de {label} <span style={{ color: '#9ca3af' }}>(atual: {atual})</span></span>
       <div className="flex items-center gap-1">
         <span className="text-sm font-bold" style={{ color: '#0065FF' }}>＋</span>
         <input type="number" min={0} step={1} value={v} onChange={e => set(Math.max(0, Number(e.target.value)))}
@@ -431,7 +431,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
               todo o escopo existente). */}
           {tipo === 'prospect' && prop && valorProposto <= 0 && prop.feeSugerido > 0 && (
             <button type="button" onClick={() => setValorProposto(Math.round(prop.feeSugerido / 50) * 50)}
-              className="text-[11px] underline" style={{ color: '#0065FF' }}>↑ usar fee sugerido arredondado ({formatCurrency(prop.feeSugerido)})</button>
+              className="text-[11px] underline" style={{ color: '#0065FF' }}>Aplicar fee sugerido: {formatCurrency(prop.feeSugerido)}</button>
           )}
           {tipo === 'cliente_existente' && (
             <div className="text-[11px]" style={{ color: '#6b6b8a' }}>Fee atual (cadastro): <strong style={{ color: '#160F41' }}>{formatCurrency(feeAtual)}</strong> — base real do aditivo (não editável).</div>
@@ -535,7 +535,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
         ) : baseline && (
           <div className="rounded-lg border-2 p-3 space-y-3" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
             <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#0065FF' }}>＋ Adições ao escopo (editável)</p>
-            <p className="text-[10px]" style={{ color: '#6b6b8a' }}>Digite <strong>quanto a mais</strong> de cada item. A conciliação acompanha o movimento automaticamente — não precisa marcar.</p>
+            <p className="text-[10px]" style={{ color: '#6b6b8a' }}>Digite <strong>quanto a mais</strong> de cada item — o acréscimo cobrado = (escopo atual + adições) − escopo atual. A conciliação acompanha o movimento automaticamente — não precisa marcar.</p>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#6b6b8a' }}>Financeiro / volumetria</p>
               <div className="grid grid-cols-3 gap-3">
@@ -590,17 +590,21 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
           <>
             {/* BASELINE travado (escopo atual, read-only). */}
             <div className="rounded-lg border p-3 text-xs" style={{ borderColor: '#e2e2e8', backgroundColor: '#f9fafb' }}>
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#6b6b8a' }}>Escopo atual (baseline — travado)</p>
-              <p style={{ color: '#6b6b8a' }}>
-                Pacote {baseline.pacote} · {baseline.volMov} mov/mês · {baseline.recebiveis} receb/mês · jurídico {baseline.usaJur ? 'sim' : 'não'} · conc {baseline.usaConc ? 'sim' : 'não'} · {baseline.imov} imóveis · {baseline.veic} veículos · ded {formatCurrency(baseline.dContab + baseline.dPgto + baseline.dAdm + baseline.dViagem)}
-              </p>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#6b6b8a' }}>Escopo atual (travado)</p>
+              <div className="space-y-0.5" style={{ color: '#6b6b8a' }}>
+                <p><strong>Pacote:</strong> {baseline.pacote}</p>
+                <p><strong>Volumetria:</strong> {baseline.volMov} mov/mês · {baseline.recebiveis} receb/mês</p>
+                <p><strong>Serviços:</strong> jurídico {baseline.usaJur ? 'sim' : 'não'} · conciliação {baseline.usaConc ? 'sim' : 'não'}</p>
+                <p><strong>Patrimônio:</strong> {baseline.imov} imóveis · {baseline.veic} veículos</p>
+                <p><strong>Dedicados:</strong> {formatCurrency(baseline.dContab + baseline.dPgto + baseline.dAdm + baseline.dViagem)}</p>
+              </div>
             </div>
             {/* DELTA (base c split): fee atual real → + acréscimo (delta) → = novo total. */}
             <div className="rounded-lg border p-4" style={{ borderColor: '#0065FF', backgroundColor: '#f0f6ff' }}>
-              <p className="text-xs uppercase tracking-wider mb-2" style={{ color: '#6b6b8a' }}>Aditivo de escopo — composição do fee</p>
+              <p className="text-xs uppercase tracking-wider mb-2" style={{ color: '#6b6b8a' }}>Como o novo fee é formado</p>
               <div className="space-y-1 text-sm">
                 <L label="Fee atual (cadastro, real)" v={formatCurrency(feeAtual)} />
-                <L label="+ Acréscimo (delta: ampliado − atual)" v={formatCurrency(delta)} forte />
+                <L label="+ Acréscimo pelo novo escopo (o quanto o escopo ampliado custa a mais que o atual)" v={formatCurrency(delta)} forte />
                 <div className="border-t pt-1 mt-1" style={{ borderColor: '#bfdbfe' }}>
                   <L label="= Novo total mensal" v={formatCurrency(novoTotalAditivo)} forte />
                 </div>
@@ -651,7 +655,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
                 <>
                   <L label={`+ Jurídico (${prop.demandasJur} demanda${prop.demandasJur === 1 ? '' : 's'})`} v={formatCurrency(prop.parcelaJuridica)} />
                   <p className="text-[11px] -mt-0.5" style={{ color: '#9ca3af' }}>
-                    {prop.demandasJur} × {formatCurrency(prop.custoDemandaJuridica)} ({parametros.tempo_demanda_juridica_horas.toLocaleString('pt-BR')}h × {formatCurrency(parametros.custo_hora_juridico)} × {parametros.fator_demanda_juridica.toLocaleString('pt-BR')})
+                    {prop.demandasJur} × {formatCurrency(prop.custoDemandaJuridica)} por demanda — cada demanda = {parametros.tempo_demanda_juridica_horas.toLocaleString('pt-BR')}h × {formatCurrency(parametros.custo_hora_juridico)}/h × fator {parametros.fator_demanda_juridica.toLocaleString('pt-BR')}
                   </p>
                 </>
               )}

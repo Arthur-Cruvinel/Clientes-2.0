@@ -397,9 +397,8 @@ export function Orcador() {
       {/* Form */}
       <div className="lg:col-span-2 space-y-4 rounded-lg border p-4" style={{ borderColor: '#e2e2e8' }}>
         <p className="text-xs" style={{ color: '#6b6b8a' }}>
-          Orçamento de serviços <strong>extraordinários</strong> — pontuais, fora do fee mensal,
-          a preço de mercado. Seletor de valor fixo (faixa sugerida, editável) + cláusulas %
-          informativas. {editId && <span style={{ color: '#0065FF' }}>· editando salvo</span>}
+          Orçamento de serviços <strong>extraordinários</strong> — pontuais, fora do fee mensal, a
+          preço de mercado. {editId && <span style={{ color: '#0065FF' }}>· editando salvo</span>}
         </p>
 
         <div className="grid grid-cols-2 gap-3">
