@@ -11,7 +11,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { salvarOrcamento, buscarOrcamentos, atualizarOrcamentoStatus, excluirOrcamento } from '../../services/firebase';
 import { gerarOrcamentoHTML } from './orcamentoTemplate';
 import { CATALOGO_EXTRAORDINARIO, CATALOGO_POR_TIPO, montarClausulaInformativa, pctDefault } from './catalogoExtraordinario';
-import { precificarLinhaCalculada, type LinhaCalculadaResult } from '../simulador/precificacaoBase';
+import { precificarLinhaCalculada, custoHoraJuridicoEfetivo, type LinhaCalculadaResult } from '../simulador/precificacaoBase';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
 import type { DadosOrcamento, ItemOrcamento, TipoExtraordinario, NaturezaOrcamento, FuncaoAlocacao, ServicoOrcamento } from '../../types';
 
@@ -147,7 +147,7 @@ export function Orcador() {
     colaboradores: dadosPeriodo?.colaboradores ?? [], clientes: dadosPeriodo?.clientes ?? [],
     vinculos: dadosPeriodo?.vinculos ?? [],
     horasPorFuncao: it.horas_por_funcao ?? horasZero(), horasJuridicas: it.horas_juridicas ?? 0,
-    custoHoraJuridico: parametros.custo_hora_juridico, fatorJuridico: parametros.fator_demanda_juridica,
+    custoHoraJuridico: custoHoraJuridicoEfetivo(parametros), fatorJuridico: parametros.fator_demanda_juridica,
     overheadRatio: parametros.overhead_ratio_referencia, margem: it.margem ?? parametros.margem_alvo,
     aliqFat: ALIQUOTAS[regime].faturamento,
   });

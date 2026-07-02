@@ -9,7 +9,7 @@ import type { Cliente, Colaborador, FuncaoAlocacao, Parametros, PacoteServico, R
 import type { Vinculo } from '../../types/vinculo';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
 import { calcularHorasReais } from '../../utils/financials';
-import { custoHoraMedioPorFuncao, custoDiretoDemanda } from './precificacaoBase';
+import { custoHoraMedioPorFuncao, custoDiretoDemanda, custoDemandaJuridicaEfetivo } from './precificacaoBase';
 
 export interface CalcularFeeInputs {
   // Dados do período (para o custo/hora médio por função).
@@ -81,7 +81,7 @@ export function calcularFee(i: CalcularFeeInputs): CalcularFeeResult {
   // × fator (R$ 82,88 é cru → puxa overhead). A parcela entra no custo direto
   // ANTES do overhead, logo recebe overhead + imposto + margem como a mão de
   // obra das 6 funções. N=0 (default) → parcela 0 → fee idêntico ao atual.
-  const custoDemandaJuridica = parametros.tempo_demanda_juridica_horas * parametros.custo_hora_juridico * parametros.fator_demanda_juridica;
+  const custoDemandaJuridica = custoDemandaJuridicaEfetivo(parametros);
   const parcelaJuridica = i.demandasJur * custoDemandaJuridica;
   const custoDiretoComJuridico = custoDireto + parcelaJuridica;
   const dedicados = i.dContab + i.dPgto + i.dAdm + i.dViagem;

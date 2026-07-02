@@ -14,6 +14,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../../state/AppContext';
 import { calcularFee } from './calcularFee';
+import { custoHoraJuridicoEfetivo } from './precificacaoBase';
 import { salvarProposta, buscarPropostas, atualizarPropostaStatus, excluirProposta } from '../../services/firebase';
 import { gerarPropostaHTML } from './propostaTemplate';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
@@ -675,7 +676,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
                 <>
                   <L label={`+ Jurídico (${prop.demandasJur} demanda${prop.demandasJur === 1 ? '' : 's'})`} v={formatCurrency(prop.parcelaJuridica)} />
                   <p className="text-[11px] -mt-0.5" style={{ color: '#9ca3af' }}>
-                    {prop.demandasJur} × {formatCurrency(prop.custoDemandaJuridica)} por demanda — cada demanda = {parametros.tempo_demanda_juridica_horas.toLocaleString('pt-BR')}h × {formatCurrency(parametros.custo_hora_juridico)}/h × fator {parametros.fator_demanda_juridica.toLocaleString('pt-BR')}
+                    {prop.demandasJur} × {formatCurrency(prop.custoDemandaJuridica)} por demanda — cada demanda = {parametros.tempo_demanda_juridica_horas.toLocaleString('pt-BR')}h × {formatCurrency(custoHoraJuridicoEfetivo(parametros))}/h × fator {parametros.fator_demanda_juridica.toLocaleString('pt-BR')}
                   </p>
                 </>
               )}
