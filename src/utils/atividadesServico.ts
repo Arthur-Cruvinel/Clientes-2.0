@@ -57,10 +57,10 @@ export const ATIVIDADES_SERVICO: Record<string, AtividadeServico> = {
 
   // ── SERV. ADMINISTRATIVO ────────────────────────────────────────────────
   gestao_veiculos: {
-    horas_base: 2.81, driver: 'qtd_veiculos', driver_base: 1, funcao: 'serv_adm',
+    horas_base: 1.0, driver: 'qtd_veiculos', driver_base: 1, funcao: 'serv_adm',   // recalibrado (era 2,81)
   },
   gestao_imoveis: {
-    horas_base: 3.94, driver: 'qtd_imoveis', driver_base: 1, funcao: 'serv_adm',
+    horas_base: 1.5, driver: 'qtd_imoveis', driver_base: 1, funcao: 'serv_adm',   // recalibrado (era 3,94)
   },
   gestao_funcionarios_domesticos: {
     horas_base: 2.00, driver: 'qtd_func_domesticos', driver_base: 1, funcao: 'serv_adm',
