@@ -3,6 +3,7 @@
 // sem lógica. As frases são VERBATIM do documento de especificação.
 
 import { PlaceholderModulo } from '../../components/ui/PlaceholderModulo';
+import { MockupSaude, MockupCarteira, MockupPlanejamento, MockupJuridico, MockupContratoVivo, MockupAgente } from './mockups';
 
 // ── EMPRESA ────────────────────────────────────────────────────────────────
 export const Resultados = () => (
@@ -12,12 +13,14 @@ export const Resultados = () => (
 
 export const Carteira = () => (
   <PlaceholderModulo nome="Carteira" origem={{ tipo: 'especificado', parte: 'V.3' }}
-    pergunta="De quem a casa depende — e quanto? Curva ABC, matriz BCG, concentração e o pipeline comercial." />
+    pergunta="De quem a casa depende — e quanto? Curva ABC, matriz BCG, concentração e o pipeline comercial."
+    mockup={<MockupCarteira />} />
 );
 
 export const Juridico = () => (
   <PlaceholderModulo nome="Jurídico" origem={{ tipo: 'especificado', parte: 'V.2' }}
-    pergunta="Capacidade fixa com demanda sem preço marginal gera fila, sempre. Demandas medidas, franquias por tier, consumo visível — o jurídico que limita e cobra sem virar gargalo." />
+    pergunta="Capacidade fixa com demanda sem preço marginal gera fila, sempre. Demandas medidas, franquias por tier, consumo visível — o jurídico que limita e cobra sem virar gargalo."
+    mockup={<MockupJuridico />} />
 );
 
 export const ServicosDemanda = () => (
@@ -37,7 +40,8 @@ export const AutomacaoBancaria = () => (
 
 export const AgenteWhatsapp = () => (
   <PlaceholderModulo nome="Agente WhatsApp" origem={{ tipo: 'novo' }}
-    pergunta="As demandas do cliente chegam pelo WhatsApp — o agente filtra, classifica e abre a tarefa certa no módulo certo; e os relatórios do mês voltam pelo mesmo canal, direto para a família." />
+    pergunta="As demandas do cliente chegam pelo WhatsApp — o agente filtra, classifica e abre a tarefa certa no módulo certo; e os relatórios do mês voltam pelo mesmo canal, direto para a família."
+    mockup={<MockupAgente />} />
 );
 
 export const Tarefas = () => (
@@ -48,12 +52,14 @@ export const Tarefas = () => (
 // ── CLIENTE 360 ──────────────────────────────────────────────────────────────
 export const PlanejamentoFinanceiro = () => (
   <PlaceholderModulo nome="Planejamento Financeiro" origem={{ tipo: 'especificado', parte: 'V.1' }}
-    pergunta="A carreira do atleta inverte a curva de renda: o pico aos 20 e poucos, a renda podendo cessar antes dos 40 — com meio século de vida pela frente. O plano de independência, projetado ano a ano e acompanhado plano vs. realizado, mês a mês." />
+    pergunta="A carreira do atleta inverte a curva de renda: o pico aos 20 e poucos, a renda podendo cessar antes dos 40 — com meio século de vida pela frente. O plano de independência, projetado ano a ano e acompanhado plano vs. realizado, mês a mês."
+    mockup={<MockupPlanejamento />} />
 );
 
 export const SaudeCliente = () => (
   <PlaceholderModulo nome="Saúde do Cliente" origem={{ tipo: 'especificado', parte: 'V.7' }}
-    pergunta="Quem precisa de atenção esta semana — sem abrir oito telas?" />
+    pergunta="Quem precisa de atenção esta semana — sem abrir oito telas?"
+    mockup={<MockupSaude />} />
 );
 
 export const DossieCliente = () => (
@@ -63,7 +69,8 @@ export const DossieCliente = () => (
 
 export const ContratoVivo = () => (
   <PlaceholderModulo nome="Contrato Vivo" origem={{ tipo: 'especificado', parte: 'V.6' }}
-    pergunta="O que foi vendido continua sendo o que é entregue — e quem deveria saber quando deixa de ser?" />
+    pergunta="O que foi vendido continua sendo o que é entregue — e quem deveria saber quando deixa de ser?"
+    mockup={<MockupContratoVivo />} />
 );
 
 export const FluxoCaixa = () => (
