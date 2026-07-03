@@ -8,10 +8,10 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, TrendingUp, Calculator, Layers,
-  GitBranch, Gauge, Grid3X3, ShieldAlert, UserCircle,
-  PiggyBank, BarChart2, LineChart, Landmark, Upload, Settings,
-  LogOut, ChevronLeft, ChevronRight,
+  LayoutDashboard, Users, TrendingUp, Calculator, Layers, Gauge, UserCircle,
+  PiggyBank, BarChart2, BarChart3, LineChart, Briefcase, Scale, Sparkles, Clock,
+  CreditCard, MessageCircle, ListTodo, Target, Activity, FileText, ScrollText,
+  Wallet, Contact, Upload, Settings, LogOut, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../state/AuthContext';
 
@@ -20,32 +20,50 @@ const STORAGE_KEY = 'sidebar_recolhida';
 const LARGURA_EXPANDIDA = 220;
 const LARGURA_RECOLHIDA = 64;
 
+type Marcador = 'novo' | 'construcao';
 interface AbaConfig {
   path: string;
   label: string;
   icon: React.ReactNode;
+  marcador?: Marcador;   // 🆕 novo · 🔧 em construção (ponto discreto)
 }
+interface Grupo { titulo: string; itens: AbaConfig[]; }
 
-const ABAS: AbaConfig[] = [
-  { path: 'visao-geral',  label: 'Visão Geral',  icon: <LayoutDashboard size={16} /> },
-  { path: 'gestores',     label: 'Gestores',      icon: <Users size={16} /> },
-  { path: 'projecao',     label: 'Projeção',      icon: <TrendingUp size={16} /> },
-  { path: 'simulador',    label: 'Simulador',     icon: <Calculator size={16} /> },
-  { path: 'cenarios',     label: 'Cenários',      icon: <Layers size={16} /> },
-  { path: 'pipeline',     label: 'Pipeline',      icon: <GitBranch size={16} /> },
-  { path: 'capacidade',   label: 'Capacidade',    icon: <Gauge size={16} /> },
-  { path: 'matriz',       label: 'Matriz',        icon: <Grid3X3 size={16} /> },
-  { path: 'risco',        label: 'Risco',         icon: <ShieldAlert size={16} /> },
-  { path: 'perfil',       label: 'Perfil',        icon: <UserCircle size={16} /> },
-  { path: 'poupanca',     label: 'AUM & Performance', icon: <PiggyBank size={16} /> },
-  { path: 'patrimonio',   label: 'Patrimônio',    icon: <BarChart2 size={16} /> },
-  { path: 'evolucao',     label: 'Evolução',      icon: <LineChart size={16} /> },
-  { path: 'patrimonial',  label: 'Patrimonial',   icon: <Landmark size={16} /> },
+const GRUPOS: Grupo[] = [
+  { titulo: 'Empresa', itens: [
+    { path: 'visao-geral', label: 'Visão Geral',        icon: <LayoutDashboard size={16} /> },
+    { path: 'resultados',  label: 'Resultados',          icon: <BarChart3 size={16} />, marcador: 'novo' },
+    { path: 'simulador',   label: 'Simulador',           icon: <Calculator size={16} /> },
+    { path: 'poupanca',    label: 'AUM & Performance',    icon: <PiggyBank size={16} /> },
+    { path: 'gestores',    label: 'Gestores',            icon: <Users size={16} /> },
+    { path: 'capacidade',  label: 'Capacidade',          icon: <Gauge size={16} /> },
+    { path: 'cenarios',    label: 'Cenários',            icon: <Layers size={16} /> },
+    { path: 'carteira',    label: 'Carteira',            icon: <Briefcase size={16} />, marcador: 'novo' },
+    { path: 'projecao',    label: 'Projeção',            icon: <TrendingUp size={16} />, marcador: 'novo' },
+    { path: 'juridico',    label: 'Jurídico',            icon: <Scale size={16} />, marcador: 'novo' },
+    { path: 'servicos-demanda',   label: 'Serviços sob Demanda', icon: <Sparkles size={16} />, marcador: 'novo' },
+    { path: 'apontamento-horas',  label: 'Apontamento de Horas', icon: <Clock size={16} />, marcador: 'novo' },
+    { path: 'automacao-bancaria', label: 'Automação Bancária',   icon: <CreditCard size={16} />, marcador: 'novo' },
+    { path: 'agente-whatsapp',    label: 'Agente WhatsApp',      icon: <MessageCircle size={16} />, marcador: 'novo' },
+    { path: 'tarefas',     label: 'Tarefas',             icon: <ListTodo size={16} />, marcador: 'novo' },
+  ]},
+  { titulo: 'Cliente 360', itens: [
+    { path: 'perfil',      label: 'Perfil',              icon: <UserCircle size={16} /> },
+    { path: 'planejamento-financeiro', label: 'Planejamento Financeiro', icon: <Target size={16} />, marcador: 'novo' },
+    { path: 'patrimonio',  label: 'Patrimônio',          icon: <BarChart2 size={16} /> },
+    { path: 'evolucao',    label: 'Evolução',            icon: <LineChart size={16} />, marcador: 'construcao' },
+    { path: 'saude-cliente',   label: 'Saúde do Cliente',   icon: <Activity size={16} />, marcador: 'novo' },
+    { path: 'dossie-cliente',  label: 'Dossiê do Cliente',  icon: <FileText size={16} />, marcador: 'novo' },
+    { path: 'contrato-vivo',   label: 'Contrato Vivo',      icon: <ScrollText size={16} />, marcador: 'novo' },
+    { path: 'fluxo-caixa',     label: 'Fluxo de Caixa',     icon: <Wallet size={16} />, marcador: 'novo' },
+  ]},
 ];
 
-const ABA_UPLOAD: AbaConfig = { path: 'upload', label: 'Upload', icon: <Upload size={16} /> };
-const ABA_CONFIG: AbaConfig = { path: 'configuracoes', label: 'Configurações', icon: <Settings size={16} /> };
-const ABAS_ADMIN = [ABA_UPLOAD, ABA_CONFIG];
+const GRUPO_SISTEMA: Grupo = { titulo: 'Sistema', itens: [
+  { path: 'colaboradores',  label: 'Colaboradores/Folha', icon: <Contact size={16} /> },
+  { path: 'upload',         label: 'Upload',              icon: <Upload size={16} /> },
+  { path: 'configuracoes',  label: 'Configurações',       icon: <Settings size={16} /> },
+]};
 
 // Cores das badges por role
 const ROLE_BADGE: Record<string, { bg: string; label: string }> = {
@@ -126,7 +144,14 @@ export function Sidebar() {
         onMouseLeave={handleMouseLeave}
       >
         <span style={{ opacity: 0.7 }}>{aba.icon}</span>
-        {!recolhida && aba.label}
+        {!recolhida && <span className="flex-1 truncate">{aba.label}</span>}
+        {!recolhida && aba.marcador && (
+          <span
+            title={aba.marcador === 'construcao' ? 'Em construção' : 'Novo'}
+            style={{ width: 6, height: 6, borderRadius: 999, flexShrink: 0,
+              background: aba.marcador === 'construcao' ? '#f59e0b' : '#0065FF' }}
+          />
+        )}
       </NavLink>
     );
   }
@@ -163,12 +188,20 @@ export function Sidebar() {
         className="flex-1 overflow-y-auto py-2 space-y-0.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20"
         style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}
       >
-        {ABAS.map(renderNavLink)}
+        {GRUPOS.map(grupo => (
+          <div key={grupo.titulo}>
+            {recolhida
+              ? <div className="mx-3 my-2" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }} />
+              : <p className="px-5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.35)' }}>{grupo.titulo}</p>}
+            {grupo.itens.map(renderNavLink)}
+          </div>
+        ))}
 
-        {/* Divisor — funções administrativas abaixo */}
-        <div className="mx-5 my-2" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }} />
-
-        {ABAS_ADMIN.map(renderNavLink)}
+        {/* SISTEMA — grupo discreto no rodapé da navegação */}
+        <div className="mt-3 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+          {!recolhida && <p className="px-5 pb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>{GRUPO_SISTEMA.titulo}</p>}
+          {GRUPO_SISTEMA.itens.map(renderNavLink)}
+        </div>
       </nav>
 
       {/* Rodapé — perfil do usuário + recolher (fixo na parte inferior) */}
