@@ -6,7 +6,7 @@
 
 import type { ReactNode } from 'react';
 
-export type OrigemModulo = { tipo: 'especificado'; parte: string } | { tipo: 'novo' };
+export type OrigemModulo = { tipo: 'especificado'; parte: string } | { tipo: 'novo'; nota?: string };
 
 interface Props {
   nome: string;
@@ -16,7 +16,9 @@ interface Props {
 }
 
 function BadgeOrigem({ origem }: { origem: OrigemModulo }) {
-  const texto = origem.tipo === 'especificado' ? `Especificado — Parte ${origem.parte} do documento` : 'Novo';
+  const texto = origem.tipo === 'especificado'
+    ? `Especificado — Parte ${origem.parte} do documento`
+    : `Novo${origem.nota ? ` — ${origem.nota}` : ''}`;
   const espec = origem.tipo === 'especificado';
   return (
     <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium"

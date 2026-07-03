@@ -428,6 +428,50 @@ export function MockupDossie() {
   );
 }
 
+// ── GESTÃO DE OBRA (cliente) ────────────────────────────────────────────────
+export function MockupGestaoObra() {
+  const etapas = [
+    { e: 'Fundação', orc: 320, real: 315 }, { e: 'Estrutura', orc: 540, real: 552 },
+    { e: 'Alvenaria', orc: 380, real: 430 }, { e: 'Instalações', orc: 300, real: 210 },
+    { e: 'Acabamento', orc: 460, real: 0 },
+  ];
+  const estoque: [string, string, string, string][] = [
+    ['Cimento', '1.200 sc', '980 sc', '220 sc'],
+    ['Aço', '18 t', '15 t', '3 t'],
+    ['Porcelanato', '640 m²', '210 m²', '430 m²'],
+  ];
+  return (
+    <MockupModulo
+      kpis={[
+        { label: 'Orçamento', valor: 'R$ 2,4M' }, { label: 'Realizado', valor: 'R$ 1,71M (71%)' },
+        { label: 'Desvio', valor: '+4,2%' }, { label: 'Etapa', valor: '8 de 12' },
+      ]}
+      grafico={
+        <div className="space-y-3">
+          <ResponsiveContainer width="100%" height={190}>
+            <BarChart data={etapas} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+              <XAxis dataKey="e" tick={{ fontSize: 9 }} /><YAxis tick={{ fontSize: 9 }} unit=" mil" />
+              <Tooltip formatter={(v) => `R$ ${v} mil`} /><Legend wrapperStyle={{ fontSize: 10 }} />
+              <Bar dataKey="orc" name="Orçado" fill="#c7d2fe" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="real" name="Realizado" radius={[3, 3, 0, 0]}>
+                {etapas.map((d, i) => <Cell key={i} fill={d.real > d.orc ? VERMELHO : AZUL} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="rounded-lg p-2" style={{ backgroundColor: '#f9f9fb' }}>
+            <span className="text-[11px] font-medium" style={{ color: '#160F41' }}>Medição 8 — conferida ✓ — pagamento liberado <strong>R$ 142 mil</strong></span>
+          </div>
+        </div>
+      }
+      tabela={{
+        colunas: ['Material', 'Comprado', 'Consumido', 'Saldo'],
+        linhas: estoque.map(r => [r[0], r[1], r[2], r[3]]),
+      }}
+    />
+  );
+}
+
 // ── FLUXO DE CAIXA (cliente) ────────────────────────────────────────────────
 export function MockupFluxoCaixa() {
   const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];

@@ -6,6 +6,7 @@ import { PlaceholderModulo } from '../../components/ui/PlaceholderModulo';
 import {
   MockupSaude, MockupCarteira, MockupPlanejamento, MockupJuridico, MockupContratoVivo, MockupAgente,
   MockupResultados, MockupAutomacao, MockupServicosDemanda, MockupApontamento, MockupTarefas, MockupDossie, MockupFluxoCaixa,
+  MockupGestaoObra,
 } from './mockups';
 
 // ── EMPRESA ────────────────────────────────────────────────────────────────
@@ -86,4 +87,10 @@ export const FluxoCaixa = () => (
   <PlaceholderModulo nome="Fluxo de Caixa" origem={{ tipo: 'novo' }}
     pergunta="O caixa do cliente, mês a mês — entradas, saídas e a classificação que alimenta o plano financeiro."
     mockup={<MockupFluxoCaixa />} />
+);
+
+export const GestaoObra = () => (
+  <PlaceholderModulo nome="Gestão de Obra" origem={{ tipo: 'novo', nota: 'serviço já no catálogo do Orçador' }}
+    pergunta="A obra do cliente sob controle: orçado versus realizado por etapa, medições contra pagamentos, estoque de materiais — a ferramenta que executa o serviço que a casa vende."
+    mockup={<MockupGestaoObra />} />
 );

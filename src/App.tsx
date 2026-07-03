@@ -11,7 +11,7 @@ import { PrivateRoute } from './features/auth/PrivateRoute';
 // Vitrine 360 — módulos placeholder (componentes triviais, import direto).
 import {
   Resultados, Carteira, Juridico, ServicosDemanda, ApontamentoHoras, AutomacaoBancaria,
-  AgenteWhatsapp, Tarefas, PlanejamentoFinanceiro, SaudeCliente, DossieCliente, ContratoVivo, FluxoCaixa,
+  AgenteWhatsapp, Tarefas, PlanejamentoFinanceiro, SaudeCliente, DossieCliente, ContratoVivo, FluxoCaixa, GestaoObra,
 } from './features/vitrine/modulos';
 
 // Lazy loading: cada aba carrega sob demanda
@@ -67,6 +67,7 @@ function App() {
               <Route path="saude-cliente"   element={<SaudeCliente />} />
               <Route path="dossie-cliente"  element={<DossieCliente />} />
               <Route path="contrato-vivo"   element={<ContratoVivo />} />
+              <Route path="gestao-obra"     element={<GestaoObra />} />
               <Route path="fluxo-caixa"     element={<FluxoCaixa />} />
               {/* SISTEMA */}
               <Route path="colaboradores"  element={<Colaboradores />} />
