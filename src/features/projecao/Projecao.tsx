@@ -1,14 +1,11 @@
-import { useApp } from '../../state/AppContext';
+import { PlaceholderModulo } from '../../components/ui/PlaceholderModulo';
 
 export function Projecao() {
-  const { loading } = useApp();
-
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold text-text">Projeção</h2>
-      <div className="bg-card rounded-lg border border-border p-8 text-center text-text-muted">
-        {loading ? <p>Carregando dados...</p> : <p>Em construção</p>}
-      </div>
-    </div>
+    <PlaceholderModulo
+      nome="Projeção"
+      pergunta="Quanto a casa fatura até o período escolhido — os PLs da carteira crescendo e os fees dos pipes convertendo em receita."
+      origem={{ tipo: 'novo' }}
+    />
   );
 }
