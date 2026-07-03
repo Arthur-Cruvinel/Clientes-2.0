@@ -14,7 +14,7 @@ export interface CatalogoExtraordinarioEntry {
   //  'success_fee' → success fee % sobre a mais-valia (resultado futuro).
   //  'pct_causa'   → % sobre o valor da causa, com mínimo em R$.
   clausula?: 'success_fee' | 'pct_causa';
-  placeholder?: boolean;   // faixa a cravar pelo CFO (ma/valuation/viabilidade)
+  placeholder?: boolean;   // faixa "a cravar" — hoje nenhum tipo usa (todos definidos/calculados)
 }
 
 // Ordem = ordem de exibição no seletor do Orçador.
@@ -24,9 +24,9 @@ export const CATALOGO_EXTRAORDINARIO: CatalogoExtraordinarioEntry[] = [
   { tipo: 'juridico_parecer',             label: 'Parecer aprofundado',                grupo: 'Jurídico' },
   { tipo: 'juridico_representacao',       label: 'Representação / negociação',         grupo: 'Jurídico', clausula: 'success_fee' },
   { tipo: 'juridico_contencioso',         label: 'Contencioso',                        grupo: 'Jurídico', clausula: 'pct_causa' },
-  { tipo: 'ma',          label: 'M&A — Fusões e Aquisições', grupo: 'Estratégico', placeholder: true },
-  { tipo: 'valuation',   label: 'Valuation',                 grupo: 'Estratégico', placeholder: true },
-  { tipo: 'viabilidade', label: 'Estudo de viabilidade',     grupo: 'Estratégico', placeholder: true },
+  { tipo: 'ma',          label: 'M&A — Fusões e Aquisições', grupo: 'Estratégico', placeholder: false },
+  { tipo: 'valuation',   label: 'Valuation',                 grupo: 'Estratégico', placeholder: false },
+  { tipo: 'viabilidade', label: 'Estudo de viabilidade',     grupo: 'Estratégico', placeholder: false },
   { tipo: 'gestao_obra', label: 'Gestão de Obra',            grupo: 'Gestão',      placeholder: false },
   { tipo: 'consultoria_projetos', label: 'Consultoria Financeira — Acompanhamento de Projetos', grupo: 'Estratégico', placeholder: false },
   { tipo: 'gestao_projetos',      label: 'Gestão de Projetos',                                   grupo: 'Gestão',      placeholder: false },
