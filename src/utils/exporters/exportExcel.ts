@@ -4,6 +4,7 @@
 
 import * as XLSX from 'xlsx';
 import type { DadosCliente } from '../../types';
+import { valorColunaExport, type FormatoExport } from '../../features/visao-geral/columns';
 import type { MM6Cliente } from '../../features/poupanca/usePoupanca';
 import type { LinhaDetalhe } from '../../features/poupanca/PoupancaClienteDetalhe';
 import type { Visao } from '../../features/poupanca/PoupancaTabela';
@@ -64,76 +65,43 @@ function formatarCelulas(
 // Visão Geral CFO
 // ============================================================
 
+// Espelha a tabela: recebe as MESMAS colunas visíveis (fonte única criarColunas) +
+// a visão ativa. Números crus (Excel soma); texto como exibido.
 export function exportVisaoGeralExcel(
   dados: DadosCliente[],
+  colunas: { chave: string; titulo: string }[],
   periodo: string,
   regime: string,
+  isMC: boolean,
 ): void {
   const wb = XLSX.utils.book_new();
+  const headers = colunas.map(col => col.titulo.toUpperCase());
 
-  const headers = [
-    'CLIENTE', 'RECEITA BRUTA', 'IMPOSTOS FAT.', 'CUSTO DIRETO',
-    'CUSTO INDIRETO', 'CUSTO DEDICADO', 'MARGEM CONTRIB.', 'EBITDA', 'MARGEM %',
-    'IRPJ/CSLL', 'LUCRO LÍQUIDO',
-    'RECEITA REBATE', 'REGIME', 'JURÍDICO',
-  ];
+  // Formato por coluna (probe na 1ª linha; sem dados = texto).
+  const formatos: FormatoExport[] = colunas.map(col => dados[0] ? valorColunaExport(dados[0], col.chave, isMC).formato : 'texto');
 
   const rows: (string | number | null)[][] = [];
-
   rows.push(['GALÁCTICOS CAPITAL — Visão Geral CFO']);
-  rows.push([
-    `Período: ${periodo} | Regime: ${regime} | Exportado em: ${new Date().toLocaleString('pt-BR')}`,
-  ]);
+  rows.push([`Período: ${periodo} | Regime: ${regime} | Exportado em: ${new Date().toLocaleString('pt-BR')}`]);
   rows.push([]);
   rows.push(headers);
 
   for (const c of dados) {
-    rows.push([
-      c.nome_cliente,
-      c.receita_bruta,
-      c.impostos_faturamento,
-      c.custo_direto,
-      c.custo_indireto_rateado,
-      c.custo_dedicado,
-      c.margem_contribuicao,
-      c.ebitda,
-      c.margem / 100,  // decimal pra Excel (5.5% → 0.055 → exibe "5.50%")
-      c.impostos_lucro,
-      c.lucro_liquido,
-      c.receita_rebate,
-      regime,
-      c.utiliza_servico_juridico ? 'Sim' : 'Não',
-    ]);
+    rows.push(colunas.map(col => valorColunaExport(c, col.chave, isMC).valor));
   }
 
-  // Totais
-  const soma = (campo: keyof DadosCliente) =>
-    dados.reduce((acc, c) => acc + (Number(c[campo]) || 0), 0);
-  const margemMedia = dados.length > 0
-    ? dados.reduce((acc, c) => acc + c.margem, 0) / dados.length
-    : 0;
-
-  rows.push([
-    'TOTAL',
-    soma('receita_bruta'),
-    soma('impostos_faturamento'),
-    soma('custo_direto'),
-    soma('custo_indireto_rateado'),
-    soma('custo_dedicado'),
-    soma('margem_contribuicao'),
-    soma('ebitda'),
-    margemMedia / 100,
-    soma('impostos_lucro'),
-    soma('lucro_liquido'),
-    soma('receita_rebate'),
-    '',
-    '',
-  ]);
+  // Totais: moeda → soma; percent → média; texto → em branco (col 0 = "TOTAL").
+  rows.push(colunas.map((col, i) => {
+    if (i === 0) return 'TOTAL';
+    if (formatos[i] === 'moeda') return dados.reduce((s, c) => s + (Number(valorColunaExport(c, col.chave, isMC).valor) || 0), 0);
+    if (formatos[i] === 'percent') return dados.length ? dados.reduce((s, c) => s + (Number(valorColunaExport(c, col.chave, isMC).valor) || 0), 0) / dados.length : 0;
+    return '';
+  }));
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   autoWidth(ws, headers);
-  // Margem % = coluna 8 (0-based). Texto = 0 (nome), 12 (regime), 13 (jurídico).
-  formatarCelulas(ws, 4, new Set([8]), new Set([0, 12, 13]));
+  const idx = (f: FormatoExport) => new Set(formatos.map((ff, i) => (ff === f ? i : -1)).filter(i => i >= 0));
+  formatarCelulas(ws, 4, idx('percent'), idx('texto'));
 
   XLSX.utils.book_append_sheet(wb, ws, 'Visão Geral');
   salvarWorkbook(wb, `visao-geral_${periodo}_${Date.now()}.xlsx`);

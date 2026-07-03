@@ -342,8 +342,8 @@ export function VisaoGeral() {
           )}
           {clientes.length > 0 && (
             <ExportButton
-              onExportExcel={() => exportVisaoGeralExcel(clientesFiltradosOrdenados, periodoLabel, regimeLabel)}
-              onExportPdf={() => exportVisaoGeralPdf(clientesFiltradosOrdenados, periodoLabel, regimeLabel)}
+              onExportExcel={() => exportVisaoGeralExcel(clientesFiltradosOrdenados, colunasVisiveis, periodoLabel, regimeLabel, isMC)}
+              onExportPdf={() => exportVisaoGeralPdf(clientesFiltradosOrdenados, colunasVisiveis, periodoLabel, regimeLabel, isMC)}
             />
           )}
         </div>

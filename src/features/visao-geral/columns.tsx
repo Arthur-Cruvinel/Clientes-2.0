@@ -236,6 +236,47 @@ export function criarColunas(cb: ColumnCallbacks): ColunaConfig<DadosCliente>[] 
   return cols;
 }
 
+// Formato de saída para o export (Excel usa número cru; PDF formata).
+export type FormatoExport = 'moeda' | 'percent' | 'texto';
+
+/** Valor CRU de uma coluna para o EXPORT — espelha o que a tabela mostra, mas
+ *  números como números (Excel precisa somar). texto = como exibido; moeda =
+ *  número; percent = fração (0,055 = 5,5%). Fonte única com a tabela (mesmas
+ *  chaves/visão que criarColunas). */
+export function valorColunaExport(c: DadosCliente, chave: string, isMC: boolean): { valor: number | string; formato: FormatoExport } {
+  const T = (valor: string) => ({ valor, formato: 'texto' as const });
+  const M = (valor: number) => ({ valor, formato: 'moeda' as const });
+  switch (chave) {
+    case 'nome_cliente': return T(c.nome_cliente);
+    case 'banker': return T(c.banker ?? 'Sem banker');
+    case 'classificacao': return T(c.classificacao);
+    case 'data_entrada': {
+      if (!c.data_entrada) return T('—');
+      const [a, m] = c.data_entrada.split('-').map(Number);
+      const ms = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return T(`${ms[m - 1]}/${a}`);
+    }
+    case 'pacote_servico': return T(LABEL_PACOTE[c.pacote_servico] ?? c.pacote_servico);
+    case 'utiliza_servico_juridico': return T(c.utiliza_servico_juridico ? 'Sim' : 'Não');
+    case 'receita_fee_mensal': return M(c.receita_fee_mensal);
+    case 'receita_rebate': return M(c.receita_rebate);
+    case 'custo_direto': return M(c.custo_direto);
+    case 'custo_dedicado': return M(c.custo_dedicado);
+    case 'custo_indireto_rateado': return isMC ? T('—') : M(c.custo_indireto_rateado);
+    case 'margem_contribuicao': return M(c.margem_contribuicao);
+    case 'impostos_faturamento': return M(c.impostos_faturamento);
+    case 'ebitda': return M(c.ebitda);
+    case 'impostos_lucro': return M(c.impostos_lucro);
+    case 'lucro_liquido': return M(c.lucro_liquido);
+    case 'margem': {
+      const v = isMC ? c.margem_contribuicao : c.ebitda;
+      return { valor: c.receita_bruta > 0 ? v / c.receita_bruta : 0, formato: 'percent' };
+    }
+    case 'resultado': return T((isMC ? c.margem_contribuicao : c.ebitda) > 0 ? 'Lucro' : 'Prejuízo');
+    default: return T(String((c as unknown as Record<string, unknown>)[chave] ?? ''));
+  }
+}
+
 /** Extrai valor textual de uma coluna para uso nos filtros (checkbox list). */
 export function valorTextoColuna(c: DadosCliente, chave: string, isMC: boolean): string {
   switch (chave) {

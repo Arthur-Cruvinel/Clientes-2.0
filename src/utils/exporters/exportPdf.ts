@@ -4,6 +4,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { DadosCliente } from '../../types';
+import { valorColunaExport, type FormatoExport } from '../../features/visao-geral/columns';
 import type { MM6Cliente } from '../../features/poupanca/usePoupanca';
 import type { LinhaDetalhe } from '../../features/poupanca/PoupancaClienteDetalhe';
 import type { Visao } from '../../features/poupanca/PoupancaTabela';
@@ -116,118 +117,54 @@ function desenharFooter(doc: jsPDF): void {
 // Visão Geral CFO
 // ============================================================
 
+// Espelha a tabela: mesmas colunas visíveis (fonte única) + visão ativa.
 export function exportVisaoGeralPdf(
   dados: DadosCliente[],
+  colunas: { chave: string; titulo: string; alinhamento?: 'left' | 'right' | 'center' }[],
   periodo: string,
   regime: string,
+  isMC: boolean,
 ): void {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const startY = desenharHeader(doc, 'Visão Geral CFO', 'Demonstrativo de Resultado por Cliente', `${periodo} | ${regime}`);
 
-  const startY = desenharHeader(
-    doc,
-    'Visão Geral CFO',
-    'Demonstrativo de Resultado por Cliente',
-    `${periodo} | ${regime}`,
-  );
+  const fmtCell = (valor: number | string, formato: FormatoExport): string =>
+    formato === 'moeda' ? brl(valor as number) : formato === 'percent' ? pct((valor as number) * 100) : String(valor);
 
-  // Cabeçalhos da tabela
-  const head = [[
-    'Cliente', 'Receita Bruta', 'Impostos Fat.', 'Custo Direto',
-    'Custo Indireto', 'Custo Dedicado', 'Mg. Contrib.', 'EBITDA', 'Margem %',
-    'IRPJ/CSLL', 'Lucro Líq.', 'Mg. Líq. %',
-    'Receita Rebate', 'Regime', 'Jurídico',
-  ]];
+  const head = [colunas.map(col => col.titulo)];
+  const body = dados.map(c => colunas.map(col => {
+    const { valor, formato } = valorColunaExport(c, col.chave, isMC);
+    return fmtCell(valor, formato);
+  }));
 
-  // Corpo
-  const body = dados.map((c) => [
-    c.nome_cliente,
-    brl(c.receita_bruta),
-    brl(c.impostos_faturamento),
-    brl(c.custo_direto),
-    brl(c.custo_indireto_rateado),
-    brl(c.custo_dedicado),
-    brl(c.margem_contribuicao),
-    brl(c.ebitda),
-    pct(c.margem),
-    brl(c.impostos_lucro),
-    brl(c.lucro_liquido),
-    pct(c.margem_liquida),
-    brl(c.receita_rebate),
-    regime,
-    c.utiliza_servico_juridico ? 'Sim' : 'Não',
-  ]);
+  // Totais: moeda → soma; percent → média; texto → em branco (col 0 = "TOTAL").
+  const formatos: FormatoExport[] = colunas.map(col => dados[0] ? valorColunaExport(dados[0], col.chave, isMC).formato : 'texto');
+  const foot = [colunas.map((col, i) => {
+    if (i === 0) return 'TOTAL';
+    if (formatos[i] === 'moeda') return brl(dados.reduce((s, c) => s + (Number(valorColunaExport(c, col.chave, isMC).valor) || 0), 0));
+    if (formatos[i] === 'percent') return dados.length ? pct(dados.reduce((s, c) => s + (Number(valorColunaExport(c, col.chave, isMC).valor) || 0), 0) / dados.length * 100) : '';
+    return '';
+  })];
 
-  // Totais
-  const soma = (campo: keyof DadosCliente) =>
-    dados.reduce((acc, c) => acc + (Number(c[campo]) || 0), 0);
-  const margemMedia = dados.length > 0
-    ? dados.reduce((acc, c) => acc + c.margem, 0) / dados.length
-    : 0;
-  const margemLiqMedia = dados.length > 0
-    ? dados.reduce((acc, c) => acc + c.margem_liquida, 0) / dados.length
-    : 0;
-
-  const foot = [[
-    'TOTAL',
-    brl(soma('receita_bruta')),
-    brl(soma('impostos_faturamento')),
-    brl(soma('custo_direto')),
-    brl(soma('custo_indireto_rateado')),
-    brl(soma('custo_dedicado')),
-    brl(soma('margem_contribuicao')),
-    brl(soma('ebitda')),
-    pct(margemMedia),
-    brl(soma('impostos_lucro')),
-    brl(soma('lucro_liquido')),
-    pct(margemLiqMedia),
-    brl(soma('receita_rebate')),
-    '',
-    '',
-  ]];
+  // Colore só as colunas de RESULTADO (espelha a tabela): verde/vermelho por sinal.
+  const COLORIDAS = new Set(['margem_contribuicao', 'ebitda', 'margem', 'lucro_liquido']);
+  const columnStyles: Record<number, { halign: 'left' | 'right' | 'center' }> = {};
+  colunas.forEach((col, i) => { if (col.alinhamento) columnStyles[i] = { halign: col.alinhamento }; });
 
   autoTable(doc, {
-    startY,
-    head,
-    body,
-    foot,
-    theme: 'grid',
+    startY, head, body, foot, theme: 'grid',
     styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: {
-      fillColor: COR_HEADER,
-      textColor: '#ffffff',
-      fontStyle: 'bold',
-      fontSize: 8,
-    },
-    footStyles: {
-      fillColor: COR_TOTAL_BG,
-      textColor: '#1f2937',
-      fontStyle: 'bold',
-    },
+    headStyles: { fillColor: COR_HEADER, textColor: '#ffffff', fontStyle: 'bold', fontSize: 8 },
+    footStyles: { fillColor: COR_TOTAL_BG, textColor: '#1f2937', fontStyle: 'bold' },
     alternateRowStyles: { fillColor: COR_LINHA_ALT },
+    columnStyles,
     didParseCell(data) {
-      // Colorir EBITDA e Margem
-      if (data.section === 'body') {
-        const colIdx = data.column.index;
-        const valor = dados[data.row.index];
-        if (!valor) return;
-
-        // Mg. Contribuição (col 6) — inserida antes do EBITDA, desloca as demais +1
-        if (colIdx === 6) {
-          data.cell.styles.textColor = valor.margem_contribuicao >= 0 ? COR_POSITIVO : COR_NEGATIVO;
-        }
-        // EBITDA (col 7)
-        if (colIdx === 7) {
-          data.cell.styles.textColor = valor.ebitda >= 0 ? COR_POSITIVO : COR_NEGATIVO;
-        }
-        // Margem % (col 8)
-        if (colIdx === 8) {
-          data.cell.styles.textColor = valor.margem >= 0 ? COR_POSITIVO : COR_NEGATIVO;
-        }
-        // Lucro Líquido (col 10) e Mg. Líq. % (col 11)
-        if (colIdx === 10 || colIdx === 11) {
-          data.cell.styles.textColor = valor.lucro_liquido >= 0 ? COR_POSITIVO : COR_NEGATIVO;
-        }
-      }
+      if (data.section !== 'body') return;
+      const col = colunas[data.column.index];
+      const c = dados[data.row.index];
+      if (!col || !c || !COLORIDAS.has(col.chave)) return;
+      const { valor } = valorColunaExport(c, col.chave, isMC);
+      if (typeof valor === 'number') data.cell.styles.textColor = valor >= 0 ? COR_POSITIVO : COR_NEGATIVO;
     },
   });
 
