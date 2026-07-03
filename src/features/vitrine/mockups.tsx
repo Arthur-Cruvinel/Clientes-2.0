@@ -502,3 +502,28 @@ export function MockupFluxoCaixa() {
     />
   );
 }
+
+// ── DOCUMENTOS (cliente) ────────────────────────────────────────────────────
+export function MockupDocumentos() {
+  const docs: [string, string, string, string][] = [
+    ['Passaporte', 'Pessoal', '08/2026', '🟡 vence em 45 dias'],
+    ['Procuração pública', 'Societário', '03/2026', '🔴 vencida'],
+    ['IR 2025', 'Fiscal', 'entregue ✓', '🟢'],
+    ['Contrato social Holding', 'Societário', 'sem validade', '—'],
+    ['CNH', 'Pessoal', '11/2027', '🟢'],
+  ];
+  return (
+    <MockupModulo
+      kpis={[{ label: 'Documentos no cofre', valor: '34' }, { label: 'Vencendo em 60 dias', valor: '3' }, { label: 'Vencidos', valor: '1' }]}
+      grafico={
+        <div className="rounded-lg p-2" style={{ backgroundColor: '#f0f6ff', border: '1px solid #dbeafe' }}>
+          <span className="text-[11px] font-medium" style={{ color: '#0065FF' }}>Procuração vencida → tarefa criada · renovação solicitada via WhatsApp ✓</span>
+        </div>
+      }
+      tabela={{
+        colunas: ['Documento', 'Categoria', 'Validade', 'Status'],
+        linhas: docs.map(d => [d[0], d[1], d[2], d[3]]),
+      }}
+    />
+  );
+}

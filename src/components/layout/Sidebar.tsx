@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Users, TrendingUp, Calculator, Layers, Gauge, UserCircle,
   PiggyBank, BarChart2, BarChart3, LineChart, Briefcase, Scale, Sparkles, Clock,
   CreditCard, MessageCircle, ListTodo, Target, Activity, FileText, ScrollText,
-  Wallet, HardHat, Contact, Upload, Settings, LogOut, ChevronLeft, ChevronRight,
+  Wallet, HardHat, FolderLock, Contact, Upload, Settings, LogOut, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../state/AuthContext';
 
@@ -56,6 +56,7 @@ const GRUPOS: Grupo[] = [
     { path: 'dossie-cliente',  label: 'Dossiê do Cliente',  icon: <FileText size={16} />, marcador: 'novo' },
     { path: 'contrato-vivo',   label: 'Contrato Vivo',      icon: <ScrollText size={16} />, marcador: 'novo' },
     { path: 'gestao-obra',     label: 'Gestão de Obra',     icon: <HardHat size={16} />, marcador: 'novo' },
+    { path: 'documentos',      label: 'Documentos',         icon: <FolderLock size={16} />, marcador: 'novo' },
     { path: 'fluxo-caixa',     label: 'Fluxo de Caixa',     icon: <Wallet size={16} />, marcador: 'novo' },
   ]},
 ];
