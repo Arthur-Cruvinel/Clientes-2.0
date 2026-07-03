@@ -28,6 +28,8 @@ export const CATALOGO_EXTRAORDINARIO: CatalogoExtraordinarioEntry[] = [
   { tipo: 'valuation',   label: 'Valuation',                 grupo: 'Estratégico', placeholder: true },
   { tipo: 'viabilidade', label: 'Estudo de viabilidade',     grupo: 'Estratégico', placeholder: true },
   { tipo: 'gestao_obra', label: 'Gestão de Obra',            grupo: 'Gestão',      placeholder: false },
+  { tipo: 'consultoria_projetos', label: 'Consultoria Financeira — Acompanhamento de Projetos', grupo: 'Estratégico', placeholder: false },
+  { tipo: 'gestao_projetos',      label: 'Gestão de Projetos',                                   grupo: 'Gestão',      placeholder: false },
 ];
 
 export const CATALOGO_POR_TIPO: Record<TipoExtraordinario, CatalogoExtraordinarioEntry> =

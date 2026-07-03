@@ -149,3 +149,35 @@ depende da construtora, de fornecedores e de fatores externos (clima, licenças,
 de materiais). Atrasos dessas origens não decorrem da gestão e não geram responsabilidade da
 Galácticos. Custos da obra: os custos da obra (materiais, mão de obra, projetos, taxas) são do
 cliente e não integram os honorários de gestão.
+
+## consultoria_projetos
+descricao: Assessoria financeira dedicada a projeto ou iniciativa específica do cliente,
+compreendendo: análise de propostas, contratos e condições financeiras; acompanhamento de
+indicadores, orçamento e fluxo do projeto; apoio à tomada de decisão; e interlocução técnica com
+as partes envolvidas. O trabalho é de aconselhamento e acompanhamento — a condução executiva do
+projeto, quando desejada, é objeto do serviço de Gestão de Projetos.
+prazo: Conforme a duração e o escopo do projeto acompanhado, definidos no início do trabalho.
+dependencias: Acesso às informações e documentos do projeto; definição clara dos objetivos do
+acompanhamento; e disponibilidade para alinhamentos periódicos.
+ressalvas: Natureza do serviço: o trabalho constitui assessoria e apoio à decisão — as
+deliberações e aprovações finais cabem ao cliente. Não constitui recomendação de investimento em
+valores mobiliários. Obrigação de meio: o resultado do projeto depende de condições de mercado e
+de terceiros, alheios ao controle da assessoria.
+
+## gestao_projetos
+descricao: Condução e gestão de projeto de interesse do cliente, compreendendo: planejamento e
+organização das etapas; contratação e coordenação de prestadores e fornecedores; acompanhamento
+de cronograma e orçamento; interlocução com as partes envolvidas; e prestação de contas periódica
+ao cliente. Aplica-se inclusive à implantação de projetos aprovados em estudo de viabilidade,
+quando o cliente delega a condução à Galácticos.
+prazo: Acompanha o cronograma do projeto, estabelecido em conjunto com o cliente no início do
+trabalho.
+dependencias: Definição clara do escopo, do orçamento e dos poderes de atuação da Galácticos;
+aprovações tempestivas nas decisões que alterem escopo ou orçamento; e fornecimento das
+informações e contatos necessários à condução.
+ressalvas: Natureza do serviço: o trabalho é de gestão e coordenação — as decisões estratégicas e
+aprovações finais permanecem com o cliente. Prazos e resultados: o andamento depende de
+fornecedores, prestadores e fatores externos; atrasos e resultados dessas origens não decorrem da
+gestão e não geram responsabilidade da Galácticos. Custos do projeto: os custos do projeto
+(fornecedores, prestadores, materiais, taxas) são do cliente e não integram os honorários de
+gestão.

@@ -573,7 +573,9 @@ export type TipoExtraordinario =
   | 'ma'
   | 'valuation'
   | 'viabilidade'
-  | 'gestao_obra';
+  | 'gestao_obra'
+  | 'consultoria_projetos'
+  | 'gestao_projetos';
 
 // Natureza de preço da linha (Frente 3 naturezas):
 //   'tabelado'    → valor fixo (faixa por tipo). Comportamento histórico.
