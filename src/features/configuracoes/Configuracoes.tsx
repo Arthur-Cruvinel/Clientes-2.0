@@ -33,7 +33,7 @@ const ABAS = [
   { id: 'reajuste', label: 'Reajuste' },
   { id: 'extraordinario', label: 'Extraordinário' },
   { id: 'atividades', label: 'Atividades' },
-  { id: 'pacotes', label: 'Pacotes de Serviço' },
+  { id: 'pacotes', label: 'Pacotes' },
   { id: 'colaboradores', label: 'Colaboradores' },
   { id: 'metodologia', label: 'Metodologia' },
 ] as const;
@@ -434,11 +434,11 @@ export function Configuracoes() {
         <Settings size={20} /> Configurações
       </h2>
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: '#f3f4f6' }}>
+      {/* Tabs — flex-wrap para distribuir sem espremer (9 abas). */}
+      <div className="flex flex-wrap gap-1 rounded-lg p-1" style={{ backgroundColor: '#f3f4f6' }}>
         {ABAS.map(a => (
           <button key={a.id} onClick={() => setAba(a.id)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${aba === a.id ? 'bg-white shadow-sm' : ''}`}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${aba === a.id ? 'bg-white shadow-sm' : ''}`}
             style={{ color: aba === a.id ? '#160F41' : '#6b6b8a' }}>
             {a.label}
           </button>

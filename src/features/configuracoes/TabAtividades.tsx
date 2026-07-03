@@ -21,6 +21,20 @@ const LABEL_FUNCAO: Record<FuncaoAlocacao, string> = {
 };
 const rotuloAtividade = (id: string) => id.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
 
+// Unidade de cada horas_base — TODAS são horas/MÊS; o driver diz por-quê-multiplica.
+const UNIDADE_DRIVER: Record<string, string> = {
+  fixo: 'h/mês (fixo)',
+  boolean: 'h/mês (quando ativo)',
+  vol_movimentos: 'h/mês (escala por movimentos/mês)',
+  qtd_veiculos: 'h/mês por veículo',
+  qtd_imoveis: 'h/mês por imóvel',
+  qtd_func_domesticos: 'h/mês por funcionário',
+  qtd_recebiveis: 'h/mês por recebível/mês',
+  qtd_contratacoes: 'h/mês por contratação/mês',
+  qtd_contas: 'h/mês por conta',
+  grupos_financeiros: 'h/mês por grupo',
+};
+
 export function TabAtividades({ parametros, onSalvar, salvando }: Props) {
   const [over, setOver] = useState<Record<string, number>>(parametros.atividades ?? {});
   useEffect(() => { setOver(parametros.atividades ?? {}); }, [parametros]);
@@ -46,12 +60,15 @@ export function TabAtividades({ parametros, onSalvar, salvando }: Props) {
 
   return (
     <div className="space-y-6">
-      <p className="text-xs" style={{ color: '#6b6b8a' }}>
-        Horas-base por atividade do catálogo. <strong>Vigente</strong> = o valor em uso; vazio/igual
-        ao padrão = default de fábrica. Muda a <strong>demanda estimada</strong> (calcularHorasReais)
-        → fee sugerido e matriz de capacidade. <strong>Não move o fechado</strong> (custo lê pct salvo).
-        {nOverrides > 0 && <span style={{ color: '#0065FF' }}> · {nOverrides} override(s) ativo(s).</span>}
-      </p>
+      <div className="rounded-lg p-3 text-xs space-y-1" style={{ backgroundColor: '#f0f6ff', color: '#6b6b8a' }}>
+        <p><strong>Todas as horas são horas de trabalho por MÊS.</strong> Para drivers quantitativos
+        (veículos, imóveis, contas, grupos, movimentos), é <strong>h/mês por unidade</strong> do driver;
+        para <em>fixo</em>/<em>quando ativo</em>, é o total de h/mês da atividade.</p>
+        <p><strong>Vigente</strong> = valor em uso; igual ao padrão = default de fábrica. Muda a
+        <strong> demanda estimada</strong> (fee sugerido + matriz de capacidade). <strong>Não move o
+        fechado</strong> (custo lê pct salvo).
+        {nOverrides > 0 && <span style={{ color: '#0065FF' }}> · {nOverrides} override(s) ativo(s).</span>}</p>
+      </div>
 
       {FUNCOES_ALOCACAO.map(funcao => {
         const ids = Object.keys(ATIVIDADES_SERVICO).filter(id => ATIVIDADES_SERVICO[id].funcao === funcao);
@@ -68,11 +85,11 @@ export function TabAtividades({ parametros, onSalvar, salvando }: Props) {
                 <div key={id} className="flex flex-wrap items-center gap-3 rounded-lg border p-2"
                   style={{ borderColor: alterado ? '#0065FF' : '#e2e2e8', backgroundColor: alterado ? '#f0f6ff' : '#fff' }}>
                   <span className="text-sm flex-grow" style={{ color: '#160F41' }}>{rotuloAtividade(id)}
-                    <span className="text-[10px] ml-2" style={{ color: '#9ca3af' }}>driver: {ativ.driver}</span>
+                    <span className="block text-[10px]" style={{ color: '#9ca3af' }}>{UNIDADE_DRIVER[ativ.driver] ?? 'h/mês'}</span>
                   </span>
-                  <span className="text-[11px]" style={{ color: '#9ca3af' }}>padrão {padrao.toLocaleString('pt-BR')}h</span>
+                  <span className="text-[11px]" style={{ color: '#9ca3af' }}>padrão {padrao.toLocaleString('pt-BR')} h/mês</span>
                   <label className="flex items-center gap-1">
-                    <span className="text-[11px]" style={{ color: '#6b6b8a' }}>vigente</span>
+                    <span className="text-[11px]" style={{ color: '#6b6b8a' }}>vigente (h/mês)</span>
                     <input type="number" step="0.01" value={vigente}
                       onChange={e => setVigente(id, Number(e.target.value), padrao)} className={INP} style={BRD} />
                   </label>
