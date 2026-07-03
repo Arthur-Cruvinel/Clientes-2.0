@@ -20,7 +20,7 @@ export interface CalcularFeeInputs {
   regime: RegimeTributario;
   // Escopo (mesmos campos que o useMemo lê hoje).
   pacote: PacoteServico;
-  veic: number; imov: number; grupos: number; domest: number;
+  veic: number; imov: number; grupos: number; domest: number; contas: number;
   planTrib: boolean; revContr: boolean; obra: boolean;
   usaJur: boolean; usaConc: boolean;
   volMov: number; contratacoes: number; recebiveis: number;
@@ -67,6 +67,7 @@ export function calcularFee(i: CalcularFeeInputs): CalcularFeeResult {
     volume_movimentos_mes: i.volMov, qtd_recebiveis_mes: i.recebiveis, qtd_contratacoes_mes: i.contratacoes,
     perfil_complexidade: {
       grupos_financeiros: i.grupos, qtd_veiculos: i.veic, qtd_imoveis: i.imov, qtd_funcionarios_domesticos: i.domest,
+      qtd_contas_bancarias: i.contas,
       planejamento_tributario: i.planTrib, revisao_contratos: i.revContr, gestao_obra: i.obra,
     },
   } as Cliente;

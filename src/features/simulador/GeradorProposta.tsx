@@ -75,7 +75,7 @@ export interface PrefillProposta {
 // como baseline imutável (escopo atual) e como ampliado (cópia editável) no
 // aditivo Forma 1: delta = motor(ampliado) − motor(baseline).
 interface ScopeSnapshot {
-  pacote: PacoteServico; veic: number; imov: number; grupos: number; domest: number;
+  pacote: PacoteServico; veic: number; imov: number; grupos: number; domest: number; contas: number;
   planTrib: boolean; revContr: boolean; obra: boolean; usaJur: boolean; usaConc: boolean;
   volMov: number; contratacoes: number; recebiveis: number; demandasJur: number;
   plOn: number; plOff: number; taxaOn: number; taxaOff: number;
@@ -88,10 +88,10 @@ interface ScopeSnapshot {
 // são adicionáveis neste lote (recalibração/serviços específicos = futuro).
 interface Incrementos {
   volMov: number; recebiveis: number; contratacoes: number;
-  imov: number; veic: number; domest: number; grupos: number;
+  imov: number; veic: number; domest: number; grupos: number; contas: number;
   demandasJur: number;
 }
-const ZERO_INC: Incrementos = { volMov: 0, recebiveis: 0, contratacoes: 0, imov: 0, veic: 0, domest: 0, grupos: 0, demandasJur: 0 };
+const ZERO_INC: Incrementos = { volMov: 0, recebiveis: 0, contratacoes: 0, imov: 0, veic: 0, domest: 0, grupos: 0, contas: 0, demandasJur: 0 };
 
 // ampliado = baseline + incrementos (campo a campo). Conciliação derivada:
 // movimento (baseline + incremento) > 0 → conciliação on. Jurídico on se há
@@ -103,6 +103,7 @@ function ampliar(base: ScopeSnapshot, inc: Incrementos): ScopeSnapshot {
     ...base,
     volMov, recebiveis: base.recebiveis + inc.recebiveis, contratacoes: base.contratacoes + inc.contratacoes,
     imov: base.imov + inc.imov, veic: base.veic + inc.veic, domest: base.domest + inc.domest, grupos: base.grupos + inc.grupos,
+    contas: base.contas + inc.contas,
     demandasJur,
     usaConc: volMov > 0,                       // conciliação automática (acompanha movimento)
     usaJur: base.usaJur || demandasJur > 0,    // jurídico on se há demandas
@@ -224,7 +225,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
   // ScopeSnapshot a partir de um Partial<PropostaInputs> (mesmas chaves do form).
   const scopeFromInputs = (i: Partial<PropostaInputs>): ScopeSnapshot => ({
     pacote: i.pacote ?? 'full', veic: i.qtd_veiculos ?? 0, imov: i.qtd_imoveis ?? 0,
-    grupos: i.grupos_financeiros ?? 1, domest: i.qtd_funcionarios_domesticos ?? 0,
+    grupos: i.grupos_financeiros ?? 1, domest: i.qtd_funcionarios_domesticos ?? 0, contas: i.qtd_contas_bancarias ?? 0,
     planTrib: !!i.planejamento_tributario, revContr: !!i.revisao_contratos, obra: !!i.gestao_obra,
     usaJur: !!i.utiliza_servico_juridico, usaConc: !!i.utiliza_conciliacao,
     volMov: i.volume_movimentos_mes ?? 0, contratacoes: i.qtd_contratacoes_mes ?? 0, recebiveis: i.qtd_recebiveis_mes ?? 0,
@@ -276,11 +277,11 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     // Cálculo extraído para função pura (mesmo resultado; preparo do delta).
     return calcularFee({
       colaboradores, clientes, vinculos, parametros, regime,
-      pacote, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc,
+      pacote, veic, imov, grupos, domest, contas, planTrib, revContr, obra, usaJur, usaConc,
       volMov, contratacoes, recebiveis, demandasJur, plOn, plOff, taxaOn, taxaOff,
       dContab, dPgto, dAdm, dViagem,
     });
-  }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, demandasJur, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
+  }, [dadosPeriodo, pacote, regime, veic, imov, grupos, domest, contas, planTrib, revContr, obra, usaJur, usaConc, demandasJur, volMov, contratacoes, recebiveis, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem, parametros]);
 
   // ── ADITIVO FORMA 1 (delta) — base (c) split ─────────────────────────────────
   // ampliado = baseline + incrementos (Forma 2). O baseline fica TRAVADO; o CFO
@@ -353,7 +354,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
     // (mesmos valores → documento byte-idêntico).
     const escopoDoc: ScopeSnapshot = (tipo === 'cliente_existente' && baseline)
       ? ampliar(baseline, inc)
-      : { pacote, veic, imov, grupos, domest, planTrib, revContr, obra, usaJur, usaConc, volMov, contratacoes, recebiveis, demandasJur, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem };
+      : { pacote, veic, imov, grupos, domest, contas, planTrib, revContr, obra, usaJur, usaConc, volMov, contratacoes, recebiveis, demandasJur, plOn, plOff, taxaOn, taxaOff, dContab, dPgto, dAdm, dViagem };
     const html = gerarPropostaHTML({
       nome: nomeProspect.trim() || 'Cliente', tipo, data,
       textoIntroducao: textoIntro, imagemCapaUrl: imagemCapa,
@@ -566,6 +567,8 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
                   <AdicaoNum label="Imóveis" atual={baseline.imov} v={inc.imov} set={setIncF('imov')} />
                   <AdicaoNum label="Veículos" atual={baseline.veic} v={inc.veic} set={setIncF('veic')} />
                   <AdicaoNum label="Func. domésticos" atual={baseline.domest} v={inc.domest} set={setIncF('domest')} />
+                  <AdicaoNum label="Grupos financeiros" atual={baseline.grupos} v={inc.grupos} set={setIncF('grupos')} />
+                  <AdicaoNum label="Contas bancárias" atual={baseline.contas} v={inc.contas} set={setIncF('contas')} />
                 </div>
               </div>
               <div>

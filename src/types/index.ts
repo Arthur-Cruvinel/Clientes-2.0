@@ -176,6 +176,7 @@ export interface VigenciaCliente {
 export interface PerfilComplexidade {
   // ── VOLUMETRIA ESTRUTURAL (raramente muda) ─────────────────────────────
   grupos_financeiros: number;          // CPF/CNPJ/outros (default 1)
+  qtd_contas_bancarias?: number;       // nº de contas — driver de horas (opcional; ausente = 0)
 
   // ── PATRIMÔNIO ─────────────────────────────────────────────────────────
   qtd_veiculos: number;

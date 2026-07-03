@@ -22,6 +22,7 @@ export type DriverAtividade =
   | 'qtd_func_domesticos'
   | 'qtd_recebiveis'
   | 'qtd_contratacoes'
+  | 'qtd_contas'
   | 'grupos_financeiros';
 
 export interface AtividadeServico {
@@ -51,6 +52,10 @@ export const ATIVIDADES_SERVICO: Record<string, AtividadeServico> = {
     horas_base: 0.5, driver: 'qtd_recebiveis', driver_base: 1,
     funcao: 'operacional_financeiro',
   },
+  gestao_contas_bancarias: {
+    horas_base: 1.5, driver: 'qtd_contas', driver_base: 1,
+    funcao: 'operacional_financeiro',
+  },
   gestao_despesas: {
     horas_base: 6.20, driver: 'fixo', funcao: 'operacional_financeiro',
   },
@@ -64,6 +69,9 @@ export const ATIVIDADES_SERVICO: Record<string, AtividadeServico> = {
   },
   gestao_funcionarios_domesticos: {
     horas_base: 2.00, driver: 'qtd_func_domesticos', driver_base: 1, funcao: 'serv_adm',
+  },
+  gestao_grupos_financeiros: {
+    horas_base: 2.5, driver: 'grupos_financeiros', driver_base: 1, funcao: 'serv_adm',
   },
   gestao_documentos: {
     horas_base: 2.62, driver: 'fixo', funcao: 'serv_adm',

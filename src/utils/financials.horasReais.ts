@@ -73,6 +73,9 @@ export function calcularHorasReais(
       case 'qtd_contratacoes':
         driverValor = qtdContratacoes;
         horas = ativ.horas_base * driverValor; break;
+      case 'qtd_contas':
+        driverValor = perfil.qtd_contas_bancarias ?? 0;
+        horas = ativ.horas_base * driverValor; break;
       case 'grupos_financeiros':
         driverValor = perfil.grupos_financeiros ?? 1;
         horas = ativ.horas_base * (driverValor / (ativ.driver_base ?? 1)); break;
