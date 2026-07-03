@@ -506,15 +506,25 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
         <div className="rounded-lg border p-3 space-y-4" style={{ borderColor: '#0065FF', backgroundColor: '#f8fbff' }}>
           <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#0065FF' }}>Define o preço</p>
           <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
-            <label className="block w-40">
-              <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Regime</span>
-              <select value={regime} onChange={e => setRegime(e.target.value as RegimeTributario)} className={INP} style={BRD}>
-                <option value="presumido">Presumido</option><option value="real">Real</option>
-              </select>
-            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Pacote</span>
+                <select value={pacote} onChange={e => setPacote(e.target.value as PacoteServico)} className={INP} style={BRD}>
+                  {PACOTES.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <span className="text-[10px] block mt-0.5" style={{ color: '#9ca3af' }}>define o rótulo da proposta</span>
+              </label>
+              <label className="block">
+                <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Regime</span>
+                <select value={regime} onChange={e => setRegime(e.target.value as RegimeTributario)} className={INP} style={BRD}>
+                  <option value="presumido">Presumido</option><option value="real">Real</option>
+                </select>
+              </label>
+            </div>
             <Secao titulo="Perfil de complexidade">
               <Num label="Veículos" v={veic} set={setVeic} /><Num label="Imóveis" v={imov} set={setImov} />
-              <Num label="Func. domésticos" v={domest} set={setDomest} />
+              <Num label="Func. domésticos" v={domest} set={setDomest} /><Num label="Grupos financeiros" v={grupos} set={setGrupos} />
+              <Num label="Contas bancárias" v={contas} set={setContas} />
             </Secao>
             <Secao titulo="Volumetria mensal — mov.→pagamentos/fluxo; contratações→indicação; recebíveis→conciliação">
               <Num label="Movimentos / mês" v={volMov} set={setVolMov} /><Num label="Contratações / mês" v={contratacoes} set={setContratacoes} />
@@ -582,24 +592,6 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
         </div>
 
         {/* ═══ ZONA 2 — Perfil e documento (não altera o fee) ═══ */}
-        <div className="rounded-lg border p-3 space-y-4" style={{ borderColor: '#e2e2e8', backgroundColor: '#fafafa' }}>
-          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Perfil e documento (não altera o fee)</p>
-          <fieldset disabled={tipo === 'cliente_existente'} className="space-y-4 border-0 p-0 m-0 disabled:opacity-60">
-            <label className="block w-48">
-              <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Pacote</span>
-              <select value={pacote} onChange={e => setPacote(e.target.value as PacoteServico)} className={INP} style={BRD}>
-                {PACOTES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <span className="text-[10px] block mt-0.5" style={{ color: '#9ca3af' }}>define o rótulo da proposta</span>
-            </label>
-            <Secao titulo="Perfil / documento (informativo)">
-              <Num label="Grupos financeiros" v={grupos} set={setGrupos} /><Num label="Contas bancárias" v={contas} set={setContas} />
-            </Secao>
-            <div className="flex flex-wrap gap-4">
-              <Chk label="Serv. jurídico" v={usaJur} set={setUsaJur} /><Chk label="Conciliação" v={usaConc} set={setUsaConc} />
-            </div>
-          </fieldset>
-        </div>
       </div>
 
       {/* SAÍDA */}
