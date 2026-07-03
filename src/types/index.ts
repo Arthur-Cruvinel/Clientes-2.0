@@ -636,6 +636,7 @@ export interface DadosOrcamento {
   itens?: ItemOrcamento[];
   valor_total: number;               // Σ fechado das cobranças (tabelado + calculado)
   validadeDias: number;              // validade do orçamento em dias (default 15)
+  parcelas?: number;                 // parcelas do total fechado (default 1 = à vista; retrocompat)
   observacoes?: string;              // texto livre adicional
 }
 

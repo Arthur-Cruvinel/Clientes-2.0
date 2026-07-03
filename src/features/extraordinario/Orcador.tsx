@@ -12,6 +12,7 @@ import { salvarOrcamento, buscarOrcamentos, atualizarOrcamentoStatus, excluirOrc
 import { gerarOrcamentoHTML } from './orcamentoTemplate';
 import { CATALOGO_EXTRAORDINARIO, CATALOGO_POR_TIPO, montarClausulaInformativa, pctDefault } from './catalogoExtraordinario';
 import { precificarLinhaCalculada, custoHoraJuridicoEfetivo, type LinhaCalculadaResult } from '../simulador/precificacaoBase';
+import { valorParcela, ultimaParcela, ultimaDifere } from './parcelamento';
 import { ALIQUOTAS, FUNCOES_ALOCACAO } from '../../utils/constants';
 import type { DadosOrcamento, ItemOrcamento, TipoExtraordinario, NaturezaOrcamento, FuncaoAlocacao, ServicoOrcamento } from '../../types';
 
@@ -66,6 +67,7 @@ export function Orcador() {
   const [idEstavelCliente, setIdEstavelCliente] = useState<string | undefined>();
   const [itens, setItens] = useState<ItemOrcamento[]>([]);
   const [validadeDias, setValidadeDias] = useState(15);
+  const [parcelas, setParcelas] = useState(1);
   const [observacoes, setObservacoes] = useState('');
   const [tipoNovo, setTipoNovo] = useState<TipoExtraordinario>('juridico_parecer');
   const [naturezaNova, setNaturezaNova] = useState<NaturezaOrcamento>('tabelado');
@@ -201,6 +203,7 @@ export function Orcador() {
       servicos: montarServicos(itens, servicosMeta),
       valor_total: totalFechado,
       validadeDias: validadeDias > 0 ? validadeDias : 15,
+      parcelas: parcelas > 1 ? Math.floor(parcelas) : 1,
       observacoes: observacoes.trim() || undefined,
     };
   }
@@ -249,7 +252,7 @@ export function Orcador() {
     } else {
       setItens(o.itens ?? []); setServicosMeta({});
     }
-    setValidadeDias(o.validadeDias ?? 15); setObservacoes(o.observacoes ?? '');
+    setValidadeDias(o.validadeDias ?? 15); setParcelas(o.parcelas ?? 1); setObservacoes(o.observacoes ?? '');
   }
   function reabrir(o: DadosOrcamento) {
     setEditId(o.id_estavel); setNomeCliente(o.nome_cliente); setIdEstavelCliente(o.id_estavel_cliente);
@@ -261,7 +264,7 @@ export function Orcador() {
   }
   function novo() {
     setEditId(undefined); setNomeCliente(''); setIdEstavelCliente(undefined);
-    setItens([]); setServicosMeta({}); setValidadeDias(15); setObservacoes('');
+    setItens([]); setServicosMeta({}); setValidadeDias(15); setParcelas(1); setObservacoes('');
   }
   async function mudarStatus(o: DadosOrcamento, status: DadosOrcamento['status']) {
     await atualizarOrcamentoStatus(o.id_estavel, status); setOrcamentos(await buscarOrcamentos());
@@ -401,8 +404,8 @@ export function Orcador() {
           preço de mercado. {editId && <span style={{ color: '#0065FF' }}>· editando salvo</span>}
         </p>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
+        <div className="grid grid-cols-4 gap-3">
+          <label className="block col-span-2">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Cliente (nome livre ou existente)</span>
             <input list="clientes-orc" value={nomeCliente} onChange={e => selecionarCliente(e.target.value)} className={INP} style={BRD} placeholder="Nome do cliente" />
             <datalist id="clientes-orc">{nomesClientes.map(n => <option key={n} value={n} />)}</datalist>
@@ -410,6 +413,10 @@ export function Orcador() {
           <label className="block">
             <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Validade (dias)</span>
             <input type="number" step={1} value={validadeDias} onChange={e => setValidadeDias(Number(e.target.value))} className={INP} style={BRD} />
+          </label>
+          <label className="block">
+            <span className="text-[11px]" style={{ color: '#6b6b8a' }}>Parcelas</span>
+            <input type="number" step={1} min={1} value={parcelas} onChange={e => setParcelas(Math.max(1, Number(e.target.value)))} className={INP} style={BRD} />
           </label>
         </div>
 
@@ -463,6 +470,11 @@ export function Orcador() {
               <span className="text-sm font-semibold" style={{ color: '#160F41' }}>Total fechado <span className="text-[10px] font-normal" style={{ color: '#9ca3af' }}>(tabelado + calculado)</span></span>
               <span className="text-lg font-bold" style={{ color: '#732AD8' }}>{formatCurrency(totalFechado)}</span>
             </div>
+            {parcelas > 1 && totalFechado > 0 && (
+              <div className="flex items-center justify-end px-1 text-[11px]" style={{ color: '#6b6b8a' }}>
+                em {Math.floor(parcelas)}x de {formatCurrency(valorParcela(totalFechado, parcelas))}{ultimaDifere(totalFechado, parcelas) ? ` (última ${formatCurrency(ultimaParcela(totalFechado, parcelas))})` : ''}
+              </div>
+            )}
             {successFees.length > 0 && (
               <div className="flex items-center justify-between px-1" style={{ color: '#92400e' }}>
                 <span className="text-xs font-medium">Success fee devido no êxito (não somado ao total fechado)</span>

@@ -7,6 +7,7 @@
 import logoRaw from '../simulador/logoGalaticos.svg?raw';
 import type { DadosOrcamento, ServicoOrcamento, ItemOrcamento, TipoExtraordinario } from '../../types';
 import { CATALOGO_POR_TIPO } from './catalogoExtraordinario';
+import { valorParcela, ultimaParcela, ultimaDifere } from './parcelamento';
 
 const brl = (n: number) => 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -144,7 +145,8 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
     <div class="flex items-center justify-between mt-6 pt-4">
       <span class="text-base font-semibold text-principal uppercase tracking-wide">Total (fechado)</span>
       <span class="text-3xl font-extrabold text-primario">${brl(d.valor_total)}</span>
-    </div>
+    </div>${(d.parcelas ?? 1) > 1 && d.valor_total > 0 ? `
+    <div class="flex items-center justify-end mt-1 text-secundario text-sm">em ${Math.floor(d.parcelas!)}x de ${brl(valorParcela(d.valor_total, d.parcelas!))}${ultimaDifere(d.valor_total, d.parcelas!) ? ` (última ${brl(ultimaParcela(d.valor_total, d.parcelas!))})` : ''}</div>` : ''}
     ${(() => {
       const sf = servicosDe(d).flatMap(s => s.cobrancas).filter(it => it.natureza === 'success_fee');
       if (!sf.length) return '';
@@ -158,6 +160,7 @@ ${opts.paraPdf ? '' : `<div id="barra-print"><button onclick="window.print()" st
     <h2 class="text-center text-2xl font-bold text-principal mb-8">Condições</h2>
     <div class="max-w-3xl mx-auto space-y-4">
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Validade</strong><p class="text-secundario text-base mt-1">Este orçamento é válido por ${d.validadeDias} dias a partir da data de apresentação.</p></div>
+      ${(d.parcelas ?? 1) > 1 && d.valor_total > 0 ? `<div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Pagamento</strong><p class="text-secundario text-base mt-1">O total fechado pode ser parcelado em ${Math.floor(d.parcelas!)}× de ${brl(valorParcela(d.valor_total, d.parcelas!))}${ultimaDifere(d.valor_total, d.parcelas!) ? ` (última parcela de ${brl(ultimaParcela(d.valor_total, d.parcelas!))})` : ''}. Success fee, quando aplicável, é devido no êxito — fora do parcelamento.</p></div>` : ''}
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Natureza</strong><p class="text-secundario text-base mt-1">Serviços extraordinários são pontuais e não-recorrentes, cobrados à parte do fee mensal de gestão.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Natureza da obrigação</strong><p class="text-secundario text-base mt-1">Os serviços constituem obrigação de meio, não de resultado. A assessoria não garante a conclusão da operação nem resultado específico.</p></div>
       <div class="bg-white p-5 rounded-md border border-gray-200"><strong class="text-principal text-lg">Informações do cliente</strong><p class="text-secundario text-base mt-1">As análises e trabalhos baseiam-se em informações e documentos fornecidos pelo cliente, presumidos completos, atualizados e verídicos. A Galácticos não responde por conclusões afetadas por omissão ou inexatidão nas informações recebidas.</p></div>
