@@ -3,12 +3,16 @@
 // sem lógica. As frases são VERBATIM do documento de especificação.
 
 import { PlaceholderModulo } from '../../components/ui/PlaceholderModulo';
-import { MockupSaude, MockupCarteira, MockupPlanejamento, MockupJuridico, MockupContratoVivo, MockupAgente } from './mockups';
+import {
+  MockupSaude, MockupCarteira, MockupPlanejamento, MockupJuridico, MockupContratoVivo, MockupAgente,
+  MockupResultados, MockupAutomacao, MockupServicosDemanda, MockupApontamento, MockupTarefas, MockupDossie, MockupFluxoCaixa,
+} from './mockups';
 
 // ── EMPRESA ────────────────────────────────────────────────────────────────
 export const Resultados = () => (
   <PlaceholderModulo nome="Resultados" origem={{ tipo: 'novo' }}
-    pergunta="A DRE consolidada da casa — a Galácticos como negócio, mês a mês." />
+    pergunta="A DRE consolidada da casa — a Galácticos como negócio, mês a mês."
+    mockup={<MockupResultados />} />
 );
 
 export const Carteira = () => (
@@ -25,17 +29,20 @@ export const Juridico = () => (
 
 export const ServicosDemanda = () => (
   <PlaceholderModulo nome="Serviços sob Demanda" origem={{ tipo: 'especificado', parte: 'V.10' }}
-    pergunta="Os projetos especiais — M&A, valuation, viabilidade, obras — dão lucro, projeto a projeto? Receita e custo pontuais, margem por evento." />
+    pergunta="Os projetos especiais — M&A, valuation, viabilidade, obras — dão lucro, projeto a projeto? Receita e custo pontuais, margem por evento."
+    mockup={<MockupServicosDemanda />} />
 );
 
 export const ApontamentoHoras = () => (
   <PlaceholderModulo nome="Apontamento de Horas" origem={{ tipo: 'especificado', parte: 'V.12' }}
-    pergunta="As horas alocadas correspondem ao tempo efetivamente gasto — ou estamos precificando sobre estimativa quando poderíamos medir?" />
+    pergunta="As horas alocadas correspondem ao tempo efetivamente gasto — ou estamos precificando sobre estimativa quando poderíamos medir?"
+    mockup={<MockupApontamento />} />
 );
 
 export const AutomacaoBancaria = () => (
   <PlaceholderModulo nome="Automação Bancária" origem={{ tipo: 'especificado', parte: 'V.14' }}
-    pergunta="Extratos recebidos e movimentos classificados automaticamente via Open Finance — e, em fase própria, a iniciação de pagamentos." />
+    pergunta="Extratos recebidos e movimentos classificados automaticamente via Open Finance — e, em fase própria, a iniciação de pagamentos."
+    mockup={<MockupAutomacao />} />
 );
 
 export const AgenteWhatsapp = () => (
@@ -46,7 +53,8 @@ export const AgenteWhatsapp = () => (
 
 export const Tarefas = () => (
   <PlaceholderModulo nome="Tarefas" origem={{ tipo: 'novo' }}
-    pergunta="O trabalho da casa organizado — tarefas por cliente, responsável e prazo, nascendo dos módulos que as geram e do agente que as recebe." />
+    pergunta="O trabalho da casa organizado — tarefas por cliente, responsável e prazo, nascendo dos módulos que as geram e do agente que as recebe."
+    mockup={<MockupTarefas />} />
 );
 
 // ── CLIENTE 360 ──────────────────────────────────────────────────────────────
@@ -64,7 +72,8 @@ export const SaudeCliente = () => (
 
 export const DossieCliente = () => (
   <PlaceholderModulo nome="Dossiê do Cliente" origem={{ tipo: 'especificado', parte: 'V.8' }}
-    pergunta="O que o gestor leva para a reunião — em uma página, sempre atual." />
+    pergunta="O que o gestor leva para a reunião — em uma página, sempre atual."
+    mockup={<MockupDossie />} />
 );
 
 export const ContratoVivo = () => (
@@ -75,5 +84,6 @@ export const ContratoVivo = () => (
 
 export const FluxoCaixa = () => (
   <PlaceholderModulo nome="Fluxo de Caixa" origem={{ tipo: 'novo' }}
-    pergunta="O caixa do cliente, mês a mês — entradas, saídas e a classificação que alimenta o plano financeiro." />
+    pergunta="O caixa do cliente, mês a mês — entradas, saídas e a classificação que alimenta o plano financeiro."
+    mockup={<MockupFluxoCaixa />} />
 );

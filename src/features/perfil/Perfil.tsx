@@ -15,7 +15,7 @@ import { EditarClienteModal } from './EditarClienteModal';
 import { NovoClienteModal } from './NovoClienteModal';
 import { AlocacaoLote } from './AlocacaoLote';
 import { AlocacaoEmLote } from './AlocacaoEmLote';
-import { Visao360Tab, PedidoAporteTab, RelatorioMensalTab } from './PerfilVitrine';
+import { Visao360Tab, CreditoTab, PedidoAporteTab, RelatorioMensalTab } from './PerfilVitrine';
 import type { FuncaoAlocacao, DadosCliente, RegistroPoupanca } from '../../types';
 
 const LABEL_F: Record<FuncaoAlocacao, string> = {
@@ -23,7 +23,7 @@ const LABEL_F: Record<FuncaoAlocacao, string> = {
   consultoria_financeira: 'Cons. Financeira', operacional_financeiro: 'Oper. Financeiro',
   serv_adm: 'Serv. Administrativos', serv_aux_adm: 'Aux. Administrativo',
 };
-const ABAS = ['Visão 360', 'Pedido de Aporte', 'Relatório Mensal', 'Resumo', 'Alocação', 'Configuração', 'Cadastral'] as const;
+const ABAS = ['Visão 360', 'Crédito', 'Pedido de Aporte', 'Relatório Mensal', 'Resumo', 'Alocação', 'Configuração', 'Cadastral'] as const;
 
 export function Perfil() {
   const {
@@ -168,7 +168,8 @@ export function Perfil() {
 
             {/* Conteúdo */}
             <div className="rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
-              {aba === 'Visão 360' && <Visao360Tab />}
+              {aba === 'Visão 360' && <Visao360Tab onIrCredito={() => setAba('Crédito')} />}
+              {aba === 'Crédito' && <CreditoTab />}
               {aba === 'Pedido de Aporte' && <PedidoAporteTab />}
               {aba === 'Relatório Mensal' && <RelatorioMensalTab />}
               {aba === 'Resumo' && <ResumoTab c={c} />}
