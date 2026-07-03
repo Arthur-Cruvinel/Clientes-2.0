@@ -45,7 +45,7 @@ export function PerfilComplexidadeTab({
   cliente, volumeMovimentosMes, setVolumeMovimentosMes,
   perfil, setPerfil, qtdRecebiveis, setQtdRecebiveis, qtdContratacoes, setQtdContratacoes,
 }: Props) {
-  const { periodoSelecionado, recarregar } = useApp();
+  const { periodoSelecionado, recarregar, parametros } = useApp();
   const [salvando, setSalvando] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -56,7 +56,7 @@ export function PerfilComplexidadeTab({
     qtd_contratacoes_mes: qtdContratacoes,
   }), [cliente, volumeMovimentosMes, qtdRecebiveis, qtdContratacoes]);
 
-  const horas = useMemo(() => calcularHorasReais(clienteAtual, perfil), [clienteAtual, perfil]);
+  const horas = useMemo(() => calcularHorasReais(clienteAtual, perfil, parametros), [clienteAtual, perfil, parametros]);
 
   const setP = <K extends keyof PerfilComplexidade>(k: K, v: PerfilComplexidade[K]) =>
     setPerfil({ ...perfil, [k]: v });

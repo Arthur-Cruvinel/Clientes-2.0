@@ -6,7 +6,7 @@
 // no Firestore. O motor (calcularCustoDireto) lê o pct salvo, qualquer
 // que seja sua origem.
 
-import type { Cliente, Colaborador, FuncaoAlocacao } from '../types';
+import type { Cliente, Colaborador, FuncaoAlocacao, Parametros } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import { HORAS_PACOTE, HORAS_PRODUTIVAS_MES_POR_LOCALIDADE, FUNCOES_ALOCACAO } from './constants';
 import { calcularHorasReais } from './financials.horasReais';
@@ -139,9 +139,9 @@ function horasProdMesDe(colaborador: Colaborador): number {
  *  tem perfil_complexidade preenchido; senão cai para HORAS_PACOTE.
  *  Gate por presença do objeto — não por valores específicos — para evitar
  *  zerar pct_* de clientes sem perfil ainda configurado. */
-function horasBaseClienteFuncao(c: Cliente, funcao: FuncaoAlocacao): number {
+function horasBaseClienteFuncao(c: Cliente, funcao: FuncaoAlocacao, parametros?: Parametros): number {
   if (c.perfil_complexidade) {
-    return calcularHorasReais(c, c.perfil_complexidade).por_funcao[funcao] ?? 0;
+    return calcularHorasReais(c, c.perfil_complexidade, parametros).por_funcao[funcao] ?? 0;
   }
   return HORAS_PACOTE[c.pacote_servico]?.[funcao] ?? 0;
 }
@@ -153,9 +153,10 @@ export function calcularPctDistribuido(
   clientes: Cliente[],
   funcao: FuncaoAlocacao,
   colaborador: Colaborador,
+  parametros?: Parametros,
 ): Record<string, number> {
   const horasBase: Record<string, number> = {};
-  for (const c of clientes) horasBase[c.nome_cliente] = horasBaseClienteFuncao(c, funcao);
+  for (const c of clientes) horasBase[c.nome_cliente] = horasBaseClienteFuncao(c, funcao, parametros);
   const somaHoras = Object.values(horasBase).reduce((s, h) => s + h, 0);
 
   const resultado: Record<string, number> = {};

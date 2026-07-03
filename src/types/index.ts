@@ -696,6 +696,11 @@ export interface Parametros {
   // Faixas editáveis de valor sugerido + percentuais informativos. NÃO entram
   // no motor do fee. Globais e ajustáveis (Configurações → Extraordinário).
   extraordinario: Record<TipoExtraordinario, FaixaExtraordinario>;
+  // ── OVERRIDES DE HORAS-BASE POR ATIVIDADE (Configurações → Atividades) ──────
+  // id da atividade → horas_base vigente. Ausente/vazio = default de fábrica de
+  // ATIVIDADES_SERVICO (byte a byte). Afeta calcularHorasReais → fee/matriz;
+  // NÃO move o fechado (DRE lê pct salvo).
+  atividades?: Record<string, number>;
 }
 
 // ============================================================

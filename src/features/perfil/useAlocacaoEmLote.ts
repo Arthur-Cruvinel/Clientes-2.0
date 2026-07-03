@@ -23,7 +23,7 @@ import type { Colaborador, Cliente, FuncaoAlocacao } from '../../types';
 let selPersistida: string | null = null;
 
 export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: string } | null) {
-  const { dadosPeriodo, periodoSelecionado, periodoFechado, recarregar } = useApp();
+  const { dadosPeriodo, periodoSelecionado, periodoFechado, recarregar, parametros } = useApp();
   const [sel, setSelState] = useState<string | null>(() => selPersistida);
   const setSel = useCallback((s: string | null) => {
     selPersistida = s;
@@ -143,8 +143,8 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
   // Sugestão automática (proporcional às horas normativas).
   const pctSugerido = useMemo<Record<string, number>>(
     () => (funcao && colaboradorSelecionado)
-      ? calcularPctDistribuido(clientesDoColaborador, funcao, colaboradorSelecionado) : {},
-    [clientesDoColaborador, funcao, colaboradorSelecionado]);
+      ? calcularPctDistribuido(clientesDoColaborador, funcao, colaboradorSelecionado, parametros) : {},
+    [clientesDoColaborador, funcao, colaboradorSelecionado, parametros]);
 
   // Init: cliente com pct>0 no Firestore = manual (travado); demais = sugestão.
   useEffect(() => {

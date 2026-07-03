@@ -9,6 +9,7 @@ import { TabPacotes } from './TabPacotes';
 import { TabJuridico } from './TabJuridico';
 import { TabReajuste } from './TabReajuste';
 import { TabExtraordinario } from './TabExtraordinario';
+import { TabAtividades } from './TabAtividades';
 import { ColaboradoresVisao } from '../colaboradores/ColaboradoresVisao';
 import { CustosIndiretos } from '../custos-indiretos/CustosIndiretos';
 import { Metodologia } from '../metodologia/Metodologia';
@@ -31,6 +32,7 @@ const ABAS = [
   { id: 'juridico', label: 'Jurídico' },
   { id: 'reajuste', label: 'Reajuste' },
   { id: 'extraordinario', label: 'Extraordinário' },
+  { id: 'atividades', label: 'Atividades' },
   { id: 'pacotes', label: 'Pacotes de Serviço' },
   { id: 'colaboradores', label: 'Colaboradores' },
   { id: 'metodologia', label: 'Metodologia' },
@@ -449,6 +451,7 @@ export function Configuracoes() {
         {aba === 'juridico' && <TabJuridico parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'reajuste' && <TabReajuste parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'extraordinario' && <TabExtraordinario parametros={parametros} onSalvar={salvar} salvando={salvando} />}
+        {aba === 'atividades' && <TabAtividades parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'pacotes' && <TabPacotes parametros={parametros} onSalvar={salvar} salvando={salvando} />}
         {aba === 'colaboradores' && <ColaboradoresVisao />}
         {aba === 'indiretos' && <CustosIndiretos />}

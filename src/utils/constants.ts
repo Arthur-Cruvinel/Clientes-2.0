@@ -302,6 +302,7 @@ export const PARAMETROS_DEFAULT: Parametros = {
   periodicidade_medicao_meses: PERIODICIDADE_MEDICAO_MESES_DEFAULT,
   valor_faixa_excedente: VALOR_FAIXA_EXCEDENTE_DEFAULT,
   extraordinario: EXTRAORDINARIO_DEFAULT,
+  atividades: {},
 };
 
 // Lista de funções de alocação (usada em iterações)

@@ -11,7 +11,7 @@
 // gestao_obra é tratado FORA do loop em calcularHorasReais (alerta puro,
 // sem horas-base normativas) — por isso não consta neste record.
 
-import type { FuncaoAlocacao, PerfilComplexidade } from '../types';
+import type { FuncaoAlocacao, PerfilComplexidade, Parametros } from '../types';
 
 export type DriverAtividade =
   | 'fixo'
@@ -111,3 +111,11 @@ export const ATIVIDADES_SERVICO: Record<string, AtividadeServico> = {
     horas_base: 6.67, driver: 'fixo', funcao: 'consultoria_gestao',
   },
 } as const;
+
+// Horas-base VIGENTE de uma atividade: override de parametros.atividades[id] quando
+// houver; senão o default de fábrica. Fonte única — calcularHorasReais e todo
+// consumidor de horas_base passam por aqui. Sem override = byte a byte.
+export function horasBaseEfetiva(id: string, parametros?: Parametros): number {
+  const override = parametros?.atividades?.[id];
+  return override != null ? override : (ATIVIDADES_SERVICO[id]?.horas_base ?? 0);
+}

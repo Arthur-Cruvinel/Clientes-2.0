@@ -104,7 +104,7 @@ export function useReajustes(materialidadePct: number) {
       let staffing: StaffingFuncao[] = [];
 
       if (cli?.perfil_complexidade) {
-        const horas = calcularHorasReais(cli, cli.perfil_complexidade);
+        const horas = calcularHorasReais(cli, cli.perfil_complexidade, parametros);
         horasDemanda = horas.total;
         deltaAtendimento = horasAlocadas - horasDemanda;
         const ref = horasDemanda > 0.01 ? horasDemanda : 1;

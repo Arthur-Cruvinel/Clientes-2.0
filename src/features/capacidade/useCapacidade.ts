@@ -115,7 +115,7 @@ function capacidadePorPacote(horasLivres: Record<string, number>): PacoteCapacid
 }
 
 export function useCapacidade() {
-  const { dadosPeriodo, loading } = useApp();
+  const { dadosPeriodo, loading, parametros } = useApp();
 
   const colaboradores: Colaborador[] = useMemo(() =>
     (dadosPeriodo?.colaboradores ?? [])
@@ -221,7 +221,7 @@ export function useCapacidade() {
         // da matriz (consistente com a Reajustes; sem fallback ao tier).
         if (!cli.perfil_complexidade) continue;
         const real = horasReaisPorCliente(pct);
-        const esperado = calcularHorasReais(cli, cli.perfil_complexidade).por_funcao[fp] ?? 0;
+        const esperado = calcularHorasReais(cli, cli.perfil_complexidade, parametros).por_funcao[fp] ?? 0;
         const excesso = real - esperado;
         if (excesso > 0.01) {
           itens.push({ nome_cliente: cli.nome_cliente, pacote: cli.pacote_servico, real, esperado, excesso });

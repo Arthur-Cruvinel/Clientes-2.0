@@ -5,10 +5,10 @@
 // tem perfil_complexidade) e pela aba Complexidade no Perfil.
 
 import type {
-  Cliente, FuncaoAlocacao, HorasReaisCalculadas, PerfilComplexidade,
+  Cliente, FuncaoAlocacao, HorasReaisCalculadas, PerfilComplexidade, Parametros,
 } from '../types';
 import { HORAS_CLT_MES } from './constants';
-import { ATIVIDADES_SERVICO, VOLUME_MOVIMENTOS_PADRAO } from './atividadesServico';
+import { ATIVIDADES_SERVICO, VOLUME_MOVIMENTOS_PADRAO, horasBaseEfetiva } from './atividadesServico';
 
 function porFuncaoZerado(): Record<FuncaoAlocacao, number> {
   return {
@@ -22,7 +22,7 @@ function porFuncaoZerado(): Record<FuncaoAlocacao, number> {
 }
 
 export function calcularHorasReais(
-  cliente: Cliente, perfil: PerfilComplexidade,
+  cliente: Cliente, perfil: PerfilComplexidade, parametros?: Parametros,
 ): HorasReaisCalculadas {
   const resultado: HorasReaisCalculadas = {
     por_funcao: porFuncaoZerado(), total: 0, alertas: [], detalhes: [],
@@ -36,15 +36,16 @@ export function calcularHorasReais(
   for (const [nome, ativ] of Object.entries(ATIVIDADES_SERVICO)) {
     let horas = 0;
     let driverValor = 0;
+    const hb = horasBaseEfetiva(nome, parametros);   // override vigente ?? default de fábrica
 
     switch (ativ.driver) {
       case 'fixo':
-        horas = ativ.horas_base; driverValor = 1; break;
+        horas = hb; driverValor = 1; break;
 
       case 'boolean': {
         const ligada = ativ.boolean_campo ? !!perfil[ativ.boolean_campo] : false;
         if (!ligada) continue;
-        horas = ativ.horas_base; driverValor = 1;
+        horas = hb; driverValor = 1;
         // Alerta dedicado: revisao_contratos ativa sem pacote jurídico.
         if (nome === 'revisao_contratos' && !cliente.utiliza_servico_juridico && ativ.alerta) {
           resultado.alertas.push(ativ.alerta);
@@ -55,30 +56,30 @@ export function calcularHorasReais(
       case 'vol_movimentos':
         driverValor = volMov;
         if (nome === 'fluxo_caixa') horas = (volMov * 0.5) / 60;
-        else horas = ativ.horas_base * (volMov / (ativ.driver_base ?? VOLUME_MOVIMENTOS_PADRAO));
+        else horas = hb * (volMov / (ativ.driver_base ?? VOLUME_MOVIMENTOS_PADRAO));
         break;
 
       case 'qtd_veiculos':
         driverValor = perfil.qtd_veiculos ?? 0;
-        horas = ativ.horas_base * driverValor; break;
+        horas = hb * driverValor; break;
       case 'qtd_imoveis':
         driverValor = perfil.qtd_imoveis ?? 0;
-        horas = ativ.horas_base * driverValor; break;
+        horas = hb * driverValor; break;
       case 'qtd_func_domesticos':
         driverValor = perfil.qtd_funcionarios_domesticos ?? 0;
-        horas = ativ.horas_base * driverValor; break;
+        horas = hb * driverValor; break;
       case 'qtd_recebiveis':
         driverValor = qtdRecebiveis;
-        horas = ativ.horas_base * driverValor; break;
+        horas = hb * driverValor; break;
       case 'qtd_contratacoes':
         driverValor = qtdContratacoes;
-        horas = ativ.horas_base * driverValor; break;
+        horas = hb * driverValor; break;
       case 'qtd_contas':
         driverValor = perfil.qtd_contas_bancarias ?? 0;
-        horas = ativ.horas_base * driverValor; break;
+        horas = hb * driverValor; break;
       case 'grupos_financeiros':
         driverValor = perfil.grupos_financeiros ?? 1;
-        horas = ativ.horas_base * (driverValor / (ativ.driver_base ?? 1)); break;
+        horas = hb * (driverValor / (ativ.driver_base ?? 1)); break;
     }
 
     if (horas > 0) {

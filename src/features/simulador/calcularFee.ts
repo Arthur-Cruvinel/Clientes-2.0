@@ -72,7 +72,7 @@ export function calcularFee(i: CalcularFeeInputs): CalcularFeeResult {
     },
   } as Cliente;
 
-  const horas = calcularHorasReais(cliente, cliente.perfil_complexidade!);
+  const horas = calcularHorasReais(cliente, cliente.perfil_complexidade!, parametros);
   const porFuncao = FUNCOES_ALOCACAO.map(f => {
     const h = horas.por_funcao[f] ?? 0; const ch = custoHoraMedio[f] ?? 0;
     return { f, horas: h, custoHora: ch, custo: h * ch };

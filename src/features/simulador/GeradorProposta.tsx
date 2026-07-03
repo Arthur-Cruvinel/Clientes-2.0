@@ -18,11 +18,14 @@ import { custoHoraJuridicoEfetivo } from './precificacaoBase';
 import { salvarProposta, buscarPropostas, atualizarPropostaStatus, excluirProposta } from '../../services/firebase';
 import { gerarPropostaHTML } from './propostaTemplate';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
-import { ATIVIDADES_SERVICO } from '../../utils/atividadesServico';
-import type { FuncaoAlocacao, PacoteServico, RegimeTributario, DadosProposta, PropostaInputs, PropostaOutputs } from '../../types';
+import { ATIVIDADES_SERVICO, horasBaseEfetiva } from '../../utils/atividadesServico';
+import type { FuncaoAlocacao, PacoteServico, RegimeTributario, DadosProposta, PropostaInputs, PropostaOutputs, Parametros } from '../../types';
 
-// Coeficiente de horas do catálogo (não hardcoded) — feedback dos checkboxes que calculam.
-const horaBool = (campo: string): number => Object.values(ATIVIDADES_SERVICO).find(a => a.boolean_campo === campo)?.horas_base ?? 0;
+// Coeficiente de horas VIGENTE (override ?? default) — feedback dos checkboxes que calculam.
+const horaBool = (campo: string, parametros?: Parametros): number => {
+  const entry = Object.entries(ATIVIDADES_SERVICO).find(([, a]) => a.boolean_campo === campo);
+  return entry ? horasBaseEfetiva(entry[0], parametros) : 0;
+};
 const fmtH = (h: number) => h.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const LABEL_F: Record<FuncaoAlocacao, string> = {
@@ -539,7 +542,7 @@ export function GeradorProposta({ prefill }: { prefill?: PrefillProposta }) {
               <Num label="Administrativo" v={dAdm} set={setDAdm} step={0.01} /><Num label="Viagem" v={dViagem} set={setDViagem} step={0.01} />
             </Secao>
             <div className="flex flex-wrap gap-4">
-              <Chk label={`Planej. tributário${planTrib ? ` (+${fmtH(horaBool('planejamento_tributario'))}h)` : ''}`} v={planTrib} set={setPlanTrib} />
+              <Chk label={`Planej. tributário${planTrib ? ` (+${fmtH(horaBool('planejamento_tributario', parametros))}h)` : ''}`} v={planTrib} set={setPlanTrib} />
             </div>
           </fieldset>
 
