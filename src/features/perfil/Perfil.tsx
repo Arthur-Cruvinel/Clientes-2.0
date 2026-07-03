@@ -15,6 +15,7 @@ import { EditarClienteModal } from './EditarClienteModal';
 import { NovoClienteModal } from './NovoClienteModal';
 import { AlocacaoLote } from './AlocacaoLote';
 import { AlocacaoEmLote } from './AlocacaoEmLote';
+import { Visao360Tab, PedidoAporteTab, RelatorioMensalTab } from './PerfilVitrine';
 import type { FuncaoAlocacao, DadosCliente, RegistroPoupanca } from '../../types';
 
 const LABEL_F: Record<FuncaoAlocacao, string> = {
@@ -22,7 +23,7 @@ const LABEL_F: Record<FuncaoAlocacao, string> = {
   consultoria_financeira: 'Cons. Financeira', operacional_financeiro: 'Oper. Financeiro',
   serv_adm: 'Serv. Administrativos', serv_aux_adm: 'Aux. Administrativo',
 };
-const ABAS = ['Resumo', 'Alocação', 'Configuração', 'Cadastral'] as const;
+const ABAS = ['Visão 360', 'Pedido de Aporte', 'Relatório Mensal', 'Resumo', 'Alocação', 'Configuração', 'Cadastral'] as const;
 
 export function Perfil() {
   const {
@@ -38,7 +39,7 @@ export function Perfil() {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const registrosPoupanca = dadosPeriodo?.registrosPoupanca ?? [];
-  const [aba, setAba] = useState<(typeof ABAS)[number]>('Resumo');
+  const [aba, setAba] = useState<(typeof ABAS)[number]>('Visão 360');
 
   // Deep-link da Capacidade: ?visao=lote_aloc&colaborador=X&funcao=Y. Capturado
   // uma vez no mount (ref preserva após limpar a URL); a função é opcional.
@@ -167,6 +168,9 @@ export function Perfil() {
 
             {/* Conteúdo */}
             <div className="rounded-lg border p-5" style={{ borderColor: '#e2e2e8' }}>
+              {aba === 'Visão 360' && <Visao360Tab />}
+              {aba === 'Pedido de Aporte' && <PedidoAporteTab />}
+              {aba === 'Relatório Mensal' && <RelatorioMensalTab />}
               {aba === 'Resumo' && <ResumoTab c={c} />}
               {aba === 'Alocação' && <AlocacaoTab c={c} vinculos={dadosPeriodo?.vinculos ?? []} />}
               {aba === 'Configuração' && <ConfigTab c={c} />}
