@@ -30,6 +30,9 @@ pnpm-debug.log*
 # TypeScript cache
 *.tsbuildinfo
 
+# Deno (lockfile gerado por scripts de auditoria via tsx/deno — não versionar)
+deno.lock
+
 # Windows
 *.suo
 *.ntvs*
