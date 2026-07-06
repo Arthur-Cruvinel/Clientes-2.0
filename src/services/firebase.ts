@@ -2040,6 +2040,18 @@ export async function buscarConsumoClientesJuridico(periodo: string): Promise<Co
   return snap.docs.map(d => d.data() as ConsumoClienteDoc);
 }
 
+/** Flag de pacote jurídico por id_estavel (clientes_base). Usado pela seção "cortesia"
+ *  para cruzar consumo × contratação. Leitura pura — não toca motor. */
+export async function buscarFlagsJuridico(): Promise<Record<string, { jur: boolean; peso: number }>> {
+  const snap = await getDocs(collection(db, 'clientes_base'));
+  const out: Record<string, { jur: boolean; peso: number }> = {};
+  for (const d of snap.docs) {
+    const c = d.data() as { id_estavel?: string; utiliza_servico_juridico?: boolean; peso_juridico?: number };
+    if (c.id_estavel) out[c.id_estavel] = { jur: !!c.utiliza_servico_juridico, peso: Number(c.peso_juridico ?? 1) };
+  }
+  return out;
+}
+
 /** Propaga novo `nome_cliente` para todos os snapshots em
  *  `fechamentos/*​/clientes/` que apontam para o mesmo `id_estavel`.
  *  Match por `id_estavel` (não por nome) garante consistência cross-período

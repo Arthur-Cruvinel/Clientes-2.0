@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../state/AppContext';
 import { formatCurrency } from '../../utils/formatters';
 import {
-  buscarPeriodosConsumoJuridico, buscarConsumoClientesJuridico,
+  buscarPeriodosConsumoJuridico, buscarConsumoClientesJuridico, buscarFlagsJuridico,
   type ConsumoPeriodoDoc, type ConsumoClienteDoc,
 } from '../../services/firebase';
 
@@ -24,6 +24,7 @@ export function JuridicoConsumo() {
   const [periodos, setPeriodos] = useState<ConsumoPeriodoDoc[]>([]);
   const [sel, setSel] = useState<string>('');
   const [clientes, setClientes] = useState<ConsumoClienteDoc[]>([]);
+  const [flags, setFlags] = useState<Record<string, { jur: boolean; peso: number }>>({});
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export function JuridicoConsumo() {
       setSel(ps.length ? ps[ps.length - 1].periodo : '');
       if (!ps.length) setCarregando(false);
     });
+    buscarFlagsJuridico().then(setFlags);
   }, []);
   useEffect(() => {
     if (!sel) return;
@@ -47,11 +49,14 @@ export function JuridicoConsumo() {
     const custoPorDemanda = totalNaoCasa > 0 ? poolPeriodo / totalNaoCasa : 0;
     const linhas = [...clientes].sort((a, b) => b.demandas - a.demandas).map(c => ({
       ...c,
+      jur: flags[c.id_estavel_cliente]?.jur ?? false,
       participacao: totalNaoCasa > 0 ? c.demandas / totalNaoCasa : 0,
       custoEstimado: c.demandas * custoPorDemanda,
     }));
-    return { totalNaoCasa, meses, poolPeriodo, custoPorDemanda, linhas, entradaMes: meses > 0 ? totalNaoCasa / meses : 0 };
-  }, [clientes, poolMensal, sel]);
+    const cortesia = linhas.filter(l => !l.jur);
+    const vazamento = cortesia.reduce((s, l) => s + l.custoEstimado, 0);
+    return { totalNaoCasa, meses, poolPeriodo, custoPorDemanda, linhas, cortesia, vazamento, entradaMes: meses > 0 ? totalNaoCasa / meses : 0 };
+  }, [clientes, poolMensal, sel, flags]);
 
   if (carregando && !meta) return <p className="text-sm" style={{ color: '#6b6b8a' }}>Carregando consumo…</p>;
   if (!periodos.length) return (
@@ -97,21 +102,58 @@ export function JuridicoConsumo() {
               <th className="px-3 py-1.5 text-left text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Cliente</th>
               <th className="px-3 py-1.5 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Demandas</th>
               <th className="px-3 py-1.5 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Participação</th>
+              <th className="px-3 py-1.5 text-center text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Pacote</th>
               <th className="px-3 py-1.5 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Custo estimado</th>
             </tr>
           </thead>
           <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
             {dados.linhas.map(c => (
-              <tr key={c.id_estavel_cliente}>
+              <tr key={c.id_estavel_cliente} style={c.jur ? undefined : { backgroundColor: '#fffbeb' }}>
                 <td className="px-3 py-1.5" style={{ color: '#160F41' }}>{c.nome_cliente}</td>
                 <td className="px-3 py-1.5 text-right font-medium" style={{ color: '#160F41' }}>{c.demandas}</td>
                 <td className="px-3 py-1.5 text-right" style={{ color: '#6b6b8a' }}>{(c.participacao * 100).toFixed(1)}%</td>
+                <td className="px-3 py-1.5 text-center">{c.jur
+                  ? <span className="text-[10px] font-bold" style={{ color: '#166534' }}>sim</span>
+                  : <span className="text-[10px] font-bold" style={{ color: '#b45309' }}>cortesia</span>}</td>
                 <td className="px-3 py-1.5 text-right" style={{ color: '#160F41' }}>{poolIndefinido ? '—' : formatCurrency(c.custoEstimado)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* CORTESIA — consomem sem pacote jurídico (a lista comercial) */}
+      {dados.cortesia.length > 0 && (
+        <div className="rounded-lg border p-3" style={{ borderColor: '#fde68a', backgroundColor: '#fffbeb' }}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#b45309' }}>Consomem sem pacote — lista comercial</p>
+            <span className="text-sm font-bold" style={{ color: '#b45309' }}>
+              Vazamento: {poolIndefinido ? '—' : formatCurrency(dados.vazamento)}
+              <span className="text-[11px] font-normal"> · {dados.cortesia.length} clientes</span>
+            </span>
+          </div>
+          <table className="min-w-full text-sm">
+            <thead><tr>
+              <th className="px-3 py-1 text-left text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Cliente</th>
+              <th className="px-3 py-1 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Demandas</th>
+              <th className="px-3 py-1 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Custo estimado</th>
+            </tr></thead>
+            <tbody className="divide-y" style={{ borderColor: '#fde68a' }}>
+              {dados.cortesia.map(c => (
+                <tr key={c.id_estavel_cliente}>
+                  <td className="px-3 py-1 font-medium" style={{ color: '#160F41' }}>{c.nome_cliente}</td>
+                  <td className="px-3 py-1 text-right" style={{ color: '#160F41' }}>{c.demandas}</td>
+                  <td className="px-3 py-1 text-right font-bold" style={{ color: '#b45309' }}>{poolIndefinido ? '—' : formatCurrency(c.custoEstimado)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[10px] mt-2" style={{ color: '#6b6b8a' }}>
+            Consumo jurídico de clientes sem <code>utiliza_servico_juridico</code> — o rateio por
+            consumo (fase 2, frente própria) ataca este vazamento. Aqui é só o retrato comercial.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
