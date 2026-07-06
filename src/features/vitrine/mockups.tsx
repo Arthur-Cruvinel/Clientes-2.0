@@ -5,7 +5,7 @@
 
 import { MockupModulo } from '../../components/ui/MockupModulo';
 import {
-  BarChart, Bar, LineChart, Line, AreaChart, Area, Cell,
+  BarChart, Bar, Line, AreaChart, Area, Cell, ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend,
 } from 'recharts';
 
@@ -70,26 +70,103 @@ export function MockupCarteira() {
 
 // ── PLANEJAMENTO FINANCEIRO ─────────────────────────────────────────────────
 export function MockupPlanejamento() {
-  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  const dados = meses.map((m, i) => ({
-    m, plano: 60 + i * 4,
-    realizado: 60 + i * 4 + (i === 5 ? -9 : i === 8 ? -6 : 0),
-  }));
+  const premissas: [string, string][] = [
+    ['Receita mensal', 'R$ 657 mil'], ['Despesa mensal', 'R$ 309 mil'],
+    ['Capacidade de poupança', 'R$ 348 mil'], ['Taxa de juros', '14,98% a.a.'],
+    ['Inflação', '4,20%'], ['Retorno real', '8,13%'],
+    ['Joga até', '34 anos'], ['Expectativa de vida', '90 anos'],
+  ];
+  const curva = [];
+  for (let a = 30; a <= 90; a += 2) {
+    if (a <= 34) {
+      const r = 5 + (25.7 - 5) * ((a - 30) / 4);
+      curva.push({ idade: a, reserva: +r.toFixed(1), preservando: +r.toFixed(1), consumindo: +r.toFixed(1) });
+    } else {
+      curva.push({
+        idade: a,
+        reserva: +(25.7 - (a - 34) * 0.12).toFixed(1),
+        preservando: +(25.7 - (a - 34) * 0.10).toFixed(1),
+        consumindo: +(25.7 - (a - 34) * 0.52).toFixed(1),
+      });
+    }
+  }
+  const necessidades: [string, string][] = [
+    ['41–43', 'R$ 168,8 mil'], ['44–46', 'R$ 169,3 mil'], ['47–51', 'R$ 170,3 mil'], ['52–90', 'R$ 166,8 mil'],
+  ];
   return (
     <MockupModulo
-      kpis={[{ label: 'Idade de independência projetada', valor: '42 anos' }, { label: 'Superávit médio/mês', valor: 'R$ 84 mil' }]}
+      kpis={[
+        { label: 'Reserva no início da aposentadoria', valor: 'R$ 25,7M' },
+        { label: 'Necessidade', valor: 'R$ 25,4M' },
+        { label: 'Superávit', valor: 'R$ 278 mil' },
+      ]}
       grafico={
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={dados} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-            <XAxis dataKey="m" tick={{ fontSize: 9 }} />
-            <YAxis tick={{ fontSize: 9 }} unit=" mi" />
-            <Tooltip formatter={(v) => `R$ ${v} mi`} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Line type="monotone" dataKey="plano" name="Plano" stroke={AZUL} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="realizado" name="Realizado" stroke={ROSA} strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+        <div className="space-y-4">
+          {/* Premissas — ficha 2 colunas */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1.5 rounded-lg p-3" style={{ backgroundColor: '#f9f9fb' }}>
+            {premissas.map(([l, v]) => (
+              <div key={l} className="flex flex-col">
+                <span className="text-[9px] uppercase font-bold" style={{ color: '#6b6b8a' }}>{l}</span>
+                <span className="text-[12px] font-bold" style={{ color: '#160F41' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Gráfico central — reserva ao longo da idade + 2 cenários de retirada */}
+          <ResponsiveContainer width="100%" height={210}>
+            <ComposedChart data={curva} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+              <XAxis dataKey="idade" tick={{ fontSize: 9 }} unit=" anos" />
+              <YAxis tick={{ fontSize: 9 }} unit=" M" />
+              <Tooltip formatter={(v) => `R$ ${v} M`} labelFormatter={(l) => `${l} anos`} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+              <ReferenceLine y={0} stroke={VERMELHO} strokeWidth={1} />
+              <Area type="monotone" dataKey="reserva" name="Reserva" stroke={VERDE} fill={VERDE} fillOpacity={0.18} />
+              <Line type="monotone" dataKey="preservando" name="Retirada preservando" stroke={AZUL} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="consumindo" name="Retirada consumindo" stroke={ROSA} strokeWidth={2} strokeDasharray="5 4" dot={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+
+          {/* Barra de progresso — independência financeira */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold" style={{ color: '#160F41' }}>Independência Financeira até 90 anos</span>
+              <span className="text-[11px] font-bold" style={{ color: VERDE }}>101,1%</span>
+            </div>
+            <div className="h-2.5 rounded-full" style={{ backgroundColor: '#eee' }}>
+              <div className="h-2.5 rounded-full" style={{ width: '100%', backgroundColor: VERDE }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Necessidades na aposentadoria */}
+            <div>
+              <p className="text-[10px] uppercase font-bold mb-1.5" style={{ color: '#6b6b8a' }}>Necessidades na aposentadoria</p>
+              <table className="min-w-full text-[11px]">
+                <thead><tr>
+                  <th className="text-left px-2 py-1 text-[9px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Faixa etária</th>
+                  <th className="text-right px-2 py-1 text-[9px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Despesa não coberta</th>
+                </tr></thead>
+                <tbody className="divide-y" style={{ borderColor: '#f3f4f6' }}>
+                  {necessidades.map(([f, v]) => (
+                    <tr key={f}><td className="px-2 py-1" style={{ color: '#160F41' }}>{f}</td><td className="px-2 py-1 text-right" style={{ color: '#160F41' }}>{v}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Plano vs. Realizado — o diferencial */}
+            <div className="rounded-lg p-3" style={{ backgroundColor: '#f0f6ff', border: '1px solid #dbeafe' }}>
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#0065FF' }}>Plano vs. Realizado — junho</p>
+              <div className="flex items-center gap-4">
+                <div><p className="text-[10px]" style={{ color: '#6b6b8a' }}>Planejada</p><p className="text-sm font-bold" style={{ color: '#160F41' }}>R$ 348 mil</p></div>
+                <div><p className="text-[10px]" style={{ color: '#6b6b8a' }}>Realizada</p><p className="text-sm font-bold" style={{ color: '#160F41' }}>R$ 312 mil</p></div>
+                <span className="ml-auto px-2 py-0.5 rounded-full text-[11px] font-medium" style={{ backgroundColor: '#fef9c3', color: AMBAR }}>89% — abaixo do plano</span>
+              </div>
+              <p className="text-[10px] mt-2" style={{ color: '#6b6b8a' }}>Alimentado pela classificação automática do fluxo · Parte V.1.5</p>
+            </div>
+          </div>
+        </div>
       }
     />
   );
@@ -97,14 +174,31 @@ export function MockupPlanejamento() {
 
 // ── JURÍDICO ────────────────────────────────────────────────────────────────
 export function MockupJuridico() {
-  const cols: { titulo: string; n: number; cor: string; cards: string[] }[] = [
-    { titulo: 'Abertas', n: 6, cor: AZUL, cards: ['Revisão contrato de imagem — Enzo B.', 'Distrato fornecedor — Rafael T.'] },
-    { titulo: 'Em andamento', n: 4, cor: AMBAR, cards: ['Parecer societário — Bruno A.', 'Notificação — Caio R.', 'Contrato patrocínio — Diego F.'] },
-    { titulo: 'Concluídas no mês', n: 11, cor: VERDE, cards: ['Procuração — Igor M.', 'Aditivo — Lucca P.'] },
+  const cols: { titulo: string; n: number; cor: string; cards: { cat: string; porte: string; cli: string; dias: string; resp: string }[] }[] = [
+    { titulo: 'Abertas', n: 6, cor: AZUL, cards: [
+      { cat: 'Contrato de imagem', porte: 'médio', cli: 'Enzo B.', dias: '3d', resp: 'Dra. Paula' },
+      { cat: 'Distrato fornecedor', porte: 'baixo', cli: 'Rafael T.', dias: '1d', resp: 'Dr. André' } ] },
+    { titulo: 'Em andamento', n: 4, cor: AMBAR, cards: [
+      { cat: 'Parecer societário', porte: 'alto', cli: 'Bruno A.', dias: '8d', resp: 'Dra. Paula' },
+      { cat: 'Notificação extrajud.', porte: 'médio', cli: 'Caio R.', dias: '5d', resp: 'Dr. André' },
+      { cat: 'Contrato patrocínio', porte: 'alto', cli: 'Diego F.', dias: '11d', resp: 'Dra. Paula' } ] },
+    { titulo: 'Concluídas no mês', n: 11, cor: VERDE, cards: [
+      { cat: 'Procuração pública', porte: 'baixo', cli: 'Igor M.', dias: '—', resp: 'Dr. André' },
+      { cat: 'Aditivo contratual', porte: 'médio', cli: 'Lucca P.', dias: '—', resp: 'Dra. Paula' } ] },
   ];
-  const consumo = [{ c: 'Enzo B.', usado: 4, franquia: 3 }, { c: 'Rafael T.', usado: 2, franquia: 4 }, { c: 'Bruno A.', usado: 3, franquia: 5 }];
+  const consumo = [
+    { c: 'Enzo B.', usado: 5, franquia: 2 }, { c: 'Rafael T.', usado: 2, franquia: 4 },
+    { c: 'Bruno A.', usado: 3, franquia: 5 }, { c: 'Caio R.', usado: 1, franquia: 3 },
+  ];
+  const excedentes: [string, string, string][] = [
+    ['Enzo B.', '3 demandas', 'R$ 5,1 mil'], ['Rafael T.', '2 demandas', 'R$ 3,3 mil'],
+  ];
   return (
     <MockupModulo
+      kpis={[
+        { label: 'Demandas no mês', valor: '21' }, { label: 'Tempo médio de resolução', valor: '6,4 dias' },
+        { label: 'Clientes na franquia', valor: '9/12' }, { label: 'Excedentes a faturar', valor: 'R$ 8,4 mil' },
+      ]}
       grafico={
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
@@ -115,29 +209,48 @@ export function MockupJuridico() {
                   <span className="text-[11px] font-bold" style={{ color: '#160F41' }}>{col.n}</span>
                 </div>
                 <div className="space-y-1.5">
-                  {col.cards.map((card, i) => (
-                    <div key={i} className="rounded p-1.5 text-[10px] bg-white border" style={{ borderColor: '#e2e2e8', color: '#160F41' }}>{card}</div>
+                  {col.cards.map((c, i) => (
+                    <div key={i} className="rounded p-1.5 bg-white border" style={{ borderColor: '#e2e2e8' }}>
+                      <p className="text-[10px] font-bold" style={{ color: '#160F41' }}>{c.cat}</p>
+                      <p className="text-[9px]" style={{ color: '#6b6b8a' }}>{c.porte} · {c.cli} · {c.dias} · {c.resp}</p>
+                    </div>
                   ))}
                 </div>
               </div>
             ))}
           </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold mb-1.5" style={{ color: '#6b6b8a' }}>Consumo vs franquia</p>
-            <div className="space-y-1.5">
-              {consumo.map(c => {
-                const estourou = c.usado > c.franquia;
-                const pct = Math.min(100, (c.usado / c.franquia) * 100);
-                return (
-                  <div key={c.c} className="flex items-center gap-2">
-                    <span className="text-[10px] w-16 shrink-0" style={{ color: '#160F41' }}>{c.c}</span>
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: '#eee' }}>
-                      <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: estourou ? VERMELHO : VERDE }} />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] uppercase font-bold mb-1.5" style={{ color: '#6b6b8a' }}>Consumo vs. franquia</p>
+              <div className="space-y-1.5">
+                {consumo.map(c => {
+                  const estourou = c.usado > c.franquia;
+                  const pct = Math.min(100, (c.usado / c.franquia) * 100);
+                  return (
+                    <div key={c.c} className="flex items-center gap-2">
+                      <span className="text-[10px] w-16 shrink-0" style={{ color: '#160F41' }}>{c.c}</span>
+                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: '#eee' }}>
+                        <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: estourou ? VERMELHO : VERDE }} />
+                      </div>
+                      <span className="text-[10px] w-14 text-right" style={{ color: estourou ? VERMELHO : '#6b6b8a' }}>{c.usado}/{c.franquia}</span>
                     </div>
-                    <span className="text-[10px] w-14 text-right" style={{ color: estourou ? VERMELHO : '#6b6b8a' }}>{c.usado}/{c.franquia}</span>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase font-bold mb-1.5" style={{ color: '#6b6b8a' }}>Excedentes do mês</p>
+              <div className="space-y-1">
+                {excedentes.map(([cli, qt, vl]) => (
+                  <div key={cli} className="flex items-center justify-between text-[11px] rounded px-2 py-1" style={{ backgroundColor: '#fef2f2' }}>
+                    <span style={{ color: '#160F41' }}>{cli} · {qt}</span>
+                    <span className="font-bold" style={{ color: VERMELHO }}>{vl}</span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+              <p className="text-[10px] mt-1.5" style={{ color: '#6b6b8a' }}>Excedente vira cobrança — a franquia mede e limita.</p>
             </div>
           </div>
         </div>
@@ -149,20 +262,34 @@ export function MockupJuridico() {
 // ── CONTRATO VIVO ───────────────────────────────────────────────────────────
 export function MockupContratoVivo() {
   const cel = (txt: string, alerta = false) => <span style={{ color: alerta ? VERMELHO : '#160F41', fontWeight: alerta ? 700 : 400 }}>{txt}</span>;
+  const tend = (txt: string, alerta = false) => <span className="text-[10px]" style={{ color: alerta ? VERMELHO : '#6b6b8a' }}>{txt}</span>;
   return (
     <MockupModulo
+      kpis={[
+        { label: 'Clientes monitorados', valor: '96' }, { label: 'Com excedente ativo', valor: '4' },
+        { label: 'Excedente recorrente 3+ meses', valor: '2' },
+      ]}
       grafico={
-        <div className="rounded-lg p-2 mb-3" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
-          <span className="text-[11px] font-medium" style={{ color: VERMELHO }}>⚠ 2 itens acima do contratado há 3 meses — gatilho de renegociação.</span>
+        <div className="rounded-lg p-3" style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}>
+          <p className="text-[10px] uppercase font-bold mb-1" style={{ color: AMBAR }}>Gatilhos — o fechamento da venda</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-[12px]" style={{ color: '#160F41' }}>
+              <strong>Enzo B.</strong> — imóveis +2 acima há 3 meses → aditivo sugerido: <strong>+R$ 1,9 mil/mês</strong>
+            </span>
+            <button type="button" className="px-2.5 py-1 rounded-md text-[11px] font-medium text-white" style={{ background: 'linear-gradient(135deg,#0065FF,#D000BB)' }}>
+              Gerar aditivo no Simulador
+            </button>
+          </div>
+          <p className="text-[10px] mt-2" style={{ color: '#6b6b8a' }}>O excedente medido vira proposta — telemetria fecha o ciclo da precificação.</p>
         </div>
       }
       tabela={{
-        colunas: ['Item', 'Contratado', 'Consumido', 'Δ'],
+        colunas: ['Item', 'Contratado', 'Consumido', 'Últimos 3m', 'Δ'],
         linhas: [
-          [cel('Imóveis'), cel('3'), cel('5', true), cel('+2', true)],
-          [cel('Veículos'), cel('4'), cel('4'), cel('0')],
-          [cel('Movimentos/mês'), cel('350'), cel('410', true), cel('+60', true)],
-          [cel('Demandas jurídicas'), cel('2'), cel('2'), cel('0')],
+          [cel('Imóveis'), cel('3'), cel('5', true), tend('4 · 5 · 5', true), cel('+2', true)],
+          [cel('Movimentos/mês'), cel('350'), cel('410', true), tend('380 · 395 · 410', true), cel('+60', true)],
+          [cel('Veículos'), cel('4'), cel('4'), tend('4 · 4 · 4'), cel('0')],
+          [cel('Demandas jurídicas'), cel('2'), cel('2'), tend('2 · 2 · 2'), cel('0')],
         ],
       }}
     />
@@ -251,19 +378,50 @@ export function MockupRelatorio() {
 export function MockupResultados() {
   const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const dados = meses.map((m, i) => ({ m, receita: 470 + i * 4 + (i % 3 === 0 ? 6 : 0), ebitda: 52 + i * 1.2 }));
+  const dre: [string, string, string][] = [
+    ['Receita', 'R$ 512 mil', 'R$ 2,94M'],
+    ['Custo direto', 'R$ 134 mil', 'R$ 792 mil'],
+    ['Custo dedicado', 'R$ 128 mil', 'R$ 745 mil'],
+    ['Custo indireto', 'R$ 186 mil', 'R$ 1,06M'],
+    ['EBITDA', 'R$ 64 mil', 'R$ 341 mil'],
+    ['Margem %', '12,5%', '11,6%'],
+  ];
   return (
     <MockupModulo
-      kpis={[{ label: 'Receita', valor: 'R$ 512 mil' }, { label: 'Custos', valor: 'R$ 448 mil' }, { label: 'EBITDA', valor: 'R$ 64 mil' }]}
+      kpis={[
+        { label: 'Receita jun', valor: 'R$ 512 mil' }, { label: 'EBITDA jun', valor: 'R$ 64 mil (12,5%)' },
+        { label: 'Receita acum. ano', valor: 'R$ 2,94M' }, { label: 'EBITDA acum.', valor: 'R$ 341 mil' },
+      ]}
       grafico={
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={dados} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-            <XAxis dataKey="m" tick={{ fontSize: 9 }} /><YAxis tick={{ fontSize: 9 }} unit=" mil" />
-            <Tooltip formatter={(v) => `R$ ${v} mil`} /><Legend wrapperStyle={{ fontSize: 10 }} />
-            <Line type="monotone" dataKey="receita" name="Receita" stroke={AZUL} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="ebitda" name="EBITDA" stroke={VERDE} strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+        <div className="space-y-3">
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={dados} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+              <XAxis dataKey="m" tick={{ fontSize: 9 }} /><YAxis tick={{ fontSize: 9 }} unit=" mil" />
+              <Tooltip formatter={(v) => `R$ ${v} mil`} /><Legend wrapperStyle={{ fontSize: 10 }} />
+              <Bar dataKey="receita" name="Receita" fill={AZUL} radius={[3, 3, 0, 0]} />
+              <Line type="monotone" dataKey="ebitda" name="EBITDA" stroke={VERDE} strokeWidth={2} dot={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+          <table className="min-w-full text-sm">
+            <thead style={{ backgroundColor: '#f9f9fb' }}>
+              <tr>
+                <th className="text-left px-2 py-1.5 text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>DRE</th>
+                <th className="text-right px-2 py-1.5 text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Mês</th>
+                <th className="text-right px-2 py-1.5 text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Acumulado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
+              {dre.map(([l, mes, ac], i) => (
+                <tr key={l} style={i >= 4 ? { fontWeight: 700 } : undefined}>
+                  <td className="px-2 py-1.5" style={{ color: '#160F41' }}>{l}</td>
+                  <td className="px-2 py-1.5 text-right" style={{ color: '#160F41' }}>{mes}</td>
+                  <td className="px-2 py-1.5 text-right" style={{ color: '#160F41' }}>{ac}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       }
     />
   );
@@ -271,21 +429,70 @@ export function MockupResultados() {
 
 // ── AUTOMAÇÃO BANCÁRIA ──────────────────────────────────────────────────────
 export function MockupAutomacao() {
-  const etapas = [['Banco (Open Finance)', '42 extratos'], ['Classificado por ML', '96% auto'], ['Plano Financeiro', '38 p/ revisar']];
+  const bancos: [string, string][] = [['Itaú', '✓ 07:12'], ['BTG', '✓ 07:12'], ['XP', '✓ 07:14'], ['Santander', '⏳ sincronizando']];
+  const classificados: { data: string; desc: string; valor: string; cat: string; conf: string; revisar?: boolean }[] = [
+    { data: '06/06', desc: 'PIX RECEB CBF', valor: 'R$ 450 mil', cat: 'Receita de imagem', conf: '98%' },
+    { data: '05/06', desc: 'DEB AUTOR CONDOMÍNIO', valor: 'R$ 12,4 mil', cat: 'Moradia', conf: '97%' },
+    { data: '05/06', desc: 'TED ENVIADA J.M.SILVA', valor: 'R$ 85 mil', cat: '⚠ revisar', conf: '71%', revisar: true },
+    { data: '04/06', desc: 'COMPRA CARTÃO', valor: 'R$ 8,2 mil', cat: 'Lifestyle', conf: '94%' },
+  ];
+  const funil = [['Banco', '1.240'], ['Classificação ML', '1.202 auto · 38 revisão'], ['Plano Financeiro', '✓']];
   return (
     <MockupModulo
-      kpis={[{ label: 'Extratos recebidos', valor: '42/42 contas' }, { label: 'Classificação automática', valor: '96%' }, { label: 'Pendentes de revisão', valor: '38' }]}
+      kpis={[{ label: 'Movimentos no mês', valor: '1.240' }, { label: 'Classificados automaticamente', valor: '96%' }, { label: 'Fila de revisão', valor: '38' }]}
       grafico={
-        <div className="flex items-stretch gap-2">
-          {etapas.map(([et, cont], i) => (
-            <div key={et} className="flex items-center gap-2 flex-1">
-              <div className="flex-1 rounded-lg p-3 text-center" style={{ backgroundColor: '#f0f6ff', border: '1px solid #dbeafe' }}>
-                <p className="text-[11px] font-bold" style={{ color: '#160F41' }}>{et}</p>
-                <p className="text-[10px] mt-1" style={{ color: '#0065FF' }}>{cont}</p>
-              </div>
-              {i < etapas.length - 1 && <span style={{ color: '#9ca3af' }}>→</span>}
+        <div className="space-y-4">
+          {/* Conexões de banco */}
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {bancos.map(([b, st]) => {
+                const ok = st.startsWith('✓');
+                return (
+                  <div key={b} className="rounded-lg p-2 text-center" style={{ backgroundColor: ok ? '#f0fdf4' : '#fffbeb', border: `1px solid ${ok ? '#bbf7d0' : '#fde68a'}` }}>
+                    <p className="text-[11px] font-bold" style={{ color: '#160F41' }}>{b}</p>
+                    <p className="text-[9px]" style={{ color: ok ? VERDE : AMBAR }}>{st}</p>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+            <p className="text-[10px] mt-1.5" style={{ color: '#6b6b8a' }}>42 contas · Open Finance · extratos baixados automaticamente</p>
+          </div>
+
+          {/* Classificados agora */}
+          <div>
+            <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#6b6b8a' }}>Classificados agora</p>
+            <table className="min-w-full text-[11px]">
+              <thead style={{ backgroundColor: '#f9f9fb' }}>
+                <tr>{['Data', 'Descrição', 'Valor', 'Categoria ML', 'Confiança'].map((c, i) => (
+                  <th key={i} className={`px-2 py-1 text-[9px] uppercase font-bold ${i >= 2 ? 'text-right' : 'text-left'}`} style={{ color: '#6b6b8a' }}>{c}</th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
+                {classificados.map((r, i) => (
+                  <tr key={i} style={r.revisar ? { backgroundColor: '#fffbeb' } : undefined}>
+                    <td className="px-2 py-1" style={{ color: '#6b6b8a' }}>{r.data}</td>
+                    <td className="px-2 py-1" style={{ color: '#160F41' }}>{r.desc}</td>
+                    <td className="px-2 py-1 text-right" style={{ color: '#160F41' }}>{r.valor}</td>
+                    <td className="px-2 py-1 text-right" style={{ color: r.revisar ? AMBAR : '#160F41' }}>{r.cat}</td>
+                    <td className="px-2 py-1 text-right" style={{ color: r.revisar ? AMBAR : '#6b6b8a' }}>{r.conf}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Funil */}
+          <div className="flex items-stretch gap-2">
+            {funil.map(([et, cont], i) => (
+              <div key={et} className="flex items-center gap-2 flex-1">
+                <div className="flex-1 rounded-lg p-2 text-center" style={{ backgroundColor: '#f0f6ff', border: '1px solid #dbeafe' }}>
+                  <p className="text-[11px] font-bold" style={{ color: '#160F41' }}>{et}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: '#0065FF' }}>{cont}</p>
+                </div>
+                {i < funil.length - 1 && <span style={{ color: '#9ca3af' }}>→</span>}
+              </div>
+            ))}
+          </div>
         </div>
       }
     />
@@ -294,16 +501,36 @@ export function MockupAutomacao() {
 
 // ── SERVIÇOS SOB DEMANDA ────────────────────────────────────────────────────
 export function MockupServicosDemanda() {
-  const rows: [string, string, string, string, string][] = [
-    ['M&A', 'Enzo Batista', 'em execução', 'R$ 22 mil', '41%'],
-    ['Valuation', 'Rafael Torres', 'concluído', 'R$ 18 mil', '35%'],
-    ['Viabilidade', 'Bruno Amaral', 'concluído', 'R$ 12 mil', '39%'],
-    ['Gestão de obra', 'Caio Ribeiro', 'em execução', 'R$ 9 mil', '36%'],
+  const funil: [string, string][] = [['Orçados', '3'], ['Aprovados', '2'], ['Em execução', '3'], ['Concluídos no ano', '6']];
+  const rows: string[][] = [
+    ['M&A', 'Enzo B.', 'em execução', 'R$ 22,4 mil', 'R$ 13,1 mil', '41%'],
+    ['Valuation', 'Rafael T.', 'concluído', 'R$ 18,0 mil', 'R$ 11,7 mil', '35%'],
+    ['Gestão de obra', 'Caio R.', 'em execução', 'R$ 14,0 mil', 'R$ 9,9 mil', '29%'],
+    ['Viabilidade', 'Bruno A.', 'concluído', 'R$ 12,0 mil', 'R$ 6,7 mil', '44%'],
   ];
   return (
     <MockupModulo
-      kpis={[{ label: 'Eventos no ano', valor: '9' }, { label: 'Margem média', valor: '38%' }]}
-      tabela={{ colunas: ['Tipo', 'Cliente', 'Status', 'Receita', 'Margem'], linhas: rows.map(r => [r[0], r[1], r[2], r[3], r[4]]) }}
+      kpis={[
+        { label: 'Pipeline aprovado + execução', valor: 'R$ 96 mil' }, { label: 'Margem média realizada', valor: '38%' },
+        { label: 'Horas apontadas em eventos', valor: '214h' },
+      ]}
+      grafico={
+        <div className="space-y-3">
+          <div className="flex items-stretch gap-2">
+            {funil.map(([et, n], i) => (
+              <div key={et} className="flex items-center gap-2 flex-1">
+                <div className="flex-1 rounded-lg p-2 text-center" style={{ backgroundColor: '#f9f9fb' }}>
+                  <p className="text-lg font-bold" style={{ color: '#160F41' }}>{n}</p>
+                  <p className="text-[9px] uppercase font-bold" style={{ color: '#6b6b8a' }}>{et}</p>
+                </div>
+                {i < funil.length - 1 && <span style={{ color: '#9ca3af' }}>→</span>}
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px]" style={{ color: '#6b6b8a' }}>Receita do Orçador · custo do Apontamento de Horas — margem por evento.</p>
+        </div>
+      }
+      tabela={{ colunas: ['Evento', 'Cliente', 'Status', 'Receita', 'Custo', 'Margem'], linhas: rows.map(r => [r[0], r[1], r[2], r[3], r[4], r[5]]) }}
     />
   );
 }
@@ -314,21 +541,74 @@ export function MockupApontamento() {
     { f: 'Gestão', alocado: 40, apontado: 38 }, { f: 'Financeira', alocado: 60, apontado: 44 },
     { f: 'Operacional', alocado: 80, apontado: 78 }, { f: 'Adm.', alocado: 30, apontado: 29 },
   ];
+  const colabs: { c: string; aloc: string; apont: string; desvio: number }[] = [
+    { c: 'Marina L.', aloc: '160h', apont: '195h', desvio: 22 },
+    { c: 'Rodrigo V.', aloc: '160h', apont: '131h', desvio: -18 },
+    { c: 'Fernanda C.', aloc: '150h', apont: '156h', desvio: 4 },
+    { c: 'Renata M.', aloc: '140h', apont: '138h', desvio: -1 },
+  ];
+  const clientes: [string, string][] = [['Enzo B.', '+14h'], ['Rafael T.', '+9h'], ['Bruno A.', '+6h']];
   return (
     <MockupModulo
-      kpis={[{ label: 'Aderência apontado vs. alocado', valor: '87%' }]}
+      kpis={[
+        { label: 'Horas apontadas no mês', valor: '1.184h' }, { label: 'Aderência apontado vs. alocado', valor: '87%' },
+        { label: 'Desvios > 15%', valor: '3 colaboradores' },
+      ]}
       grafico={
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={dados} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-            <XAxis dataKey="f" tick={{ fontSize: 9 }} /><YAxis tick={{ fontSize: 9 }} unit="h" />
-            <Tooltip formatter={(v) => `${v}h`} /><Legend wrapperStyle={{ fontSize: 10 }} />
-            <Bar dataKey="alocado" name="Alocado" fill="#c7d2fe" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="apontado" name="Apontado" radius={[3, 3, 0, 0]}>
-              {dados.map((d, i) => <Cell key={i} fill={d.alocado - d.apontado > 8 ? VERMELHO : AZUL} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Por colaborador */}
+            <div>
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#6b6b8a' }}>Por colaborador</p>
+              <table className="min-w-full text-[11px]">
+                <thead style={{ backgroundColor: '#f9f9fb' }}>
+                  <tr>{['Colaborador', 'Alocado', 'Apontado', 'Desvio'].map((c, i) => (
+                    <th key={i} className={`px-2 py-1 text-[9px] uppercase font-bold ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: '#6b6b8a' }}>{c}</th>
+                  ))}</tr>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
+                  {colabs.map(c => {
+                    const cor = c.desvio > 15 ? VERMELHO : c.desvio < -15 ? AZUL : '#6b6b8a';
+                    return (
+                      <tr key={c.c}>
+                        <td className="px-2 py-1" style={{ color: '#160F41' }}>{c.c}</td>
+                        <td className="px-2 py-1 text-right" style={{ color: '#160F41' }}>{c.aloc}</td>
+                        <td className="px-2 py-1 text-right" style={{ color: '#160F41' }}>{c.apont}</td>
+                        <td className="px-2 py-1 text-right font-bold" style={{ color: cor }}>{c.desvio > 0 ? '+' : ''}{c.desvio}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Por função */}
+            <div>
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#6b6b8a' }}>Alocado vs. apontado por função</p>
+              <ResponsiveContainer width="100%" height={150}>
+                <BarChart data={dados} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                  <XAxis dataKey="f" tick={{ fontSize: 9 }} /><YAxis tick={{ fontSize: 9 }} unit="h" />
+                  <Tooltip formatter={(v) => `${v}h`} /><Legend wrapperStyle={{ fontSize: 9 }} />
+                  <Bar dataKey="alocado" name="Alocado" fill="#c7d2fe" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="apontado" name="Apontado" radius={[3, 3, 0, 0]}>
+                    {dados.map((d, i) => <Cell key={i} fill={d.alocado - d.apontado > 8 ? VERMELHO : AZUL} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-lg p-2" style={{ backgroundColor: '#fef2f2' }}>
+            <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#6b6b8a' }}>Clientes com consumo acima do alocado</p>
+            <div className="flex flex-wrap gap-2">
+              {clientes.map(([c, d]) => (
+                <span key={c} className="text-[11px]" style={{ color: '#160F41' }}>{c} <strong style={{ color: VERMELHO }}>{d}</strong></span>
+              ))}
+            </div>
+            <p className="text-[10px] mt-1.5" style={{ color: '#6b6b8a' }}>O desvio recorrente alimenta o repricing — medir em vez de estimar.</p>
+          </div>
+        </div>
       }
     />
   );
@@ -403,25 +683,41 @@ export function MockupEvolucao() {
 
 // ── DOSSIÊ DO CLIENTE ───────────────────────────────────────────────────────
 export function MockupDossie() {
-  const blocos = [['DRE do mês', 'Receita R$ 41 mil · EBITDA R$ 12 mil'], ['Quem atende', 'Gestor: —  · Banker: —'],
-    ['Classe', 'ABC: A  ·  BCG: Estrela'], ['Evolução 12m', 'PL +18% no período'], ['Aderência ao plano', 'No plano ✓']];
+  const financeiro: [string, string][] = [['Fee', 'R$ 18,4 mil'], ['Custos (3 canais)', 'R$ 13,9 mil'], ['MC', '24%'], ['EBITDA', 'R$ 2,1 mil']];
+  const patrimonio: [string, string][] = [['PL', 'R$ 14,2M (+2,1%)'], ['On / Off', '62% / 38%'], ['Aderência ao plano', '89%']];
+  const pendencias = ['Procuração vencida', 'Aporte de julho aguardando confirmação', 'Demanda jurídica aberta há 12d'];
+  const atencao = ['Fee 18% abaixo do sugerido', 'Franquia jurídica estourada 2 meses', '2 consultas ao CPF em 30d'];
   return (
     <MockupModulo
       grafico={
         <div className="rounded-lg border overflow-hidden" style={{ borderColor: '#e2e2e8' }}>
           <div className="px-4 py-3 flex items-center justify-between" style={{ background: 'linear-gradient(135deg,#160F41,#2F49EE)' }}>
-            <span className="text-white text-sm font-bold">Galácticos Capital — Dossiê do Cliente</span>
-            <span className="text-white/70 text-[10px]">1 página</span>
+            <span className="text-white text-sm font-bold">Enzo Batista</span>
+            <span className="text-white/70 text-[10px]">Banker: R. Bittencourt · Pacote Full · junho/2026</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-4">
-            {blocos.map(([t, v]) => (
-              <div key={t} className="rounded-lg p-2" style={{ backgroundColor: '#f9f9fb' }}>
-                <p className="text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>{t}</p>
-                <p className="text-[12px] mt-0.5" style={{ color: '#160F41' }}>{v}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4">
+            <div className="rounded-lg p-2" style={{ backgroundColor: '#f9f9fb' }}>
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#0065FF' }}>Financeiro</p>
+              {financeiro.map(([l, v]) => (
+                <div key={l} className="flex justify-between text-[11px]"><span style={{ color: '#6b6b8a' }}>{l}</span><span className="font-medium" style={{ color: '#160F41' }}>{v}</span></div>
+              ))}
+            </div>
+            <div className="rounded-lg p-2" style={{ backgroundColor: '#f9f9fb' }}>
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#0065FF' }}>Patrimônio</p>
+              {patrimonio.map(([l, v]) => (
+                <div key={l} className="flex justify-between text-[11px]"><span style={{ color: '#6b6b8a' }}>{l}</span><span className="font-medium" style={{ color: '#160F41' }}>{v}</span></div>
+              ))}
+            </div>
+            <div className="rounded-lg p-2" style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}>
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: AMBAR }}>Pendências</p>
+              <ul className="text-[11px] space-y-0.5" style={{ color: '#160F41' }}>{pendencias.map(p => <li key={p}>· {p}</li>)}</ul>
+            </div>
+            <div className="rounded-lg p-2" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: VERMELHO }}>Pontos de atenção</p>
+              <ul className="text-[11px] space-y-0.5" style={{ color: '#160F41' }}>{atencao.map(p => <li key={p}>· {p}</li>)}</ul>
+            </div>
           </div>
-          <p className="px-4 pb-3 text-[10px]" style={{ color: '#9ca3af' }}>Gerado pelo motor de templates da casa.</p>
+          <p className="px-4 pb-3 text-[10px]" style={{ color: '#9ca3af' }}>Gerado pelo motor de templates — o mesmo das propostas.</p>
         </div>
       }
     />
