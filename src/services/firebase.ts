@@ -1996,6 +1996,50 @@ export async function buscarUniversoJuridico(): Promise<{ nome: string; id_estav
     .map(c => ({ nome: c.nome_cliente!, id_estavel: c.id_estavel! }));
 }
 
+// ── Snapshot de consumo jurídico (medição — ramo paralelo, fechamentos intocados) ──
+// consumo_juridico/{periodo} (meta) + consumo_juridico/{periodo}/clientes/{id_estavel}.
+// ACUMULADO (Jan→período); o delta mensal sai entre snapshots consecutivos. TUDO
+// relatório — nada disto entra no motor de custo/DRE.
+
+export interface ConsumoClienteDoc { id_estavel_cliente: string; nome_cliente: string; demandas: number; }
+export interface ConsumoPeriodoDoc {
+  periodo: string; total_demandas: number; total_nao_casa: number; casa_demandas: number;
+  n_clientes: number; registrado_em: string; registrado_por?: string;
+}
+
+/** Grava (idempotente) o snapshot do período: apaga clientes que saíram, reescreve os
+ *  atuais e a meta. Reimportar o mesmo período substitui — não acumula lixo. */
+export async function salvarSnapshotConsumoJuridico(
+  periodo: string, clientes: ConsumoClienteDoc[], casaDemandas: number, registrador?: string,
+): Promise<void> {
+  const col = collection(db, 'consumo_juridico', periodo, 'clientes');
+  const existentes = await getDocs(col);
+  const novosIds = new Set(clientes.map(c => c.id_estavel_cliente));
+  const batch = writeBatch(db);
+  for (const d of existentes.docs) if (!novosIds.has(d.id)) batch.delete(d.ref);
+  for (const c of clientes) batch.set(doc(col, c.id_estavel_cliente), c);
+  const totalNaoCasa = clientes.reduce((s, c) => s + c.demandas, 0);
+  batch.set(doc(db, 'consumo_juridico', periodo), {
+    periodo, total_demandas: totalNaoCasa + casaDemandas, total_nao_casa: totalNaoCasa,
+    casa_demandas: casaDemandas, n_clientes: clientes.length, registrado_em: new Date().toISOString(),
+    ...(registrador ? { registrado_por: registrador } : {}),
+  });
+  await batch.commit();
+}
+
+/** Lista os períodos com snapshot (meta docs), ordenados. */
+export async function buscarPeriodosConsumoJuridico(): Promise<ConsumoPeriodoDoc[]> {
+  const snap = await getDocs(collection(db, 'consumo_juridico'));
+  return snap.docs.map(d => d.data() as ConsumoPeriodoDoc).filter(d => d.periodo)
+    .sort((a, b) => a.periodo.localeCompare(b.periodo));
+}
+
+/** Lê os clientes de um snapshot de consumo jurídico. */
+export async function buscarConsumoClientesJuridico(periodo: string): Promise<ConsumoClienteDoc[]> {
+  const snap = await getDocs(collection(db, 'consumo_juridico', periodo, 'clientes'));
+  return snap.docs.map(d => d.data() as ConsumoClienteDoc);
+}
+
 /** Propaga novo `nome_cliente` para todos os snapshots em
  *  `fechamentos/*​/clientes/` que apontam para o mesmo `id_estavel`.
  *  Match por `id_estavel` (não por nome) garante consistência cross-período

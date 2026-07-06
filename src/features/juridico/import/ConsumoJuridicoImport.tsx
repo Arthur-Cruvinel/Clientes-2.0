@@ -9,7 +9,7 @@ import { useApp } from '../../../state/AppContext';
 import { useAuth } from '../../../state/AuthContext';
 import {
   buscarMapeamentoMonday, salvarEntradaMapeamentoMonday, buscarUniversoJuridico,
-  type EntradaMapeamentoMonday,
+  salvarSnapshotConsumoJuridico, type EntradaMapeamentoMonday,
 } from '../../../services/firebase';
 import { NovoClienteModal } from '../../perfil/NovoClienteModal';
 import { parseContagens } from './parseContagens';
@@ -48,20 +48,41 @@ export function ConsumoJuridicoImport() {
   const universoOrdenado = useMemo(() => [...universo].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [universo]);
 
   // Resolve cada entrada: de-para (memória) → match único → quarentena (ambíguo/não casado).
+  type Resolvido = { nome: string; contagem: number; tipo: 'cliente' | 'casa'; id_estavel?: string; canonico?: string };
   const { resolvidos, pendentes } = useMemo(() => {
-    const resolvidos: { nome: string; contagem: number; alvo: string }[] = [];
+    const resolvidos: Resolvido[] = [];
     const pendentes: { nome: string; contagem: number; res: Resolucao }[] = [];
     for (const e of r.entradas) {
       const dp = dpPorNome.get(normNome(e.nome));
-      if (dp) { resolvidos.push({ nome: e.nome, contagem: e.contagem, alvo: dp.alvo === 'casa' ? 'CASA' : (dp.nome_cliente_canonico ?? '—') }); continue; }
+      if (dp) { resolvidos.push({ nome: e.nome, contagem: e.contagem, tipo: dp.alvo, id_estavel: dp.id_estavel_cliente, canonico: dp.nome_cliente_canonico }); continue; }
       const res = casarNomeMonday(e.nome, universo);
-      if (res.tipo === 'match') resolvidos.push({ nome: e.nome, contagem: e.contagem, alvo: res.canonico });
+      if (res.tipo === 'match') resolvidos.push({ nome: e.nome, contagem: e.contagem, tipo: 'cliente', id_estavel: res.id_estavel, canonico: res.canonico });
       else pendentes.push({ nome: e.nome, contagem: e.contagem, res });
     }
     return { resolvidos, pendentes };
   }, [r.entradas, dpPorNome, universo]);
 
   const registrador = usuario?.nome ?? usuario?.email ?? undefined;
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState<string | null>(null);
+  const podeSalvar = periodoValido && r.entradas.length > 0 && r.erros.length === 0 && pendentes.length === 0 && !carregando;
+  async function salvarSnapshot() {
+    setSalvando(true);
+    try {
+      const porId = new Map<string, { nome: string; demandas: number }>();
+      let casa = 0;
+      for (const e of resolvidos) {
+        if (e.tipo === 'casa') { casa += e.contagem; continue; }
+        if (!e.id_estavel) continue;
+        const cur = porId.get(e.id_estavel) ?? { nome: e.canonico ?? e.nome, demandas: 0 };
+        cur.demandas += e.contagem; porId.set(e.id_estavel, cur);
+      }
+      const clientes = [...porId].map(([id, v]) => ({ id_estavel_cliente: id, nome_cliente: v.nome, demandas: v.demandas }));
+      await salvarSnapshotConsumoJuridico(periodo, clientes, casa, registrador);
+      setSalvo(periodo);
+    } finally { setSalvando(false); }
+  }
+
   async function resolverCliente(nomeMonday: string, id_estavel: string, canonico: string) {
     await salvarEntradaMapeamentoMonday({ nome_monday: nomeMonday, alvo: 'cliente', id_estavel_cliente: id_estavel, nome_cliente_canonico: canonico, registrado_em: new Date().toISOString(), registrado_por: registrador });
     setVersao(v => v + 1);
@@ -133,7 +154,7 @@ export function ConsumoJuridicoImport() {
                   <tr key={`ok-${e.nome}-${i}`}>
                     <td className="px-3 py-1.5" style={{ color: '#160F41' }}>{e.nome}</td>
                     <td className="px-3 py-1.5 text-right font-medium" style={{ color: '#160F41' }}>{e.contagem}</td>
-                    <td className="px-3 py-1.5">{e.alvo === 'CASA' ? rotulo('#6b6b8a', '#f3f4f6', 'CASA') : rotulo('#166534', '#f0fdf4', e.alvo)}</td>
+                    <td className="px-3 py-1.5">{e.tipo === 'casa' ? rotulo('#6b6b8a', '#f3f4f6', 'CASA') : rotulo('#166534', '#f0fdf4', e.canonico ?? '—')}</td>
                   </tr>
                 ))}
                 {pendentes.map((e, i) => (
@@ -180,9 +201,16 @@ export function ConsumoJuridicoImport() {
         </div>
       )}
 
-      {periodoValido && r.entradas.length > 0 && r.erros.length === 0 && pendentes.length === 0 && !carregando && (
-        <div className="rounded-lg p-2 text-[11px]" style={{ backgroundColor: '#f0fdf4', color: '#166534' }}>
-          ✓ {periodo}: {r.entradas.length} clientes resolvidos, 0 em quarentena, {r.total} demandas. Pronto para o snapshot (Commit 3).
+      {podeSalvar && (
+        <div className="rounded-lg p-3 flex items-center justify-between gap-3" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+          <span className="text-[12px]" style={{ color: '#166534' }}>
+            ✓ {periodo}: {r.entradas.length} clientes resolvidos, 0 em quarentena, {r.total} demandas.
+            {salvo === periodo && ' · snapshot salvo ✓'}
+          </span>
+          <button type="button" onClick={salvarSnapshot} disabled={salvando}
+            className="px-3 py-1.5 rounded-md text-sm font-medium text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg,#0065FF,#D000BB)' }}>
+            {salvando ? 'Salvando…' : salvo === periodo ? 'Salvar de novo (substitui)' : 'Salvar snapshot'}
+          </button>
         </div>
       )}
 

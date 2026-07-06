@@ -3,8 +3,9 @@
 // sem lógica. As frases são VERBATIM do documento de especificação.
 
 import { PlaceholderModulo } from '../../components/ui/PlaceholderModulo';
+import { JuridicoModulo } from '../juridico/JuridicoModulo';
 import {
-  MockupSaude, MockupCarteira, MockupPlanejamento, MockupJuridico, MockupContratoVivo, MockupAgente,
+  MockupSaude, MockupCarteira, MockupPlanejamento, MockupContratoVivo, MockupAgente,
   MockupResultados, MockupAutomacao, MockupServicosDemanda, MockupApontamento, MockupTarefas, MockupDossie, MockupFluxoCaixa,
   MockupGestaoObra, MockupDocumentos, MockupFluxoCaixaEmpresa, MockupProcessos,
 } from './mockups';
@@ -22,11 +23,8 @@ export const Carteira = () => (
     mockup={<MockupCarteira />} />
 );
 
-export const Juridico = () => (
-  <PlaceholderModulo nome="Jurídico" origem={{ tipo: 'especificado', parte: 'V.2' }}
-    pergunta="Capacidade fixa com demanda sem preço marginal gera fila, sempre. Demandas medidas, franquias por tier, consumo visível — o jurídico que limita e cobra sem virar gargalo."
-    mockup={<MockupJuridico />} />
-);
+// Jurídico ganhou a primeira seção REAL (consumo medido) — deixa de ser placeholder puro.
+export const Juridico = () => <JuridicoModulo />;
 
 export const ServicosDemanda = () => (
   <PlaceholderModulo nome="Serviços sob Demanda" origem={{ tipo: 'especificado', parte: 'V.10' }}
