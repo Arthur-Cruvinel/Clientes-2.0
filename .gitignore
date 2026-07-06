@@ -52,3 +52,8 @@ backups/firestore/
 
 # Materiais de referência (modelos de proposta, guia de identidade) — não versionar
 docs/Modelos/
+
+# Fixtures PDF — relatórios com nomes reais de clientes (referência HUMANA local).
+# O golden parseável é o .txt versionado; o PDF fica fora do histórico (repo em OneDrive
+# sem remoto privado adequado, histórico git é permanente).
+test-fixtures/*.pdf

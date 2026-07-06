@@ -1935,6 +1935,67 @@ export async function corrigirEntradaMapeamentoSiglas(
   }
 }
 
+// ============================================================
+// De-para Monday → cliente canônico (medição jurídica)
+// Espelha o padrão mapeamento_siglas (Princípio 1+3). Resolve o nome do
+// dashboard Monday para um cliente (id_estavel) OU CASA. Ramo paralelo:
+// não toca motor/DRE/fechamentos.
+// ============================================================
+
+export type AlvoMonday = 'cliente' | 'casa';
+
+/** Entrada do de-para Monday persistido no Firestore. */
+export interface EntradaMapeamentoMonday {
+  nome_monday: string;              // nome como no dashboard Monday (base do docId + chave)
+  alvo: AlvoMonday;                 // 'cliente' → resolve id_estavel · 'casa' → fora do rateio
+  id_estavel_cliente?: string;      // preenchido quando alvo='cliente'
+  nome_cliente_canonico?: string;   // denormalizado p/ exibição
+  registrado_em: string;            // ISO
+  registrado_por?: string;
+  atualizado_em?: string;
+}
+
+/** Sanitiza o nome Monday para docId (Firestore proíbe `/.#$[]`). */
+function mondayDocId(nome: string): string {
+  return nome.trim().replace(/[/.\s#$\[\]]/g, '_');
+}
+
+/** Lê todo o de-para Monday, indexado pelo `nome_monday` original. */
+export async function buscarMapeamentoMonday(): Promise<Record<string, EntradaMapeamentoMonday>> {
+  try {
+    const snap = await getDocs(collection(db, 'mapeamento_monday'));
+    const result: Record<string, EntradaMapeamentoMonday> = {};
+    for (const d of snap.docs) {
+      const data = d.data() as EntradaMapeamentoMonday;
+      result[data.nome_monday] = data;
+    }
+    return result;
+  } catch (error) {
+    console.error('[Firebase] Erro ao ler de-para Monday:', error);
+    return {};
+  }
+}
+
+/** Persiste (cria/atualiza) uma resolução do de-para Monday — a MEMÓRIA da
+ *  quarentena: resolve uma vez, nunca mais pergunta. */
+export async function salvarEntradaMapeamentoMonday(entrada: EntradaMapeamentoMonday): Promise<void> {
+  try {
+    await setDoc(doc(db, 'mapeamento_monday', mondayDocId(entrada.nome_monday)), entrada);
+  } catch (error) {
+    console.error(`[Firebase] Erro ao salvar de-para Monday "${entrada.nome_monday}":`, error);
+    throw error;
+  }
+}
+
+/** Universo de clientes p/ o de-para jurídico: clientes_base COMPLETO com id_estavel
+ *  (inclui asset_only / Pure Assets). Leitura pura — não toca período/motor. */
+export async function buscarUniversoJuridico(): Promise<{ nome: string; id_estavel: string }[]> {
+  const snap = await getDocs(collection(db, 'clientes_base'));
+  return snap.docs.map(d => d.data() as { nome_cliente?: string; id_estavel?: string })
+    .filter(c => c.id_estavel && c.nome_cliente)
+    .map(c => ({ nome: c.nome_cliente!, id_estavel: c.id_estavel! }));
+}
+
 /** Propaga novo `nome_cliente` para todos os snapshots em
  *  `fechamentos/*​/clientes/` que apontam para o mesmo `id_estavel`.
  *  Match por `id_estavel` (não por nome) garante consistência cross-período
