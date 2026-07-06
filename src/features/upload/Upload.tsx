@@ -2,30 +2,33 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FileSpreadsheet, FileText, Trash2, Building2 } from 'lucide-react';
+import { FileSpreadsheet, FileText, Trash2, Building2, Scale } from 'lucide-react';
 import { UploadImport } from './UploadImport';
 import { PoupancaImportTab } from './PoupancaImportTab';
 import { PatrimonioImportTab } from './PatrimonioImportTab';
 import { GerenciarDados } from './GerenciarDados';
+import { ConsumoJuridicoImport } from '../juridico/import/ConsumoJuridicoImport';
 
-type Aba = 'excel' | 'poupanca' | 'patrimonio' | 'gerenciar';
+type Aba = 'excel' | 'poupanca' | 'patrimonio' | 'juridico' | 'gerenciar';
 
 const TABS: { id: Aba; label: string; icon: typeof FileSpreadsheet }[] = [
   { id: 'excel', label: 'Excel & Dados', icon: FileSpreadsheet },
   { id: 'poupanca', label: 'AUM & Performance — PDFs', icon: FileText },
   { id: 'patrimonio', label: 'Patrimônio', icon: Building2 },
+  { id: 'juridico', label: 'Consumo Jurídico', icon: Scale },
   { id: 'gerenciar', label: 'Gerenciar Dados', icon: Trash2 },
 ];
 
 export function Upload() {
   const [params] = useSearchParams();
   const abaParam = params.get('aba');
+  const ABAS_VALIDAS: Aba[] = ['excel', 'poupanca', 'patrimonio', 'juridico', 'gerenciar'];
   const [aba, setAba] = useState<Aba>(
-    abaParam === 'poupanca' ? 'poupanca' : abaParam === 'patrimonio' ? 'patrimonio' : abaParam === 'gerenciar' ? 'gerenciar' : 'excel',
+    (ABAS_VALIDAS as string[]).includes(abaParam ?? '') ? (abaParam as Aba) : 'excel',
   );
 
   useEffect(() => {
-    if (abaParam === 'poupanca' || abaParam === 'patrimonio' || abaParam === 'gerenciar' || abaParam === 'excel') setAba(abaParam);
+    if ((ABAS_VALIDAS as string[]).includes(abaParam ?? '')) setAba(abaParam as Aba);
   }, [abaParam]);
 
   return (
@@ -56,6 +59,7 @@ export function Upload() {
       {aba === 'excel' && <UploadImport />}
       {aba === 'poupanca' && <PoupancaImportTab />}
       {aba === 'patrimonio' && <PatrimonioImportTab />}
+      {aba === 'juridico' && <ConsumoJuridicoImport />}
       {aba === 'gerenciar' && <GerenciarDados />}
     </div>
   );
