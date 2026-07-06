@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Users, TrendingUp, Calculator, Layers, Gauge, UserCircle,
   PiggyBank, BarChart2, BarChart3, LineChart, Briefcase, Scale, Sparkles, Clock,
   CreditCard, MessageCircle, ListTodo, Target, Activity, FileText, ScrollText,
-  Wallet, HardHat, FolderLock, Contact, Upload, Settings, LogOut, ChevronLeft, ChevronRight,
+  Wallet, HardHat, FolderLock, Banknote, Workflow, Contact, Upload, Settings, LogOut, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../state/AuthContext';
 
@@ -44,7 +44,9 @@ const GRUPOS: Grupo[] = [
     { path: 'servicos-demanda',   label: 'Serviços sob Demanda', icon: <Sparkles size={16} />, marcador: 'novo' },
     { path: 'apontamento-horas',  label: 'Apontamento de Horas', icon: <Clock size={16} />, marcador: 'novo' },
     { path: 'automacao-bancaria', label: 'Automação Bancária',   icon: <CreditCard size={16} />, marcador: 'novo' },
+    { path: 'fluxo-caixa-empresa', label: 'Fluxo de Caixa',      icon: <Banknote size={16} />, marcador: 'novo' },
     { path: 'agente-whatsapp',    label: 'Agente WhatsApp',      icon: <MessageCircle size={16} />, marcador: 'novo' },
+    { path: 'processos',   label: 'Processos',           icon: <Workflow size={16} />, marcador: 'novo' },
     { path: 'tarefas',     label: 'Tarefas',             icon: <ListTodo size={16} />, marcador: 'novo' },
   ]},
   { titulo: 'Cliente 360', itens: [

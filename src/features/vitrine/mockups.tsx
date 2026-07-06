@@ -325,23 +325,49 @@ export function MockupProjecao() {
 
 // ── AGENTE WHATSAPP ─────────────────────────────────────────────────────────
 export function MockupAgente() {
+  const ciclo: [string, 'ok' | 'ativo' | 'aberto'][] = [
+    ['Pedido identificado no grupo', 'ok'], ['Demanda estruturada', 'ok'],
+    ['Aguardando aprovação (gestor)', 'ativo'], ['Lançamento no fluxo', 'aberto'],
+  ];
+  const icone = (s: string) => s === 'ok' ? '✓' : s === 'ativo' ? '●' : '○';
   return (
     <MockupModulo
       grafico={
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 rounded-lg p-3 space-y-2" style={{ backgroundColor: '#e5ddd5' }}>
-            <div className="max-w-[80%] rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: '#fff', color: '#160F41' }}>
-              Consegue ver o contrato da concessionária? <span className="text-[9px]" style={{ color: '#9ca3af' }}>09:14</span>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2 rounded-lg p-3 space-y-2" style={{ backgroundColor: '#e5ddd5' }}>
+              <div className="max-w-[80%] rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: '#fff', color: '#160F41' }}>
+                Consegue ver o contrato da concessionária? <span className="text-[9px]" style={{ color: '#9ca3af' }}>09:14</span>
+              </div>
+              <div className="max-w-[80%] ml-auto rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: '#dcf8c6', color: '#160F41' }}>
+                Recebido, encaminhei ao jurídico — protocolo #241. <span className="text-[9px]" style={{ color: '#6b7280' }}>09:14 ✓✓</span>
+              </div>
             </div>
-            <div className="max-w-[80%] ml-auto rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: '#dcf8c6', color: '#160F41' }}>
-              Recebido, encaminhei ao jurídico — protocolo #241. <span className="text-[9px]" style={{ color: '#6b7280' }}>09:14 ✓✓</span>
+            <div className="rounded-lg p-3 border" style={{ borderColor: '#e2e2e8', backgroundColor: '#f9f9fb' }}>
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#0065FF' }}>Tarefa criada</p>
+              <p className="text-sm font-bold" style={{ color: '#160F41' }}>Revisão contratual</p>
+              <p className="text-[11px] mt-1" style={{ color: '#6b6b8a' }}>Responsável: Jurídico</p>
+              <p className="text-[11px]" style={{ color: '#6b6b8a' }}>Origem: WhatsApp</p>
             </div>
           </div>
-          <div className="rounded-lg p-3 border" style={{ borderColor: '#e2e2e8', backgroundColor: '#f9f9fb' }}>
-            <p className="text-[10px] uppercase font-bold mb-1" style={{ color: '#0065FF' }}>Tarefa criada</p>
-            <p className="text-sm font-bold" style={{ color: '#160F41' }}>Revisão contratual</p>
-            <p className="text-[11px] mt-1" style={{ color: '#6b6b8a' }}>Responsável: Jurídico</p>
-            <p className="text-[11px]" style={{ color: '#6b6b8a' }}>Origem: WhatsApp</p>
+
+          {/* Ciclo de pagamento — o agente estrutura, o humano aprova */}
+          <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              {ciclo.map(([et, st], i) => {
+                const cor = st === 'ok' ? VERDE : st === 'ativo' ? AZUL : '#9ca3af';
+                return (
+                  <div key={et} className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium" style={{ color: cor }}>{icone(st)} {et}</span>
+                    {i < ciclo.length - 1 && <span style={{ color: '#9ca3af' }}>→</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="rounded-lg px-3 py-2" style={{ backgroundColor: '#f0f6ff' }}>
+              <span className="text-[12px]" style={{ color: '#160F41' }}>Pagamento solicitado: <strong>R$ 18,4 mil</strong> — fornecedor de imóvel — cliente Enzo B.</span>
+            </div>
+            <p className="text-[10px] mt-2" style={{ color: '#6b6b8a' }}>O agente estrutura, o humano aprova, o lançamento alimenta o fluxo — iniciação de pagamento com aprovação humana obrigatória.</p>
           </div>
         </div>
       }
@@ -772,10 +798,37 @@ export function MockupGestaoObra() {
 export function MockupFluxoCaixa() {
   const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
   const dados = meses.map((m, i) => ({ m, entradas: 180 + i * 3, saidas: 130 + (i % 2 ? 18 : 8) }));
+  const aprovacoes: [string, string][] = [
+    ['Fornecedor de imóvel', 'R$ 18,4 mil'], ['Mensalidade escola', 'R$ 6,2 mil'],
+  ];
+  const lancamentos: [string, string, 'Pago' | 'Aprovisionado'][] = [
+    ['05/06 · Folha doméstica', 'R$ 38 mil', 'Pago'],
+    ['12/06 · Condomínio', 'R$ 12,4 mil', 'Pago'],
+    ['28/06 · Aporte previsto', 'R$ 150 mil', 'Aprovisionado'],
+  ];
   return (
     <MockupModulo
       grafico={
         <div className="space-y-3">
+          {/* Aprovações pendentes */}
+          <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
+            <p className="text-[10px] uppercase font-bold mb-2" style={{ color: '#0065FF' }}>Aprovações pendentes (2)</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {aprovacoes.map(([desc, vl]) => (
+                <div key={desc} className="rounded-lg p-2 flex items-center justify-between" style={{ backgroundColor: '#f9f9fb' }}>
+                  <div>
+                    <p className="text-[11px] font-bold" style={{ color: '#160F41' }}>{desc}</p>
+                    <p className="text-[9px]" style={{ color: '#6b6b8a' }}>origem: WhatsApp · {vl}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button type="button" className="px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: VERDE }}>Aprovar</button>
+                    <button type="button" className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: '#fee2e2', color: VERMELHO }}>Recusar</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={dados} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
@@ -793,6 +846,24 @@ export function MockupFluxoCaixa() {
               ))}
             </div>
           </div>
+
+          {/* Lançamentos — inclui status Aprovisionado */}
+          <table className="min-w-full text-[11px]">
+            <thead style={{ backgroundColor: '#f9f9fb' }}>
+              <tr>{['Lançamento', 'Valor', 'Status'].map((c, i) => (
+                <th key={i} className={`px-2 py-1 text-[9px] uppercase font-bold ${i === 1 ? 'text-right' : 'text-left'}`} style={{ color: '#6b6b8a' }}>{c}</th>
+              ))}</tr>
+            </thead>
+            <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
+              {lancamentos.map(([desc, vl, st]) => (
+                <tr key={desc}>
+                  <td className="px-2 py-1" style={{ color: '#160F41' }}>{desc}</td>
+                  <td className="px-2 py-1 text-right" style={{ color: '#160F41' }}>{vl}</td>
+                  <td className="px-2 py-1"><PillStatus s={st} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       }
     />
@@ -820,6 +891,174 @@ export function MockupDocumentos() {
         colunas: ['Documento', 'Categoria', 'Validade', 'Status'],
         linhas: docs.map(d => [d[0], d[1], d[2], d[3]]),
       }}
+    />
+  );
+}
+
+// ── FLUXO DE CAIXA DA CASA (empresa) ────────────────────────────────────────
+function PillStatus({ s }: { s: 'Pago' | 'Agendado' | 'Aprovisionado' }) {
+  const cor = s === 'Pago' ? VERDE : s === 'Agendado' ? AZUL : AMBAR;
+  const bg = s === 'Pago' ? '#f0fdf4' : s === 'Agendado' ? '#f0f6ff' : '#fffbeb';
+  return <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ backgroundColor: bg, color: cor }}>{s}</span>;
+}
+
+export function MockupFluxoCaixaEmpresa() {
+  const alertas: [string, string][] = [
+    ['🔴', 'Caixa negativo previsto em 30/07 (−R$ 62,8 mil)'],
+    ['🟡', '2 clientes em atraso (R$ 21,4 mil)'],
+    ['🟡', '40 receitas aprovisionadas há mais de 7 dias (R$ 1,49M)'],
+  ];
+  const mov: { data: string; desc: string; st: 'Pago' | 'Agendado' | 'Aprovisionado'; cc: string; ent?: string; sai?: string; saldo: string }[] = [
+    { data: '03/07', desc: 'Licenças de software', st: 'Pago', cc: 'Tecnologia', sai: '12,4', saldo: '15,5' },
+    { data: '04/07', desc: 'Fee — Enzo B.', st: 'Pago', cc: 'Receita', ent: '41,0', saldo: '56,5' },
+    { data: '05/07', desc: 'Folha de julho', st: 'Agendado', cc: 'RH', sai: '128,0', saldo: '−71,5' },
+    { data: '10/07', desc: 'Honorários contábeis', st: 'Agendado', cc: 'Contabilidade', sai: '8,2', saldo: '−79,7' },
+    { data: '28/07', desc: 'Fee aprovisionado — Rafael T.', st: 'Aprovisionado', cc: 'Receita', ent: '39,0', saldo: '−40,7' },
+  ];
+  const budget: { cc: string; pct: number }[] = [{ cc: 'Folha', pct: 98 }, { cc: 'Tecnologia', pct: 112 }, { cc: 'Ocupação', pct: 95 }];
+  return (
+    <MockupModulo
+      grafico={
+        <div className="space-y-4">
+          {/* Banners de alerta */}
+          <div className="space-y-1.5">
+            {alertas.map(([ic, txt]) => {
+              const critico = ic === '🔴';
+              return (
+                <div key={txt} className="rounded-lg px-3 py-1.5 text-[11px] font-medium" style={{ backgroundColor: critico ? '#fef2f2' : '#fffbeb', color: critico ? VERMELHO : AMBAR }}>
+                  {ic} {txt}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Barra: saldo + legenda + ações */}
+          <div className="flex items-center flex-wrap gap-3">
+            <span className="text-[12px] font-bold" style={{ color: '#160F41' }}>Saldo inicial: R$ 27,9 mil</span>
+            <span className="flex items-center gap-2 text-[10px]" style={{ color: '#6b6b8a' }}>
+              <PillStatus s="Pago" /><PillStatus s="Agendado" /><PillStatus s="Aprovisionado" />
+            </span>
+            <span className="ml-auto flex gap-2">
+              <button type="button" className="px-2.5 py-1 rounded-md text-[11px] font-medium text-white" style={{ background: 'linear-gradient(135deg,#0065FF,#D000BB)' }}>+ Nova Movimentação</button>
+              <button type="button" className="px-2.5 py-1 rounded-md text-[11px] font-medium border" style={{ borderColor: '#e2e2e8', color: '#160F41' }}>Exportar PDF</button>
+            </span>
+          </div>
+
+          {/* Tabela de movimentações */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-[11px]">
+              <thead style={{ backgroundColor: '#f9f9fb' }}>
+                <tr>{['Data', 'Descrição', 'Status', 'Centro de custo', 'Entrada', 'Saída', 'Saldo'].map((c, i) => (
+                  <th key={i} className={`px-2 py-1 text-[9px] uppercase font-bold ${i >= 4 ? 'text-right' : 'text-left'}`} style={{ color: '#6b6b8a' }}>{c}</th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
+                {mov.map((r, i) => (
+                  <tr key={i}>
+                    <td className="px-2 py-1" style={{ color: '#6b6b8a' }}>{r.data}</td>
+                    <td className="px-2 py-1" style={{ color: '#160F41' }}>{r.desc}</td>
+                    <td className="px-2 py-1"><PillStatus s={r.st} /></td>
+                    <td className="px-2 py-1" style={{ color: '#6b6b8a' }}>{r.cc}</td>
+                    <td className="px-2 py-1 text-right font-medium" style={{ color: VERDE }}>{r.ent ? `R$ ${r.ent} mil` : '—'}</td>
+                    <td className="px-2 py-1 text-right" style={{ color: r.sai ? VERMELHO : '#9ca3af' }}>{r.sai ? `R$ ${r.sai} mil` : '—'}</td>
+                    <td className="px-2 py-1 text-right font-bold" style={{ color: r.saldo.startsWith('−') ? VERMELHO : '#160F41' }}>R$ {r.saldo} mil</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Budget vs realizado */}
+          <div>
+            <p className="text-[10px] uppercase font-bold mb-1.5" style={{ color: '#6b6b8a' }}>Budget vs. realizado — junho</p>
+            <div className="space-y-1.5">
+              {budget.map(b => {
+                const estourou = b.pct > 100;
+                return (
+                  <div key={b.cc} className="flex items-center gap-2">
+                    <span className="text-[10px] w-20 shrink-0" style={{ color: '#160F41' }}>{b.cc}</span>
+                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: '#eee' }}>
+                      <div className="h-2 rounded-full" style={{ width: `${Math.min(100, b.pct)}%`, backgroundColor: estourou ? VERMELHO : VERDE }} />
+                    </div>
+                    <span className="text-[10px] w-10 text-right font-bold" style={{ color: estourou ? VERMELHO : '#6b6b8a' }}>{b.pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <p className="text-[10px]" style={{ color: '#6b6b8a' }}>A Automação Bancária alimenta o realizado; o aprovisionado e o budget se lançam aqui — o caixa projetado nasce dos dois.</p>
+        </div>
+      }
+    />
+  );
+}
+
+// ── PROCESSOS (empresa) ─────────────────────────────────────────────────────
+export function MockupProcessos() {
+  const deptos = ['Financeiro', 'Jurídico', 'Atendimento', 'Compliance'];
+  const etapas = ['Solicitação', 'Conferência', 'Alçada', 'Liquidação'];
+  const quiz = [
+    { t: 'Imediatamente, sem prazo', ok: false },
+    { t: 'Até 15 dias', ok: true },
+    { t: 'Até 90 dias', ok: false },
+    { t: 'Não é obrigatório', ok: false },
+  ];
+  return (
+    <MockupModulo
+      grafico={
+        <div className="space-y-4">
+          {/* Seletor de departamento */}
+          <div className="flex flex-wrap gap-2">
+            {deptos.map((d, i) => (
+              <span key={d} className="px-3 py-1 rounded-full text-[11px] font-medium"
+                style={{ backgroundColor: i === 0 ? '#0065FF' : '#f3f4f6', color: i === 0 ? '#fff' : '#6b6b8a' }}>{d}</span>
+            ))}
+          </div>
+
+          {/* Card de processo com mini-fluxo */}
+          <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
+            <p className="text-[12px] font-bold mb-2" style={{ color: '#160F41' }}>Aprovação de pagamentos — 4 etapas</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {etapas.map((e, i) => (
+                <div key={e} className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-[11px]" style={{ color: '#160F41' }}>
+                    <span className="flex items-center justify-center rounded-full text-white text-[9px] font-bold" style={{ width: 16, height: 16, backgroundColor: '#0065FF' }}>{i + 1}</span>
+                    {e}
+                  </span>
+                  {i < etapas.length - 1 && <span style={{ color: '#9ca3af' }}>→</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Q&A pelo processo */}
+          <div className="rounded-lg p-3" style={{ backgroundColor: '#f9f9fb' }}>
+            <div className="max-w-[85%] rounded-lg px-3 py-2 text-[12px] mb-2" style={{ backgroundColor: '#fff', border: '1px solid #e2e2e8', color: '#160F41' }}>
+              Quem aprova pagamentos acima de R$ 50 mil?
+            </div>
+            <div className="max-w-[90%] ml-auto rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: '#f0f6ff', color: '#160F41' }}>
+              Pela política de alçadas (Processo Financeiro §3), pagamentos acima de R$ 50 mil exigem dupla aprovação: gestor da conta + CFO.
+              <span className="block mt-1"><span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: '#dbeafe', color: '#0065FF' }}>respondido pelo processo</span></span>
+            </div>
+          </div>
+
+          {/* Mini-quiz LGPD */}
+          <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-bold" style={{ color: '#160F41' }}>LGPD — Um cliente pede a exclusão dos dados. Qual o prazo legal de resposta?</p>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-medium shrink-0 ml-2" style={{ backgroundColor: '#f0fdf4', color: VERDE }}>Treinamento: 7/10 concluído</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+              {quiz.map(o => (
+                <div key={o.t} className="rounded px-2 py-1.5 text-[11px]" style={{ backgroundColor: o.ok ? '#f0fdf4' : '#fff', border: `1px solid ${o.ok ? '#bbf7d0' : '#e2e2e8'}`, color: o.ok ? VERDE : '#160F41', fontWeight: o.ok ? 700 : 400 }}>
+                  {o.ok ? '✓ ' : ''}{o.t}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      }
     />
   );
 }

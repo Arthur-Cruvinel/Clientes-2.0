@@ -6,7 +6,7 @@ import { PlaceholderModulo } from '../../components/ui/PlaceholderModulo';
 import {
   MockupSaude, MockupCarteira, MockupPlanejamento, MockupJuridico, MockupContratoVivo, MockupAgente,
   MockupResultados, MockupAutomacao, MockupServicosDemanda, MockupApontamento, MockupTarefas, MockupDossie, MockupFluxoCaixa,
-  MockupGestaoObra, MockupDocumentos,
+  MockupGestaoObra, MockupDocumentos, MockupFluxoCaixaEmpresa, MockupProcessos,
 } from './mockups';
 
 // ── EMPRESA ────────────────────────────────────────────────────────────────
@@ -50,6 +50,18 @@ export const AgenteWhatsapp = () => (
   <PlaceholderModulo nome="Agente WhatsApp" origem={{ tipo: 'novo' }}
     pergunta="As demandas do cliente chegam pelo WhatsApp — o agente filtra, classifica e abre a tarefa certa no módulo certo; e os relatórios do mês voltam pelo mesmo canal, direto para a família."
     mockup={<MockupAgente />} />
+);
+
+export const FluxoCaixaEmpresa = () => (
+  <PlaceholderModulo nome="Fluxo de Caixa" origem={{ tipo: 'novo' }}
+    pergunta="O caixa da casa, lançado e projetado: movimentos da conciliação, aprovisionamentos e orçamento num workspace só — com o caixa futuro avisando antes de faltar."
+    mockup={<MockupFluxoCaixaEmpresa />} />
+);
+
+export const Processos = () => (
+  <PlaceholderModulo nome="Processos" origem={{ tipo: 'novo' }}
+    pergunta="Os processos da casa, vivos: cada departamento documentado, um campo que responde pelo que o processo diz — e o treino de LGPD e compliance que prepara o time para a automação bancária."
+    mockup={<MockupProcessos />} />
 );
 
 export const Tarefas = () => (

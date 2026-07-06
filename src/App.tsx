@@ -12,6 +12,7 @@ import { PrivateRoute } from './features/auth/PrivateRoute';
 import {
   Resultados, Carteira, Juridico, ServicosDemanda, ApontamentoHoras, AutomacaoBancaria,
   AgenteWhatsapp, Tarefas, PlanejamentoFinanceiro, SaudeCliente, DossieCliente, ContratoVivo, FluxoCaixa, GestaoObra, Documentos,
+  FluxoCaixaEmpresa, Processos,
 } from './features/vitrine/modulos';
 
 // Lazy loading: cada aba carrega sob demanda
@@ -57,7 +58,9 @@ function App() {
               <Route path="servicos-demanda"    element={<ServicosDemanda />} />
               <Route path="apontamento-horas"   element={<ApontamentoHoras />} />
               <Route path="automacao-bancaria"  element={<AutomacaoBancaria />} />
+              <Route path="fluxo-caixa-empresa" element={<FluxoCaixaEmpresa />} />
               <Route path="agente-whatsapp"     element={<AgenteWhatsapp />} />
+              <Route path="processos"    element={<Processos />} />
               <Route path="tarefas"      element={<Tarefas />} />
               {/* CLIENTE 360 */}
               <Route path="perfil"       element={<Perfil />} />
