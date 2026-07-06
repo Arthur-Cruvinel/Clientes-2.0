@@ -895,7 +895,7 @@ export const TETO_SALARIAL_PAGAMENTO_MESES = [2, 8];  // Fev e Ago
 // ── PRECIFICAÇÃO (proposta/orçador) — em Parametros, editáveis em Configurações ──
 // Não entram no motor de custo/DRE; alimentam calcularFee e precificarLinhaCalculada.
 export const OVERHEAD_RATIO_REFERENCIA_DEFAULT = 1.3116;  // razão de referência (período validado)
-export const MARGEM_ALVO_DEFAULT = 0.25;                 // 25% — margem EBITDA alvo do fee
+export const MARGEM_ALVO_DEFAULT = 0.20;                 // 20% — margem EBITDA alvo (política da casa)
 export const CUSTO_HORA_JURIDICO_DEFAULT = 82.88;        // jurídico consultivo (salário-hora cru)
 export const TEMPO_DEMANDA_JURIDICA_HORAS_DEFAULT = 2.5; // horas por demanda jurídica
 // PARAMETROS_DEFAULT.extraordinario: faixas R$/% por tipo (jurídico cravado;

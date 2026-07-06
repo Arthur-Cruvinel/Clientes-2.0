@@ -234,8 +234,9 @@ export const ALIQUOTA_REBATE_ONSHORE_DEFAULT = 0.1653;   // 16,53%
 export const ALIQUOTA_REBATE_OFFSHORE_DEFAULT = 0.21;    // 21,00%
 
 // Margem EBITDA alvo sobre a receita total — base do fee sugerido na Precificação.
-// Placeholder; o CFO ajusta na tela de Precificação. Editável (parametros/global).
-export const MARGEM_ALVO_DEFAULT = 0.25;                 // 25%
+// 0,20 é a política real da casa (parametros/global já roda a 0,20); o default reflete
+// a política, não diverge dela. Editável na tela de Precificação (parametros/global).
+export const MARGEM_ALVO_DEFAULT = 0.20;                 // 20%
 
 // Razão de overhead de REFERÊNCIA (pool geral ÷ Σ custo direto) — seed do
 // período validado 2026-01 (190.057,99 ÷ 144.900,43). A precificação usa
