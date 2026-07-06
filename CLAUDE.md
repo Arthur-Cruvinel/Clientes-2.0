@@ -55,20 +55,23 @@ clientes-360/
 │   ├── services/
 │   │   ├── firebase.ts            # Inicialização + cliente Firestore
 │   │   └── parsers.ts             # parseNumericValue, parseCSV
-│   ├── features/                  # Cada aba = 1 feature isolada
+│   ├── features/                  # Cada feature isolada (aba ativa OU casca de vitrine)
 │   │   ├── visao-geral/
 │   │   ├── gestores/
-│   │   ├── projecao/
-│   │   ├── simulador/
+│   │   ├── simulador/             # Precificação: Reajustes + Gerador + calcularFee
+│   │   ├── extraordinario/        # Orçador (sub-aba de Precificação)
 │   │   ├── cenarios/
-│   │   ├── pipeline/
 │   │   ├── capacidade/
-│   │   ├── matriz/
-│   │   ├── risco/
 │   │   ├── perfil/
 │   │   ├── poupanca/
-│   │   ├── evolucao/
-│   │   └── patrimonial/
+│   │   ├── patrimonio/            # ATIVO (CRUD de patrimônio)
+│   │   ├── colaboradores/         # Folha (rota própria + aba de Configurações)
+│   │   ├── configuracoes/
+│   │   ├── upload/
+│   │   ├── agente/                # Agente de Validação (modal, não é rota)
+│   │   ├── projecao/  evolucao/   # cascas migradas → PlaceholderModulo (vitrine)
+│   │   └── vitrine/               # Vitrine 360 — módulos placeholder + mockups ILUSTRATIVOS
+│   │                             # (matriz/pipeline/risco/patrimonial removidos na vitrine)
 │   ├── state/                     # React Contexts (AppContext)
 │   ├── types/                     # Interfaces TypeScript
 │   ├── utils/
@@ -594,12 +597,17 @@ Cada atividade aponta para uma `FuncaoAlocacao` e define como escala:
 | `boolean` | flag liga/desliga (`boolean_campo` aponta para `PerfilComplexidade`) |
 | `vol_movimentos` | escala por `cliente.volume_movimentos_mes ÷ driver_base` |
 | `qtd_veiculos` / `qtd_imoveis` / `qtd_func_domesticos` | escala linearmente por contagem do `PerfilComplexidade` |
-| `qtd_recebiveis` / `qtd_contratacoes` | escala linearmente por volumetria mensal do `Cliente` |
-| `grupos_financeiros` | reservado — sem atividade ativa hoje |
+| `qtd_recebiveis` / `qtd_contratacoes` / `qtd_contas` | escala linearmente por volumetria mensal do `Cliente` |
+| `grupos_financeiros` | escala por nº de grupos (atividade `gestao_grupos_financeiros`, serv_adm) |
 
 **`gestao_obra` é tratado FORA do catálogo** — não tem horas-base normativas;
 gera apenas alerta de cobrança quando ativo sem fee. A atividade `fluxo_caixa`
 tem fórmula especial (`volume × 0,5min ÷ 60`), não usa `horas_base`.
+
+**Recalibração de drivers (2026-07-03).** `horas_base` revisadas: veículo **1,0h** (era
+2,81) · imóvel **1,5h** (era 3,94) · grupos financeiros **2,5h** (novo) · contas bancárias
+**1,5h** (novo). Afeta fee/horas reais via `calcularHorasReais`; **não** toca custo/DRE de
+período fechado (que lê `pct_*` salvo). Overrides por atividade via `horasBaseEfetiva`.
 
 ### Vínculos cliente↔colaborador (Fase 2.5)
 
@@ -1200,31 +1208,47 @@ export const MAPA_FUNCOES: Record<string, FuncaoAlocacao> = {
 
 ---
 
-## Abas do Dashboard (sistema EM PRODUÇÃO)
+## Navegação — Sidebar em 3 grupos (Vitrine 360)
 
-Status conforme inventário do CFO (não inferido do código).
+Fonte: `components/layout/Sidebar.tsx` (GRUPOS/GRUPO_SISTEMA) + `App.tsx` (rotas) — o
+código, não a memória. Sidebar ⇄ rotas 1:1 (30 itens). ✅ = módulo **ATIVO** (dado real);
+🆕/🔧 = **placeholder de vitrine** (casca estática com mockup ILUSTRATIVO — ver
+"Vitrine 360 — mockups são estáticos").
 
-| Feature | Pasta | Status |
-|---|---|---|
-| Visão Geral | `features/visao-geral/` | **Ativo** |
-| Gestores | `features/gestores/` | **Ativo** |
-| Cenários | `features/cenarios/` | **Ativo** |
-| Precificação (Simulador) | `features/simulador/` | **Ativo** — Reajustes + Gerador de Propostas + `calcularFee` |
-| Orçador de Extraordinário | `features/extraordinario/` | **Ativo** — 3 naturezas + camada de serviço (sub-aba de Precificação) |
-| Capacidade | `features/capacidade/` | **Ativo** — ocupação, matriz de excesso por carteira, absorção |
-| Perfil | `features/perfil/` | **Ativo** — Alocação em Lote, Complexidade, edição de cliente |
-| Colaboradores / Folha | `features/colaboradores/` | **Ativo** — folha, reajustes, alocação |
-| Configurações | `features/configuracoes/` | **Ativo** — parâmetros, extraordinário, manutenção |
-| Agente de Validação | `features/agente/` | **Ativo** |
-| AUM & Performance | `features/poupanca/` | **Ativo** — tabela por cliente + sub-módulo Banker |
-| — Sub-módulo Banker | `features/poupanca/banker/` | BankerVisao, BankerDetalhe, useBanker |
-| Upload / ETL | `features/upload/` | **Ativo** — import inicial via template Excel |
-| Projeção | `features/projecao/` | Placeholder |
-| Pipeline | `features/pipeline/` | Placeholder |
-| Matriz | `features/matriz/` | Placeholder |
-| Risco | `features/risco/` | Placeholder |
-| Evolução Patrimonial | `features/evolucao/` | Placeholder |
-| Planejamento Patrimonial | `features/patrimonial/` | Placeholder |
+**EMPRESA:** Visão Geral ✅ · Resultados 🆕 · Simulador ✅ (Precificação: Reajustes + Gerador
++ `calcularFee`; Orçador em `features/extraordinario/`) · AUM & Performance ✅
+(`features/poupanca/` + sub-módulo Banker `banker/`) · Gestores ✅ · Capacidade ✅ ·
+Cenários ✅ · Carteira 🆕 · Projeção 🆕 · Jurídico 🆕 · Serviços sob Demanda 🆕 ·
+Apontamento de Horas 🆕 · Automação Bancária 🆕 · Fluxo de Caixa 🆕 · Agente WhatsApp 🆕 ·
+Processos 🆕 · Tarefas 🆕
+
+**CLIENTE 360:** Perfil ✅ (abas ativas Resumo/Alocação/Configuração/Cadastral + abas de
+vitrine Visão 360/Crédito/Pedido de Aporte/Relatório Mensal) · Planejamento Financeiro 🆕 ·
+Patrimônio ✅ (`features/patrimonio/` — **CRUD, módulo ativo**) · Evolução 🔧 ·
+Saúde do Cliente 🆕 · Dossiê do Cliente 🆕 · Contrato Vivo 🆕 · Gestão de Obra 🆕 ·
+Documentos 🆕 · Fluxo de Caixa 🆕
+
+**SISTEMA:** Colaboradores/Folha ✅ (`features/colaboradores/` — rota própria + aba de
+Configurações) · Upload ✅ · Configurações ✅
+
+**Não-sidebar:** Agente de Validação (`features/agente/`) é um **MODAL** de checagem de
+inconsistências, aberto em VisaoGeral/Poupança — não é rota, e é distinto do placeholder
+"Agente WhatsApp".
+
+**Removidos na vitrine (sem rota órfã):** Matriz, Pipeline, Risco, Planejamento Patrimonial
+— pastas `features/{matriz,pipeline,risco,patrimonial}/` deletadas; a **Carteira** 🆕
+substitui Matriz/Pipeline/Risco.
+
+### Vitrine 360 — mockups são estáticos (GUARD-RAIL)
+
+`components/ui/PlaceholderModulo.tsx` + `components/ui/MockupModulo.tsx` +
+`features/vitrine/mockups.tsx` são **ESTÁTICOS e ILUSTRATIVOS**: dados FICTÍCIOS inline,
+nomes de cliente inventados (NUNCA reais — verificado contra `clientes_base`), selo
+"● Dados ilustrativos" em todos, zero fetch/lógica. Nenhuma frente liga dado real a um
+mockup sem **decisão explícita do CFO** — a construção real de um módulo da vitrine é
+**frente própria** (read-only → portão → commits), não um "ligar o Firestore" no mockup.
+Tocar um mockup = presentation-only, dinheiro reafirmado (Σ custo_direto 134.376,84 /
+Σ EBITDA −4.424,03 no período 2026-01/presumido).
 
 ---
 
@@ -2135,6 +2159,25 @@ concluído e deployado em produção; PENDENTE = backlog priorizado.
     CONDICIONAL (success fees — regra + projeção). Tela e PDF coerentes por serviço.
   - Retrocompat: orçamentos salvos só com `itens[]` (pré-camada de serviço) abrem/
     renderizam como serviços de 1 cobrança.
+  - **Parcelamento** (`extraordinario/parcelamento.ts`): `valorParcela`/`ultimaParcela`/
+    `ultimaDifere` — N parcelas iguais, a última absorve o centavo, Σ = total fechado.
+  - **Catálogo — 11 tipos** (`catalogoExtraordinario.ts`): 5 jurídicos + ma/valuation/
+    viabilidade + gestao_obra/consultoria_projetos/gestao_projetos, agrupados Jurídico/
+    Estratégico/Gestão. ma/valuation/viabilidade são natureza **calculada** (sem "(a cravar)").
+- **TabAtividades (Configurações → Atividades)** — overrides de horas-base por atividade em
+  `parametros.atividades: Record<string,number>`; `horasBaseEfetiva(id, parametros) =
+  parametros?.atividades?.[id] ?? ATIVIDADES_SERVICO[id].horas_base` é a fonte única.
+  Override move o FEE e a matriz "esperado", **NÃO** o custo de período fechado (DRE lê `pct_*`
+  salvo, não re-roda horas). Unidade das horas: **h/MÊS** (por unidade nos drivers quantitativos).
+- **Drivers estruturais** — `gestao_grupos_financeiros` (2,5h, driver `grupos_financeiros`,
+  serv_adm) e `gestao_contas_bancarias` (1,5h, driver `qtd_contas`, operacional_financeiro):
+  escalam fee/horas reais via `calcularHorasReais`, não o custeio fechado.
+- **Custo jurídico por demanda** — `custoDemandaJuridicaEfetivo(p) = pool_mensal_juridico ÷
+  capacidade_demandas_mes` (senão fallback ≈R$207) e `custoHoraJuridicoEfetivo` (÷ tempo,
+  senão 82,88), em `precificacaoBase.ts`. Params zerados = fallback byte-a-byte idêntico ao
+  legado. Alimenta `calcularFee`, **não** o motor de custo/DRE. Tela exibe o EFETIVO (não o cru).
+- **Gerador de Propostas em zona única** — "Define o preço" (Pacote + grupos + contas) num grid
+  só; a antiga Zona 2 saiu (serviço jurídico/conciliação viraram estado persistido sem UI própria).
 - **Contabilidade opcional na proposta — VERSÃO EXIBIÇÃO** — campos
   `contabilidade_mensal`/`_ir`/`_fechamento`/`_tipo` (13º = mesmo valor do
   mensal). Aparece como item contratado no pilar Financeiro + cláusula nas
