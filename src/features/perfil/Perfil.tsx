@@ -23,7 +23,7 @@ const LABEL_F: Record<FuncaoAlocacao, string> = {
   consultoria_financeira: 'Cons. Financeira', operacional_financeiro: 'Oper. Financeiro',
   serv_adm: 'Serv. Administrativos', serv_aux_adm: 'Aux. Administrativo',
 };
-const ABAS = ['Visão 360', 'Crédito', 'Pedido de Aporte', 'Relatório Mensal', 'Resumo', 'Alocação', 'Configuração', 'Cadastral'] as const;
+const ABAS = ['Visão 360', 'Crédito', 'Pedido de Aporte', 'Relatório Mensal', 'Gestão'] as const;
 
 export function Perfil() {
   const {
@@ -172,10 +172,10 @@ export function Perfil() {
               {aba === 'Crédito' && <CreditoTab />}
               {aba === 'Pedido de Aporte' && <PedidoAporteTab />}
               {aba === 'Relatório Mensal' && <RelatorioMensalTab />}
-              {aba === 'Resumo' && <ResumoTab c={c} />}
-              {aba === 'Alocação' && <AlocacaoTab c={c} vinculos={dadosPeriodo?.vinculos ?? []} />}
-              {aba === 'Configuração' && <ConfigTab c={c} />}
-              {aba === 'Cadastral' && <CadastralTab c={c} poupanca={poupancaCliente} periodoLabel={periodoLabel} />}
+              {aba === 'Gestão' && (
+                <GestaoTab c={c} vinculos={dadosPeriodo?.vinculos ?? []}
+                  poupanca={poupancaCliente} periodoLabel={periodoLabel} />
+              )}
             </div>
           </div>
         )}
@@ -202,6 +202,37 @@ export function Perfil() {
 }
 
 // --- Sub-componentes das abas (somente leitura) ---
+
+// Aba "Gestão" — consolida Resumo (header fixo de KPIs) + sub-navegação em pills
+// para Alocação/Configuração/Cadastral. Não reescreve nenhuma sub-aba: reusa as
+// funções de render existentes como estão. Pills seguem o mesmo padrão visual das
+// abas do topo (ver Perfil, bloco "Tabs").
+function GestaoTab({ c, vinculos, poupanca, periodoLabel }: {
+  c: DadosCliente; vinculos: Vinculo[]; poupanca?: RegistroPoupanca; periodoLabel: string;
+}) {
+  const SUB_ABAS = ['Alocação', 'Configuração', 'Cadastral'] as const;
+  const [sub, setSub] = useState<(typeof SUB_ABAS)[number]>('Alocação');
+  return (
+    <div className="space-y-4">
+      {/* Header fixo — Resumo reusado inalterado */}
+      <ResumoTab c={c} />
+
+      {/* Sub-navegação em pills */}
+      <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: '#f3f4f6' }}>
+        {SUB_ABAS.map(s => (
+          <button key={s} onClick={() => setSub(s)}
+            className={`px-3 py-1.5 rounded text-xs font-medium ${sub === s ? 'bg-white shadow-sm' : ''}`}
+            style={{ color: sub === s ? '#160F41' : '#6b6b8a' }}>{s}</button>
+        ))}
+      </div>
+
+      {/* Conteúdo da sub-aba */}
+      {sub === 'Alocação' && <AlocacaoTab c={c} vinculos={vinculos} />}
+      {sub === 'Configuração' && <ConfigTab c={c} />}
+      {sub === 'Cadastral' && <CadastralTab c={c} poupanca={poupanca} periodoLabel={periodoLabel} />}
+    </div>
+  );
+}
 
 function ResumoTab({ c }: { c: import('../../types').DadosCliente }) {
   const kpis = [
