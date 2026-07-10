@@ -1,13 +1,13 @@
 // --- LoginPage ---
 // Tela de login centralizada com identidade visual Galácticos Capital.
 
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../../state/AuthContext';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, usuario } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -16,6 +16,14 @@ export function LoginPage() {
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
 
+  // Navega só quando o perfil (usuarios/{uid}) terminou de carregar no
+  // AuthContext. Navegar imediatamente após o login criava race condition:
+  // o PrivateRoute via usuario=null e devolvia pro /login (entrava só na
+  // 2ª tentativa). Aqui o redirect acompanha o estado real de autenticação.
+  useEffect(() => {
+    if (usuario) navigate('/', { replace: true });
+  }, [usuario, navigate]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErro('');
@@ -23,7 +31,7 @@ export function LoginPage() {
 
     try {
       await login(email, senha);
-      navigate('/', { replace: true });
+      // O redirect é feito pelo useEffect acima quando `usuario` carrega.
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
       if (code === 'auth/user-disabled') {
