@@ -867,8 +867,8 @@ export interface DadosPeriodo {
   // Vínculos cliente↔colaborador do período (Fase 2.5). Consumidos pelo
   // pipeline de custo direto via leitura dual: se há vínculo com pct > 0
   // para (cliente, função), usa o vínculo; senão, fallback no campo do cliente.
-  // Hoje (pré-Peça 6) todos têm pct=0 — fallback sempre dispara, comportamento
-  // idêntico ao legado. Estrutura pronta para ativação quando Peça 6 popular pct.
+  // Vínculos carregam pct>0 normalmente (~163-165 por período); fallback em
+  // cliente[funcao]/pct_${funcao} dispara só para pares sem vínculo com pct.
   vinculos: import('./vinculo').Vinculo[];
 
   // Totais consolidados (calculados uma vez no pipeline)
