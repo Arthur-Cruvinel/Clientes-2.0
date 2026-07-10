@@ -629,9 +629,13 @@ período. Estrutura definida em `src/types/vinculo.ts`:
 tentar resolver `(cliente, função) → colaborador` via vínculo primeiro:
 se houver vínculo com `pct > 0` para esse par, usa-o (`fonte:'vinculo'`).
 Senão, cai no fallback legado — nome no campo `cliente[funcao]`, match
-exato + normalizado (`fonte:'cliente'`). Ausência de `pct > 0` em todos
-os vínculos significa que o fallback dispara sempre — coexistência
-controlada com o modelo antigo até a Peça 6 popular pct via UI.
+exato + normalizado (`fonte:'cliente'`). Hoje os vínculos **já carregam
+`pct > 0` normalmente** — o modelo saiu do estado inicial "tudo pct=0":
+2026-01 tem 165 vínculos com `pct > 0` (verificado na régua de fechamento,
+commit 6823c38), e o mesmo se observa nos demais períodos (~163–165). Ou
+seja, o vínculo é a fonte primária de fato; o fallback no campo
+`cliente[funcao]`/`pct_${funcao}` dispara só para os pares sem vínculo com
+pct. A matriz de capacidade filtra por `vincPct` + `pct > 0` (Caminho A).
 
 **Migração automática:** assim que um vínculo tem `pct > 0`, a próxima
 leitura do pipeline já o usa. Não há feature flag, não há alteração de
