@@ -17,9 +17,10 @@ import { ImpostosModal } from './ImpostosModal';
 import { ExportButton } from '../../components/ui/ExportButton';
 import { exportVisaoGeralExcel } from '../../utils/exporters/exportExcel';
 import { exportVisaoGeralPdf } from '../../utils/exporters/exportPdf';
-import { fecharPeriodo, reabrirPeriodo, buscarClientes, db } from '../../services/firebase';
+import { reabrirPeriodo, buscarClientes, db } from '../../services/firebase';
 import { AgenteValidacao } from '../agente/AgenteValidacao';
 import { RankingEmpresariosModal } from './RankingEmpresariosModal';
+import { ReguaFechamentoModal } from './ReguaFechamentoModal';
 import { writeBatch, doc as firestoreDoc, collection, getDocs } from 'firebase/firestore';
 import { BATCH_LIMIT } from '../../utils/constants';
 import { slug } from '../../utils/slug';
@@ -51,26 +52,10 @@ export function VisaoGeral() {
   const [validacaoAberta, setValidacaoAberta] = useState(false);
   const [rankingAberto, setRankingAberto] = useState(false);
   const [copiandoBase, setCopiandoBase] = useState(false);
-
-  const handleFecharPeriodo = useCallback(async () => {
-    if (!periodoSelecionado || !totais) return;
-    const label = formatPeriodo(periodoSelecionado);
-    if (!confirm(`Fechar ${label}? Esta ação cria um snapshot imutável dos dados atuais.`)) return;
-    setFechandoPeriodo(true);
-    try {
-      await fecharPeriodo(periodoSelecionado, {
-        fechado_por: usuario?.email ?? 'desconhecido',
-        total_clientes: clientes.length,
-        receita_total: totais.receita_bruta,
-      });
-      setToastPeriodo('Período fechado com sucesso');
-      recarregar();
-    } catch (e) {
-      setToastPeriodo(`Erro: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setFechandoPeriodo(false);
-    }
-  }, [periodoSelecionado, totais, usuario, recarregar, clientes.length]);
+  // Régua de fechamento (Commit B): o botão "Fechar Período" abre o modal com os
+  // checks + checkboxes; o fechamento real acontece lá dentro (fecharPeriodo com
+  // checklist), não mais direto por confirm().
+  const [reguaAberta, setReguaAberta] = useState(false);
 
   const handleReabrirPeriodo = useCallback(async () => {
     if (!periodoSelecionado) return;
@@ -292,10 +277,10 @@ export function VisaoGeral() {
               )}
             </div>
           ) : clientes.length > 0 && (
-            <button onClick={handleFecharPeriodo} disabled={fechandoPeriodo}
+            <button onClick={() => setReguaAberta(true)} disabled={fechandoPeriodo}
               className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-gray-100 disabled:opacity-50"
               style={{ color: '#6b6b8a', border: '1px solid #e2e2e8' }}>
-              <Lock size={11} /> {fechandoPeriodo ? 'Fechando...' : 'Fechar Período'}
+              <Lock size={11} /> Fechar Período
             </button>
           )}
         </div>
@@ -417,6 +402,11 @@ export function VisaoGeral() {
 
       {validacaoAberta && <AgenteValidacao onFechar={() => setValidacaoAberta(false)} />}
       {rankingAberto && <RankingEmpresariosModal clientes={clientes} onFechar={() => setRankingAberto(false)} />}
+      {reguaAberta && (
+        <ReguaFechamentoModal
+          onFechar={() => setReguaAberta(false)}
+          onFechado={(msg) => setToastPeriodo(msg)} />
+      )}
     </div>
   );
 }

@@ -27,7 +27,11 @@ export function processarPeriodo(
   // Alíquotas globais de retenção do rebate por perna (parametros/global).
   // Opcional: sem isto, calcularReceita usa os defaults constantes (nunca 0).
   aliquotasRebate?: AliquotasRebate,
-): ResultadoCliente[] {
+  // Retorno é o array de resultados COM a propriedade `deltaFolha` anexada
+  // (Commit B — régua de fechamento). deltaFolha = folha − (direto+inst+ociosidade),
+  // o Δ da partição que antes só ia para o console.log. Anexar ao array não muda
+  // o contrato de iteração: quem só percorre resultados continua idêntico.
+): ResultadoCliente[] & { deltaFolha: number } {
   // 0. Pré-passe por colaborador (regra CFO): normalização da sobre-alocação +
   // ociosidade da folga. Computados UMA vez e propagados ao DRE.
   //   - fatorNorm: Σpct>alocavel → alocavel/Σpct (pcts viram pesos); senão 1.
@@ -79,11 +83,16 @@ export function processarPeriodo(
   );
   // Invariante CFO: folha ≡ direto(normalizado) + institucional + ociosidade.
   const conferencia = totalCustoDireto + institucional + ociosidade;
+  const deltaFolha = folha - conferencia;
   console.log(
     `[Pipeline] Invariante folha=${folha.toFixed(2)} ≟ direto+inst+ociosidade=`
-    + `${conferencia.toFixed(2)} (Δ=${(folha - conferencia).toFixed(2)})`,
+    + `${conferencia.toFixed(2)} (Δ=${deltaFolha.toFixed(2)})`,
   );
 
   // 5. Ordenar por lucro líquido DESC.
-  return resultados.sort((a, b) => b.lucro_liquido - a.lucro_liquido);
+  const ordenados = resultados.sort((a, b) => b.lucro_liquido - a.lucro_liquido) as
+    ResultadoCliente[] & { deltaFolha: number };
+  // Expõe o Δ já calculado (mesmíssimo valor do log acima) — NENHUM cálculo novo.
+  ordenados.deltaFolha = deltaFolha;
+  return ordenados;
 }

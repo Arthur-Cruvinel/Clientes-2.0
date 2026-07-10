@@ -271,6 +271,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       setDadosPeriodo({
         resultados,
+        // Δ da partição de folha exposto pelo pipeline (Commit B — régua). Mesmo
+        // valor que ia só para o console.log; consumido pelo check delta_folha.
+        deltaFolha: resultados.deltaFolha,
         clientes: todosClientes,
         colaboradores,
         custosIndiretos,

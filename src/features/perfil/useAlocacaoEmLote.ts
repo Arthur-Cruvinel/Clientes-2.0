@@ -216,6 +216,10 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
   const salvarTodos = useCallback(async (): Promise<number> => {
     if (!periodoSelecionado || !funcao || alteracoes === 0) return 0;
     if (!colaboradorSelecionado?.id_estavel) return 0;
+    // Commit B — régua: salvar alocação num período FECHADO só AVISA (não trava).
+    // O snapshot já foi congelado; alterar pct depois é possível, mas o usuário
+    // confirma que sabe. Cancelar → aborta sem gravar.
+    if (periodoFechado && !confirm('Período fechado — confirmar alteração?')) return 0;
     setSalvando(true);
     try {
       // Escrita via FONTE ÚNICA (salvarVinculosPct) — mesma gravação que a ficha
@@ -235,7 +239,7 @@ export function useAlocacaoEmLote(selecaoInicial?: { nome: string; funcao?: stri
       console.error('[salvarTodos] erro ao salvar:', err);
       throw err;
     } finally { setSalvando(false); }
-  }, [periodoSelecionado, funcao, alteracoes, clientesDoColaborador, pctEditado, pctOriginal, recarregar, colaboradorSelecionado, vinculos]);
+  }, [periodoSelecionado, periodoFechado, funcao, alteracoes, clientesDoColaborador, pctEditado, pctOriginal, recarregar, colaboradorSelecionado, vinculos]);
 
   // Remove o vínculo direto de um cliente com o colaborador selecionado:
   // (1) limpa cliente[funcao] + zera pct_funcao em clientes_base/ (deleteField

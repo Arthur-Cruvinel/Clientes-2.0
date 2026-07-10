@@ -4,7 +4,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, writeBatch, deleteField } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import type { Cliente, Colaborador, CustoIndireto, CustoDedicado, Parametros, AlteracaoCliente, PeriodoStatus, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao, DadosProposta, DadosOrcamento } from '../types';
+import type { Cliente, Colaborador, CustoIndireto, CustoDedicado, Parametros, AlteracaoCliente, PeriodoStatus, ChecklistManualFechamento, RegistroPoupanca, PerfilComplexidade, ReajusteSalarial, FuncaoAlocacao, DadosProposta, DadosOrcamento } from '../types';
 import type { Vinculo } from '../types/vinculo';
 import { BATCH_LIMIT, FUNCOES_ALOCACAO, CATEGORIAS_CUSTO_INDIRETO } from '../utils/constants';
 import { PARAMETROS_DEFAULT, ALIQUOTA_REBATE_ONSHORE_DEFAULT, ALIQUOTA_REBATE_OFFSHORE_DEFAULT, MARGEM_ALVO_DEFAULT, OVERHEAD_RATIO_REFERENCIA_DEFAULT } from '../utils/constants';
@@ -1677,7 +1677,12 @@ export async function buscarStatusPeriodo(periodo: string): Promise<PeriodoStatu
 
 export async function fecharPeriodo(
   periodo: string,
-  dados: { fechado_por: string; total_clientes: number; receita_total: number },
+  dados: {
+    fechado_por: string; total_clientes: number; receita_total: number;
+    // Estado dos 3 checkboxes manuais da régua (Commit B). Opcional: fechamento
+    // fora da régua (legado / chamada isolada) continua funcionando sem eles.
+    checklist_manual?: ChecklistManualFechamento;
+  },
 ): Promise<void> {
   // 1. WIPE — apaga o snapshot de clientes do período ANTES de regravar.
   //    Sem isto, fechar acumulava lixo: docs do esquema legado (slug) conviviam
@@ -1715,7 +1720,9 @@ export async function fecharPeriodo(
     );
   }
 
-  // 3. Registrar status do período
+  // 3. Registrar status do período. `fechado_em` É a data de fechamento — a
+  //    régua reusa este campo (não duplica em "data_fechamento"). checklist_manual
+  //    só é gravado quando veio da régua (undefined → omitido, não grava null).
   await setDoc(doc(db, 'periodos_status', periodo), {
     periodo,
     fechado: true,
@@ -1723,6 +1730,7 @@ export async function fecharPeriodo(
     fechado_por: dados.fechado_por,
     total_clientes: dados.total_clientes,
     receita_total: dados.receita_total,
+    ...(dados.checklist_manual ? { checklist_manual: dados.checklist_manual } : {}),
   } satisfies PeriodoStatus);
 
   console.log(`[Firebase] Período ${periodo} fechado com ${gravados} clientes (docId=id_estavel)`);

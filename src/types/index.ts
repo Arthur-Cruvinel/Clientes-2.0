@@ -202,15 +202,27 @@ export interface HorasReaisCalculadas {
   }>;
 }
 
+/** Checklist manual da régua de fechamento (Commit B). São confirmações do CFO
+ *  que NÃO travam o fechamento — ficam registradas no doc do período para
+ *  auditoria. Os checks automáticos (a–e) é que armam o botão "Fechar mês". */
+export interface ChecklistManualFechamento {
+  alocacoes_revisadas: boolean;
+  poupanca_aum_validado: boolean;
+  custos_dedicados_conferidos: boolean;
+}
+
 export interface PeriodoStatus {
   periodo: string;         // "2026-03"
   fechado: boolean;
-  fechado_em?: string;     // ISO string
+  fechado_em?: string;     // ISO string — data do fechamento (== "data_fechamento" da régua)
   fechado_por?: string;    // email
   reaberto_em?: string;
   reaberto_por?: string;
   total_clientes: number;
   receita_total: number;
+  // Estado dos 3 checkboxes manuais no momento do fechamento (Commit B).
+  // Ausente em períodos fechados antes da régua (retrocompat).
+  checklist_manual?: ChecklistManualFechamento;
 }
 
 export interface AlteracaoCliente {
@@ -838,6 +850,11 @@ export interface ResultadoCliente {
 export interface DadosPeriodo {
   // Resultados calculados pelo motor financeiro
   resultados: ResultadoCliente[];
+
+  // Δ da partição de folha exposto pelo pipeline (Commit B — régua de fechamento).
+  // folha − (direto+institucional+ociosidade). Consumido pelo check delta_folha.
+  // Opcional: retrocompat com quem monta DadosPeriodo sem passar pelo pipeline.
+  deltaFolha?: number;
 
   // Dados de referência (necessários para consumidores)
   clientes: Cliente[];
