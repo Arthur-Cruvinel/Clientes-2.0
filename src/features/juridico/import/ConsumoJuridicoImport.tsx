@@ -4,7 +4,7 @@
 // Ambiguidade (2+ candidatos) nunca desempata em silêncio → quarentena com 3 saídas
 // (casar / cadastrar novo / marcar CASA), resolução memorizada. Save do consumo é Commit 3.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../../state/AppContext';
 import { useAuth } from '../../../state/AuthContext';
 import {
@@ -14,8 +14,25 @@ import {
 import { NovoClienteModal } from '../../perfil/NovoClienteModal';
 import { parseContagens } from './parseContagens';
 import { casarNomeMonday, normNome, type ClienteUniverso, type Resolucao } from './resolverMonday';
+import { lerArquivoBase64 } from '../../../utils/lerArquivoBase64';
 
 const PERIODO_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+// ── Import direto do PDF do board (via claude-proxy — NÃO se toca a function) ──
+// Teto síncrono da Netlify é ~6MB de body; o PDF vai em base64 (infla ~33%), então
+// o PDF cru cabe em ~4,5MB. Modelo = o mesmo alias que o useDocumentParser usa hoje.
+const MAX_PDF_BYTES = 4.5 * 1024 * 1024;
+const MODELO_PDF = 'claude-sonnet-4-6';
+const PROMPT_SISTEMA_PDF =
+  'Você transcreve um board de demandas jurídicas (Monday) para texto puro. '
+  + 'Não interprete, não resuma, não comente — apenas transcreva as contagens fielmente.';
+const PROMPT_USUARIO_PDF =
+  'Transcreva o board deste PDF seguindo REGRAS ESTRITAS:\n'
+  + '- UMA linha por cliente, no formato exato: NOME CONTAGEM\n'
+  + '  (NOME exatamente como aparece no board; CONTAGEM = número inteiro de demandas).\n'
+  + '- Se o documento exibir um total geral, emita-o na PRIMEIRA linha como: #TOTAL n\n'
+  + '  (n = inteiro). Se não houver total no documento, NÃO emita a linha #TOTAL.\n'
+  + '- NENHUM outro texto: sem cabeçalhos, sem comentários, sem markdown, sem cercas de código.';
 
 export function ConsumoJuridicoImport() {
   const { periodoSelecionado } = useApp();
@@ -27,6 +44,74 @@ export function ConsumoJuridicoImport() {
   const [carregando, setCarregando] = useState(true);
   const [versao, setVersao] = useState(0);         // recarrega de-para/universo após resolução
   const [cadastrarPara, setCadastrarPara] = useState<string | null>(null);
+  const [importando, setImportando] = useState(false);
+  const [erroPdf, setErroPdf] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Import direto do PDF do board: File → base64 (util) → claude-proxy. A resposta
+  // vem como "NOME CONTAGEM" (uma linha/cliente) + opcional "#TOTAL n". Confere o
+  // total contra a soma transcrita (parser canônico); só então alimenta `texto` — a
+  // boca do funil. Divergiu → erro, textarea intocado. Reusa parse→de-para→snapshot.
+  async function importarDoPdf(arquivo: File) {
+    setErroPdf(null);
+    if (arquivo.size > MAX_PDF_BYTES) {
+      setErroPdf(`PDF de ${(arquivo.size / 1024 / 1024).toFixed(1)}MB excede o limite de 4,5MB. Reduza o arquivo ou cole as contagens manualmente abaixo.`);
+      return;
+    }
+    setImportando(true);
+    try {
+      const base64 = await lerArquivoBase64(arquivo);
+      const resp = await fetch('/.netlify/functions/claude-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: MODELO_PDF,
+          max_tokens: 4096,
+          system: PROMPT_SISTEMA_PDF,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+              { type: 'text', text: PROMPT_USUARIO_PDF },
+            ],
+          }],
+        }),
+      });
+      if (resp.status === 429) {
+        setErroPdf('Limite de requisições atingido (rate limit). Aguarde alguns segundos e tente de novo.');
+        return;
+      }
+      if (!resp.ok) {
+        const t = await resp.text();
+        setErroPdf(`Falha na extração (HTTP ${resp.status}): ${t.slice(0, 200)}`);
+        return;
+      }
+      const data = await resp.json();
+      const bruto = data?.content?.[0]?.text;
+      if (typeof bruto !== 'string') {
+        setErroPdf('Resposta inválida da extração — tente de novo ou cole as contagens manualmente.');
+        return;
+      }
+      // Defesa contra cercas de código (o prompt já as proíbe). Separa linhas "#".
+      const limpo = bruto.replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/i, '').trim();
+      const linhas = limpo.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const contagens = linhas.filter(l => !l.startsWith('#'));
+      const mTotal = linhas.filter(l => l.startsWith('#'))
+        .map(l => /^#TOTAL\s+(\d+)/i.exec(l)).find(Boolean);
+      const totalDeclarado = mTotal ? parseInt(mTotal[1], 10) : null;
+      // Conferência via parser canônico (mesma soma que o funil usará). NÃO altera parseContagens.
+      const somaTranscrita = parseContagens(contagens.join('\n')).total;
+      if (totalDeclarado !== null && somaTranscrita !== totalDeclarado) {
+        setErroPdf(`Total do board (#TOTAL ${totalDeclarado}) ≠ soma transcrita (${somaTranscrita}). A transcrição não confere — revise o PDF e tente de novo. O campo abaixo NÃO foi preenchido.`);
+        return;
+      }
+      setTexto(contagens.join('\n'));
+    } catch {
+      setErroPdf('Falha de rede ao extrair do PDF. Verifique a conexão e tente de novo.');
+    } finally {
+      setImportando(false);
+    }
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -116,9 +201,25 @@ export function ConsumoJuridicoImport() {
         {periodo && !periodoValido && <p className="text-[11px] mt-1" style={{ color: '#991b1b' }}>Formato AAAA-MM (ex.: 2026-06).</p>}
       </div>
 
+      {/* Import direto do PDF do board (via claude-proxy). Preenche o textarea abaixo. */}
+      <div>
+        <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Importar do PDF do board</label>
+        <div className="mt-1 flex flex-wrap items-center gap-3">
+          <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) importarDoPdf(f); e.target.value = ''; }} />
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={importando}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border disabled:opacity-50"
+            style={{ borderColor: '#0065FF', color: '#0065FF' }}>
+            {importando ? 'Extraindo do PDF…' : 'Importar do PDF do board'}
+          </button>
+          <span className="text-[11px]" style={{ color: '#6b6b8a' }}>PDF até 4,5MB · a transcrição preenche o campo abaixo (ainda passa pelo de-para)</span>
+        </div>
+        {erroPdf && <p className="text-[11px] mt-1.5" style={{ color: '#991b1b' }}>{erroPdf}</p>}
+      </div>
+
       <div>
         <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>
-          Contagens coladas — formato: <code>Nome &lt;espaços&gt; número</code>
+          Contagens — cole manualmente OU use o import do PDF acima · formato: <code>Nome &lt;espaços&gt; número</code>
         </label>
         <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={10}
           placeholder={'Rede Ronaldo 130\nLorena Improta 71\nPaulinho 51\n...'}

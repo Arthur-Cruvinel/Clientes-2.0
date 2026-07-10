@@ -1,6 +1,7 @@
 // --- Hook central para parser de documentos via Claude API ---
 
 import { useState, useCallback } from 'react';
+import { lerArquivoBase64 } from '../../../utils/lerArquivoBase64';
 
 export interface CampoExtraido<T> {
   valor: T | null;
@@ -33,13 +34,8 @@ export function useDocumentParser() {
   ): Promise<ResultadoParser<T> | null> => {
     setParseando(true); setErro(null);
     try {
-      // 1. PDF → base64
-      const base64 = await new Promise<string>((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = () => res((reader.result as string).split(',')[1]);
-        reader.onerror = rej;
-        reader.readAsDataURL(arquivo);
-      });
+      // 1. PDF → base64 (util compartilhado — mesmo comportamento de antes)
+      const base64 = await lerArquivoBase64(arquivo);
 
       // 2. Chamar Claude via proxy serverless
       const response = await fetch(PROXY_URL, {
