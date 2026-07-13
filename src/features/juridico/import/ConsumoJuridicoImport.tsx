@@ -33,8 +33,9 @@ const PROMPT_USUARIO_PDF =
   + '- Transcreva os nomes EXATAMENTE como aparecem no documento, caractere a caractere.\n'
   + '  Nomes quase idênticos (ex.: "Artur Guimarães" e "Arthur Guimarães") são ENTRADAS\n'
   + '  DISTINTAS do board — transcreva uma linha para cada, NUNCA fundir nem deduplicar.\n'
-  + '- Se o documento exibir um total geral, emita-o na PRIMEIRA linha como: #TOTAL n\n'
-  + '  (n = inteiro). Se não houver total no documento, NÃO emita a linha #TOTAL.\n'
+  + '- A linha #TOTAL n só deve existir se o documento IMPRIMIR literalmente um número\n'
+  + '  de total. É PROIBIDO calcular, somar ou inferir o total a partir das linhas ou de\n'
+  + '  outros números do documento. Se nenhum total estiver impresso, NÃO emita a linha #TOTAL.\n'
   + '- NENHUM outro texto: sem cabeçalhos, sem comentários, sem markdown, sem cercas de código.';
 
 export function ConsumoJuridicoImport() {
