@@ -157,6 +157,13 @@ export function ConsumoJuridicoImport() {
   async function salvarSnapshot() {
     setSalvando(true);
     try {
+      // A SOMA por id_estavel aqui é INTENCIONAL e load-bearing — não trocar por
+      // set direto. O board real tem nomes quase-idênticos que o de-para resolve
+      // para o MESMO cliente (caso vivo: "Artur Guimarães" 2 + "Arthur Guimarães" 1
+      // → um cliente, 3 demandas). Como o snapshot grava por docId=id_estavel
+      // (firebase.ts:2028, batch.set), substituir esta soma por atribuição faria a
+      // 2ª entrada SOBRESCREVER a 1ª — perda de demandas em silêncio. Não há teste
+      // cobrindo este ponto: o golden guarda só o parser (pré-de-para).
       const porId = new Map<string, { nome: string; demandas: number }>();
       let casa = 0;
       for (const e of resolvidos) {
