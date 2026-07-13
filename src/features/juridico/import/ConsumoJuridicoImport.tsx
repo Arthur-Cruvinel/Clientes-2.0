@@ -30,6 +30,9 @@ const PROMPT_USUARIO_PDF =
   'Transcreva o board deste PDF seguindo REGRAS ESTRITAS:\n'
   + '- UMA linha por cliente, no formato exato: NOME CONTAGEM\n'
   + '  (NOME exatamente como aparece no board; CONTAGEM = número inteiro de demandas).\n'
+  + '- Transcreva os nomes EXATAMENTE como aparecem no documento, caractere a caractere.\n'
+  + '  Nomes quase idênticos (ex.: "Artur Guimarães" e "Arthur Guimarães") são ENTRADAS\n'
+  + '  DISTINTAS do board — transcreva uma linha para cada, NUNCA fundir nem deduplicar.\n'
   + '- Se o documento exibir um total geral, emita-o na PRIMEIRA linha como: #TOTAL n\n'
   + '  (n = inteiro). Se não houver total no documento, NÃO emita a linha #TOTAL.\n'
   + '- NENHUM outro texto: sem cabeçalhos, sem comentários, sem markdown, sem cercas de código.';
