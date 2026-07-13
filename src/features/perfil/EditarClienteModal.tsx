@@ -184,6 +184,7 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
     volume_movimentos_mes: cliente.volume_movimentos_mes ?? 0,
     utiliza_servico_juridico: cliente.utiliza_servico_juridico,
     utiliza_conciliacao: cliente.utiliza_conciliacao,
+    juridico_fora_do_pool: cliente.juridico_fora_do_pool ?? false,
     percentual_rebate_anual_onshore: (cliente.percentual_rebate_anual_onshore ?? 0) * 100,
     percentual_rebate_anual_offshore: (cliente.percentual_rebate_anual_offshore ?? 0) * 100,
     empresario: cliente.empresario ?? '',
@@ -248,6 +249,7 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
       qtd_contratacoes_mes: qtdContratacoes,
       utiliza_servico_juridico: form.utiliza_servico_juridico,
       utiliza_conciliacao: form.utiliza_conciliacao,
+      juridico_fora_do_pool: form.juridico_fora_do_pool,
       percentual_rebate_anual_onshore: form.percentual_rebate_anual_onshore / 100,
       percentual_rebate_anual_offshore: form.percentual_rebate_anual_offshore / 100,
       empresario: form.empresario || undefined,
@@ -341,11 +343,15 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
                   onChange={e => set(k as string, Number(e.target.value))} className={`${INP} w-40`} style={BRD} />
               </div>
             ))}
-            {['utiliza_servico_juridico', 'utiliza_conciliacao'].map(k => (
+            {([
+              ['utiliza_servico_juridico', 'Utiliza serviço jurídico'],
+              ['utiliza_conciliacao', 'Utiliza conciliação'],
+              ['juridico_fora_do_pool', 'Jurídico pago diretamente (fora do pool)'],
+            ] as const).map(([k, label]) => (
               <label key={k} className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#160F41' }}>
                 <input type="checkbox" checked={(form as Record<string, unknown>)[k] as boolean}
                   onChange={e => set(k, e.target.checked)} className="rounded" />
-                {k === 'utiliza_servico_juridico' ? 'Utiliza serviço jurídico' : 'Utiliza conciliação'}
+                {label}
               </label>
             ))}
             {[

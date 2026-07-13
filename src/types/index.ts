@@ -74,6 +74,8 @@ export interface Cliente {
   // Flags de serviço
   utiliza_servico_juridico: boolean;
   utiliza_conciliacao: boolean;
+  // Cliente paga o jurídico DIRETAMENTE (fora do pool da Galáticos) — demandas medidas não consomem o pool (fora de denominador, rateio e cortesia). Ausente = false.
+  juridico_fora_do_pool?: boolean;
 
   // Pacote de serviço — define horas-direito por função
   pacote_servico: PacoteServico;
