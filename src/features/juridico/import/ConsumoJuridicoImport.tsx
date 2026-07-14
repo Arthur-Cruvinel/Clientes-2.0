@@ -137,7 +137,8 @@ export function ConsumoJuridicoImport() {
   const universoOrdenado = useMemo(() => [...universo].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [universo]);
 
   // Resolve cada entrada: de-para (memória) → match único → quarentena (ambíguo/não casado).
-  type Resolvido = { nome: string; contagem: number; tipo: 'cliente' | 'casa'; id_estavel?: string; canonico?: string };
+  // tipo 'externo' = paga o jurídico direto, não é cliente da base (fora do pool).
+  type Resolvido = { nome: string; contagem: number; tipo: 'cliente' | 'casa' | 'externo'; id_estavel?: string; canonico?: string };
   const { resolvidos, pendentes } = useMemo(() => {
     const resolvidos: Resolvido[] = [];
     const pendentes: { nome: string; contagem: number; res: Resolucao }[] = [];
@@ -166,15 +167,19 @@ export function ConsumoJuridicoImport() {
       // 2ª entrada SOBRESCREVER a 1ª — perda de demandas em silêncio. Não há teste
       // cobrindo este ponto: o golden guarda só o parser (pré-de-para).
       const porId = new Map<string, { nome: string; demandas: number }>();
+      // Externos agregam por NOME do board (não têm id_estavel — não são clientes da base).
+      const porExterno = new Map<string, number>();
       let casa = 0;
       for (const e of resolvidos) {
         if (e.tipo === 'casa') { casa += e.contagem; continue; }
+        if (e.tipo === 'externo') { porExterno.set(e.nome, (porExterno.get(e.nome) ?? 0) + e.contagem); continue; }
         if (!e.id_estavel) continue;
         const cur = porId.get(e.id_estavel) ?? { nome: e.canonico ?? e.nome, demandas: 0 };
         cur.demandas += e.contagem; porId.set(e.id_estavel, cur);
       }
       const clientes = [...porId].map(([id, v]) => ({ id_estavel_cliente: id, nome_cliente: v.nome, demandas: v.demandas }));
-      await salvarSnapshotConsumoJuridico(periodo, clientes, casa, registrador);
+      const externos = [...porExterno].map(([nome, demandas]) => ({ nome, demandas }));
+      await salvarSnapshotConsumoJuridico(periodo, clientes, casa, externos, registrador);
       setSalvo(periodo);
     } finally { setSalvando(false); }
   }
@@ -185,6 +190,11 @@ export function ConsumoJuridicoImport() {
   }
   async function resolverCasa(nomeMonday: string) {
     await salvarEntradaMapeamentoMonday({ nome_monday: nomeMonday, alvo: 'casa', registrado_em: new Date().toISOString(), registrado_por: registrador });
+    setVersao(v => v + 1);
+  }
+  /** 4ª saída: paga o jurídico direto e não é cliente da base → fora do pool. */
+  async function resolverExterno(nomeMonday: string) {
+    await salvarEntradaMapeamentoMonday({ nome_monday: nomeMonday, alvo: 'externo', registrado_em: new Date().toISOString(), registrado_por: registrador });
     setVersao(v => v + 1);
   }
 
@@ -266,7 +276,11 @@ export function ConsumoJuridicoImport() {
                   <tr key={`ok-${e.nome}-${i}`}>
                     <td className="px-3 py-1.5" style={{ color: '#160F41' }}>{e.nome}</td>
                     <td className="px-3 py-1.5 text-right font-medium" style={{ color: '#160F41' }}>{e.contagem}</td>
-                    <td className="px-3 py-1.5">{e.tipo === 'casa' ? rotulo('#6b6b8a', '#f3f4f6', 'CASA') : rotulo('#166534', '#f0fdf4', e.canonico ?? '—')}</td>
+                    <td className="px-3 py-1.5">{e.tipo === 'casa'
+                      ? rotulo('#6b6b8a', '#f3f4f6', 'CASA')
+                      : e.tipo === 'externo'
+                        ? rotulo('#3730a3', '#eef2ff', 'EXTERNO (fora do pool)')
+                        : rotulo('#166534', '#f0fdf4', e.canonico ?? '—')}</td>
                   </tr>
                 ))}
                 {pendentes.map((e, i) => (
@@ -306,6 +320,9 @@ export function ConsumoJuridicoImport() {
                     className="px-2 py-1 rounded text-xs font-medium border disabled:opacity-40" style={{ borderColor: '#0065FF', color: '#0065FF' }}
                     title={periodoSelecionado ? undefined : 'Selecione um período no topo da plataforma para cadastrar'}>Cadastrar novo</button>
                   <button type="button" onClick={() => resolverCasa(e.nome)} className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: '#f3f4f6', color: '#6b6b8a' }}>Marcar CASA</button>
+                  <button type="button" onClick={() => resolverExterno(e.nome)}
+                    className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: '#eef2ff', color: '#3730a3' }}
+                    title="Paga o jurídico diretamente e não é cliente da base — fica fora do pool (não entra em rateio nem em cortesia)">Externo (fora do pool)</button>
                 </div>
               </div>
             ))}

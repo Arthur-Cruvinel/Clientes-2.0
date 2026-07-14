@@ -73,7 +73,9 @@ export function JuridicoConsumo() {
         <select value={sel} onChange={e => setSel(e.target.value)} className="rounded border px-2 py-1 text-xs" style={{ borderColor: '#e2e2e8' }}>
           {periodos.map(p => <option key={p.periodo} value={p.periodo}>{p.periodo} (acum.)</option>)}
         </select>
-        {meta && <span className="text-[11px]" style={{ color: '#6b6b8a' }}>{meta.n_clientes} clientes · CASA {meta.casa_demandas} · total {meta.total_demandas}</span>}
+        {meta && <span className="text-[11px]" style={{ color: '#6b6b8a' }}>
+          {meta.n_clientes} clientes · CASA {meta.casa_demandas} · Externos {meta.externos_demandas ?? 0} · total {meta.total_demandas}
+        </span>}
       </div>
 
       {poolIndefinido && (
@@ -151,6 +153,37 @@ export function JuridicoConsumo() {
           <p className="text-[10px] mt-2" style={{ color: '#6b6b8a' }}>
             Consumo jurídico de clientes sem <code>utiliza_servico_juridico</code> — o rateio por
             consumo (fase 2, frente própria) ataca este vazamento. Aqui é só o retrato comercial.
+          </p>
+        </div>
+      )}
+
+      {/* EXTERNOS — pagam o jurídico direto, não são clientes da base (fora do pool) */}
+      {(meta?.externos?.length ?? 0) > 0 && (
+        <div className="rounded-lg border p-3" style={{ borderColor: '#c7d2fe', backgroundColor: '#eef2ff' }}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3730a3' }}>Externos — fora do pool</p>
+            <span className="text-sm font-bold" style={{ color: '#3730a3' }}>
+              {meta?.externos_demandas ?? 0} demandas
+              <span className="text-[11px] font-normal"> · {meta?.externos?.length ?? 0} externos</span>
+            </span>
+          </div>
+          <table className="min-w-full text-sm">
+            <thead><tr>
+              <th className="px-3 py-1 text-left text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Nome (board)</th>
+              <th className="px-3 py-1 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Demandas</th>
+            </tr></thead>
+            <tbody className="divide-y" style={{ borderColor: '#c7d2fe' }}>
+              {[...(meta?.externos ?? [])].sort((a, b) => b.demandas - a.demandas).map(e => (
+                <tr key={e.nome}>
+                  <td className="px-3 py-1 font-medium" style={{ color: '#160F41' }}>{e.nome}</td>
+                  <td className="px-3 py-1 text-right" style={{ color: '#160F41' }}>{e.demandas}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[10px] mt-2" style={{ color: '#6b6b8a' }}>
+            Pagam o jurídico DIRETAMENTE e não são clientes da base — a medição grava o board
+            inteiro, mas estes ficam fora do denominador do custo/demanda, do rateio e da cortesia.
           </p>
         </div>
       )}

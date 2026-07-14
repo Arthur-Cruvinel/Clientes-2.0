@@ -1950,12 +1950,15 @@ export async function corrigirEntradaMapeamentoSiglas(
 // não toca motor/DRE/fechamentos.
 // ============================================================
 
-export type AlvoMonday = 'cliente' | 'casa';
+// 'externo' = pessoa que paga o jurídico DIRETAMENTE e NÃO é cliente da base
+// (ex.: Celina Locks, Junior Cigano). Não é 'cliente' (cadastrar poluiria a base
+// com não-clientes) nem 'casa' (inflaria o custo da Galáticos com demanda alheia).
+export type AlvoMonday = 'cliente' | 'casa' | 'externo';
 
 /** Entrada do de-para Monday persistido no Firestore. */
 export interface EntradaMapeamentoMonday {
   nome_monday: string;              // nome como no dashboard Monday (base do docId + chave)
-  alvo: AlvoMonday;                 // 'cliente' → resolve id_estavel · 'casa' → fora do rateio
+  alvo: AlvoMonday;                 // 'cliente' → id_estavel · 'casa' → interno · 'externo' → paga direto, fora do pool
   id_estavel_cliente?: string;      // preenchido quando alvo='cliente'
   nome_cliente_canonico?: string;   // denormalizado p/ exibição
   registrado_em: string;            // ISO
@@ -2010,15 +2013,23 @@ export async function buscarUniversoJuridico(): Promise<{ nome: string; id_estav
 // relatório — nada disto entra no motor de custo/DRE.
 
 export interface ConsumoClienteDoc { id_estavel_cliente: string; nome_cliente: string; demandas: number; }
+/** Externo: paga o jurídico direto, não é cliente da base → não vira doc em clientes/. */
+export interface ConsumoExternoDoc { nome: string; demandas: number; }
 export interface ConsumoPeriodoDoc {
   periodo: string; total_demandas: number; total_nao_casa: number; casa_demandas: number;
+  // CASA é persistida só como CONTAGEM (sem nomes). Externos precisam de nome+demandas,
+  // então moram aqui na meta como lista — e, por não virarem doc em clientes/, já ficam
+  // naturalmente fora do denominador do custo/demanda. Ausente = snapshot pré-'externo'.
+  externos?: ConsumoExternoDoc[]; externos_demandas?: number;
   n_clientes: number; registrado_em: string; registrado_por?: string;
 }
 
 /** Grava (idempotente) o snapshot do período: apaga clientes que saíram, reescreve os
- *  atuais e a meta. Reimportar o mesmo período substitui — não acumula lixo. */
+ *  atuais e a meta. Reimportar o mesmo período substitui — não acumula lixo.
+ *  `total_demandas` = o board INTEIRO (clientes + casa + externos). */
 export async function salvarSnapshotConsumoJuridico(
-  periodo: string, clientes: ConsumoClienteDoc[], casaDemandas: number, registrador?: string,
+  periodo: string, clientes: ConsumoClienteDoc[], casaDemandas: number,
+  externos: ConsumoExternoDoc[] = [], registrador?: string,
 ): Promise<void> {
   const col = collection(db, 'consumo_juridico', periodo, 'clientes');
   const existentes = await getDocs(col);
@@ -2027,9 +2038,12 @@ export async function salvarSnapshotConsumoJuridico(
   for (const d of existentes.docs) if (!novosIds.has(d.id)) batch.delete(d.ref);
   for (const c of clientes) batch.set(doc(col, c.id_estavel_cliente), c);
   const totalNaoCasa = clientes.reduce((s, c) => s + c.demandas, 0);
+  const externosDemandas = externos.reduce((s, e) => s + e.demandas, 0);
   batch.set(doc(db, 'consumo_juridico', periodo), {
-    periodo, total_demandas: totalNaoCasa + casaDemandas, total_nao_casa: totalNaoCasa,
-    casa_demandas: casaDemandas, n_clientes: clientes.length, registrado_em: new Date().toISOString(),
+    periodo, total_demandas: totalNaoCasa + casaDemandas + externosDemandas,
+    total_nao_casa: totalNaoCasa, casa_demandas: casaDemandas,
+    externos, externos_demandas: externosDemandas,
+    n_clientes: clientes.length, registrado_em: new Date().toISOString(),
     ...(registrador ? { registrado_por: registrador } : {}),
   });
   await batch.commit();
