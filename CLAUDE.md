@@ -12,6 +12,64 @@ Este arquivo é a fonte da verdade para o Claude Code ao trabalhar neste reposit
 
 ---
 
+## Âncoras do dinheiro (2026-01 / presumido)
+
+Toda frente reafirma estes números ao terminar. **Baseline redefinido em 15/07/2026**
+(ver "Incidente 2026-01" abaixo):
+
+| Âncora | Valor |
+|---|---|
+| Σ custo_direto | **125.237,80** |
+| Σ EBITDA | **+3.706,12** |
+| Σ receita_bruta | **467.921,15** |
+| Δ partição folha | **0,00** |
+| Clientes ativos processados | **82** |
+
+Marco zero do baseline: dump `backups/firestore/pre-baseline-*_2026-07-15T18-04-35.json`
+(477 docs — clientes_base, fechamentos/2026-01 completo, consumo_juridico,
+periodos_status, mapeamento_monday).
+
+### Incidente 2026-01 (jul/2026)
+
+**O que aconteceu.** Em **2026-07-10T14:40:41Z** o snapshot `fechamentos/2026-01/clientes`
+foi **sobrescrito pela base viva**: um re-fechamento via régua → `fecharPeriodo`, que faz
+**wipe + recópia de `clientes_base`** (`firebase.ts`, introduzido em `ead1236` para curar
+a duplicação slug/UUID). Re-fechar um mês antigo não o recongela — **carimba a base de
+hoje como se fosse aquele mês**. Rastro: `periodos_status/2026-01` tem `checklist_manual`
+(campo que só a régua grava) e `fechado_em` naquele timestamp.
+
+**Âncoras históricas — IRRECUPERÁVEIS por cliente:**
+`Σ custo_direto 134.376,84 · Σ EBITDA −4.424,03 · Σ receita_bruta 459.021,15 · 83 clientes`.
+Sobrevivem apenas como agregados (aqui e em `audit-results/`). Não há artefato com
+granularidade por cliente daquele estado: PITR estava **desligado** (janela real de 1h,
+não 7 dias), zero backups na GCP, e o único dump local por cliente é de 17/06 — de outra
+era (178 docs, com a duplicação slug+UUID pré-`ead1236`).
+
+**Reconstrução tentada em 15/07 e PARADA por critério objetivo:** o diff entre o snapshot
+de hoje e o dump de 17/06 deu **481 campos divergentes em 82 de 96 clientes** (limite
+acordado: ~15). A maior parte é evolução legítima de 3 semanas (78× backfill de
+`data_entrada`, ~220× redistribuição de `pct_*`, renomeações da Peça 3). Além disso o alvo
+está **fora do intervalo das fontes** (receita: 17/06 = 486.162,36 · hoje = 467.921,15 ·
+alvo = 459.021,15) e os fees se moveram nos dois sentidos — não há caminho monotônico.
+Fechar os 4 agregados ao centavo seria ajuste de curva, não reconstrução. **Re-baseline
+aceito pelo CFO.**
+
+**Blindagem aplicada em 15/07:** delete protection **ENABLED**; dump local
+`scripts/dump-firestore.mjs` (rodar ANTES de qualquer operação destrutiva).
+PITR e backup agendado **exigem plano Blaze** (403 billing) — pendentes de decisão.
+
+> **RISCO ESTRUTURAL AINDA ABERTO — `clientes_base` sofre escrita por efeito colateral.**
+> O backfill de `data_entrada` roda ao **abrir a aba Perfil** (`usePerfil` →
+> `buscarPrimeiroRegistroPoupanca` → `salvarClienteBase`) e grava no master sem ninguém
+> pedir. Combinado com `fecharPeriodo` copiando `clientes_base`, **a base muda sozinha e
+> cada re-fechamento carimba um estado diferente** — o drift de janeiro não foi um
+> acidente pontual, foi estrutural.
+> **Frentes futuras nomeadas:** (1) *backfill vira ação explícita* — nada de escrita no
+> master por efeito colateral de renderização; (2) *re-fechar não reescreve snapshot* —
+> proteger `fecharPeriodo` (cuidado: remover o wipe ressuscita o Bug Arquitetural #1).
+
+---
+
 ## Stack Tecnológica
 
 | Camada | Tecnologia |
@@ -1251,8 +1309,8 @@ nomes de cliente inventados (NUNCA reais — verificado contra `clientes_base`),
 "● Dados ilustrativos" em todos, zero fetch/lógica. Nenhuma frente liga dado real a um
 mockup sem **decisão explícita do CFO** — a construção real de um módulo da vitrine é
 **frente própria** (read-only → portão → commits), não um "ligar o Firestore" no mockup.
-Tocar um mockup = presentation-only, dinheiro reafirmado (Σ custo_direto 134.376,84 /
-Σ EBITDA −4.424,03 no período 2026-01/presumido).
+Tocar um mockup = presentation-only, dinheiro reafirmado (Σ custo_direto 125.237,80 /
+Σ EBITDA +3.706,12 no período 2026-01/presumido — ver "Incidente 2026-01").
 
 ---
 
