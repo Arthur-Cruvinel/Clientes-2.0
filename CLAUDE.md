@@ -54,9 +54,29 @@ alvo = 459.021,15) e os fees se moveram nos dois sentidos — não há caminho m
 Fechar os 4 agregados ao centavo seria ajuste de curva, não reconstrução. **Re-baseline
 aceito pelo CFO.**
 
-**Blindagem aplicada em 15/07:** delete protection **ENABLED**; dump local
-`scripts/dump-firestore.mjs` (rodar ANTES de qualquer operação destrutiva).
-PITR e backup agendado **exigem plano Blaze** (403 billing) — pendentes de decisão.
+**Blindagem aplicada em 15/07:** delete protection **ENABLED**; snapshot existente virou
+**imutável** (`fecharPeriodo` guarda pela subcoleção — ver abaixo); dump local
+`scripts/dump-firestore.mjs`. PITR e backup agendado **exigem plano Blaze** (403 billing)
+— pendentes de decisão.
+
+> **REGRA OPERACIONAL — rode o dump antes de fechar.** Enquanto o PITR não existir, o
+> único paraquedas é o dump local. **Antes de qualquer fechamento de período** (ou de
+> qualquer operação destrutiva: migração, cleanup, delete em massa):
+> ```
+> node scripts/dump-firestore.mjs <rotulo>
+> ```
+> Grava `backups/firestore/<rotulo>-<escopo>_<ISO>.json` — formato `[{docId, data}]`,
+> o mesmo dos dumps históricos, restaurável pelo mesmo caminho.
+
+**Snapshot de período é IMUTÁVEL (desde 15/07).** `fecharPeriodo` guarda pela
+**subcoleção**, não pela flag: se `fechamentos/{periodo}/clientes` tem ≥1 doc, nada é
+apagado nem re-copiado — só `periodos_status` muda (fechado, checklist_manual,
+fechado_em/por; `total_clientes`/`receita_total` são preservados, pois descrevem o
+snapshot). Isso cobre Reabrir→Fechar (reabrir só muda a flag; os docs seguem lá,
+seguem protegidos). A **primeira** modalidade (subcoleção vazia) é idêntica à de antes,
+wipe do `ead1236` incluído — é ele que faz o snapshot nascer 100% UUID (Bug #1 curado).
+**Não existe caminho que sobrescreva um snapshot, nem com confirmação**; recongelar de
+propósito é frente futura, com desenho próprio e backup antes.
 
 > **RISCO ESTRUTURAL AINDA ABERTO — `clientes_base` sofre escrita por efeito colateral.**
 > O backfill de `data_entrada` roda ao **abrir a aba Perfil** (`usePerfil` →

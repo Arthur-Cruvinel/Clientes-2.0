@@ -1675,6 +1675,31 @@ export async function buscarStatusPeriodo(periodo: string): Promise<PeriodoStatu
   }
 }
 
+/** Há snapshot de clientes gravado para o período? É a GUARDA de imutabilidade:
+ *  ≥1 doc em fechamentos/{periodo}/clientes = snapshot existe = intocável.
+ *  Guarda pela SUBCOLEÇÃO, não pela flag `fechado` — reabrir só muda a flag, os
+ *  docs continuam lá, então Reabrir→Fechar também fica protegido. */
+export async function periodoTemSnapshotClientes(periodo: string): Promise<boolean> {
+  const snap = await getDocs(collection(db, 'fechamentos', periodo, 'clientes'));
+  return !snap.empty;
+}
+
+/** Fecha o período.
+ *
+ *  ── SNAPSHOT EXISTENTE É IMUTÁVEL (Incidente 2026-01) ────────────────────────
+ *  Em 10/07/2026 um re-fechamento sobrescreveu o snapshot de janeiro com a base
+ *  VIVA (wipe + recópia), destruindo o congelamento — e `clientes_base` muda
+ *  sozinha (backfill de data_entrada ao abrir o Perfil), então cada re-fechamento
+ *  carimbava um estado diferente. As âncoras antigas ficaram irrecuperáveis.
+ *
+ *  Agora: se `fechamentos/{periodo}/clientes` tem ≥1 doc, NADA é apagado nem
+ *  re-copiado — só o status é atualizado. NÃO existe caminho que sobrescreva um
+ *  snapshot, nem com confirmação. Recongelar de propósito é frente futura (com
+ *  desenho próprio e backup antes).
+ *
+ *  A PRIMEIRA modalidade (subcoleção vazia) segue idêntica, wipe do ead1236
+ *  incluído — é ele que garante o snapshot nascendo 100% UUID (Bug Arquitetural
+ *  #1 permanece curado). */
 export async function fecharPeriodo(
   periodo: string,
   dados: {
@@ -1684,6 +1709,26 @@ export async function fecharPeriodo(
     checklist_manual?: ChecklistManualFechamento;
   },
 ): Promise<void> {
+  // ── GUARDA: snapshot existente → só o status muda. ──────────────────────────
+  if (await periodoTemSnapshotClientes(periodo)) {
+    // total_clientes/receita_total NÃO são reescritos: eles descrevem o SNAPSHOT
+    // (gravados por quem o criou). Se o período estiver reaberto, o motor está
+    // lendo clientes_base — regravá-los aqui faria o status mentir sobre o
+    // snapshot congelado. Preserva os do fechamento original.
+    const anterior = await buscarStatusPeriodo(periodo);
+    await setDoc(doc(db, 'periodos_status', periodo), {
+      periodo,
+      fechado: true,
+      fechado_em: new Date().toISOString(),
+      fechado_por: dados.fechado_por,
+      total_clientes: anterior?.total_clientes ?? dados.total_clientes,
+      receita_total: anterior?.receita_total ?? dados.receita_total,
+      ...(dados.checklist_manual ? { checklist_manual: dados.checklist_manual } : {}),
+    } satisfies PeriodoStatus);
+    console.log(`[Firebase] Período ${periodo}: snapshot PRESERVADO (imutável) — só o status foi atualizado.`);
+    return;
+  }
+
   // 1. WIPE — apaga o snapshot de clientes do período ANTES de regravar.
   //    Sem isto, fechar acumulava lixo: docs do esquema legado (slug) conviviam
   //    com a baseline-UUID, duplicando a base (Bug Arquitetural #1). Com o wipe,

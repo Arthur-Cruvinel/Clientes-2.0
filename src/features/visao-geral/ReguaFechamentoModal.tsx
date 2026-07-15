@@ -9,7 +9,9 @@ import { Check, X, Info, Loader2, Lock } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
-import { buscarClientesBase, buscarCustosDedicados, fecharPeriodo } from '../../services/firebase';
+import {
+  buscarClientesBase, buscarCustosDedicados, fecharPeriodo, periodoTemSnapshotClientes,
+} from '../../services/firebase';
 import {
   rodarReguaFechamento, reguaArmada, type CheckFechamento,
 } from '../../utils/reguaFechamento';
@@ -31,6 +33,8 @@ export function ReguaFechamentoModal(
   // + subconjunto ativo) + presença de custosDedicados próprios do período.
   const [clientesBase, setClientesBase] = useState<Cliente[] | null>(null);
   const [temCustosDedicados, setTemCustosDedicados] = useState<boolean | null>(null);
+  // Snapshot já existe? → é IMUTÁVEL: fechar só atualiza o checklist/status.
+  const [temSnapshot, setTemSnapshot] = useState<boolean | null>(null);
   const [erroInsumos, setErroInsumos] = useState<string | null>(null);
   const [checklist, setChecklist] = useState<ChecklistManualFechamento>({
     alocacoes_revisadas: false, poupanca_aum_validado: false, custos_dedicados_conferidos: false,
@@ -41,13 +45,15 @@ export function ReguaFechamentoModal(
     let cancelado = false;
     (async () => {
       try {
-        const [base, dedicados] = await Promise.all([
+        const [base, dedicados, snap] = await Promise.all([
           buscarClientesBase(),
           buscarCustosDedicados(periodoSelecionado),
+          periodoTemSnapshotClientes(periodoSelecionado),
         ]);
         if (cancelado) return;
         setClientesBase(base);
         setTemCustosDedicados(dedicados.length > 0);
+        setTemSnapshot(snap);
       } catch (e) {
         if (!cancelado) setErroInsumos(e instanceof Error ? e.message : String(e));
       }
@@ -55,7 +61,7 @@ export function ReguaFechamentoModal(
     return () => { cancelado = true; };
   }, [periodoSelecionado]);
 
-  const carregandoInsumos = clientesBase === null || temCustosDedicados === null;
+  const carregandoInsumos = clientesBase === null || temCustosDedicados === null || temSnapshot === null;
 
   const checks = useMemo<CheckFechamento[]>(() => {
     if (carregandoInsumos || !dadosPeriodo) return [];
@@ -77,6 +83,8 @@ export function ReguaFechamentoModal(
 
   const armada = checks.length > 0 && reguaArmada(checks);
   const podeFechar = armada && !periodoFechado && !fechando;
+  // Snapshot existente = imutável: a ação vira "atualizar checklist", nunca re-gravar.
+  const soChecklist = temSnapshot === true;
 
   async function handleFecharMes() {
     if (!podeFechar || !dadosPeriodo) return;
@@ -154,19 +162,30 @@ export function ReguaFechamentoModal(
           </div>
         </div>
 
+        {/* Snapshot existente → o congelamento é intocável (Incidente 2026-01) */}
+        {soChecklist && (
+          <div className="rounded-lg p-3 text-[12px]" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af' }}>
+            <strong>Este período já tem snapshot congelado — ele NÃO será tocado.</strong> Salvar aqui
+            atualiza apenas o checklist e o status do fechamento; nenhum dado de cliente é apagado ou
+            regravado. Recongelar um período a partir da base atual não é possível por esta tela.
+          </div>
+        )}
+
         {/* Ação */}
         <div className="flex items-center justify-between gap-3 pt-1 border-t" style={{ borderColor: '#e2e2e8' }}>
           <p className="text-xs" style={{ color: '#6b6b8a' }}>
             {periodoFechado
               ? 'Período já está fechado.'
               : armada
-                ? 'Todas as verificações passaram — pode fechar.'
+                ? (soChecklist
+                  ? 'Verificações OK — o snapshot existente permanece como está.'
+                  : 'Todas as verificações passaram — pode fechar.')
                 : 'Fechar o mês exige todas as verificações automáticas (exceto a informativa) OK.'}
           </p>
           <button onClick={handleFecharMes} disabled={!podeFechar}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
             {fechando ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
-            {fechando ? 'Fechando…' : 'Fechar mês'}
+            {fechando ? 'Salvando…' : soChecklist ? 'Atualizar checklist' : 'Fechar mês'}
           </button>
         </div>
       </div>
