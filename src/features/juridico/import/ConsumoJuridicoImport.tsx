@@ -9,8 +9,10 @@ import { useApp } from '../../../state/AppContext';
 import { useAuth } from '../../../state/AuthContext';
 import {
   buscarMapeamentoMonday, salvarEntradaMapeamentoMonday, buscarUniversoJuridico,
-  salvarSnapshotConsumoJuridico, type EntradaMapeamentoMonday,
+  salvarSnapshotConsumoJuridico, buscarClientesBase, salvarClienteBase,
+  type EntradaMapeamentoMonday,
 } from '../../../services/firebase';
+import type { Cliente } from '../../../types';
 import { NovoClienteModal } from '../../perfil/NovoClienteModal';
 import { parseContagens } from './parseContagens';
 import { casarNomeMonday, normNome, type ClienteUniverso, type Resolucao } from './resolverMonday';
@@ -45,6 +47,7 @@ export function ConsumoJuridicoImport() {
   const [texto, setTexto] = useState('');
   const [dePara, setDePara] = useState<Record<string, EntradaMapeamentoMonday>>({});
   const [universo, setUniverso] = useState<ClienteUniverso[]>([]);
+  const [base, setBase] = useState<Cliente[]>([]);   // clientes_base COMPLETO (flag + docId)
   const [carregando, setCarregando] = useState(true);
   const [versao, setVersao] = useState(0);         // recarrega de-para/universo após resolução
   const [cadastrarPara, setCadastrarPara] = useState<string | null>(null);
@@ -117,12 +120,16 @@ export function ConsumoJuridicoImport() {
     }
   }
 
+  // buscarUniversoJuridico devolve só { nome, id_estavel } — NÃO carrega a flag nem o
+  // docId. Então a base COMPLETA vem à parte (buscarClientesBase, o mesmo reader do
+  // AppContext): dela sai o estado de juridico_fora_do_pool e o objeto Cliente real
+  // que salvarClienteBase exige. O universo do matcher fica intocado.
   useEffect(() => {
     let vivo = true;
     setCarregando(true);
-    Promise.all([buscarMapeamentoMonday(), buscarUniversoJuridico()]).then(([dp, uni]) => {
+    Promise.all([buscarMapeamentoMonday(), buscarUniversoJuridico(), buscarClientesBase()]).then(([dp, uni, cb]) => {
       if (!vivo) return;
-      setDePara(dp); setUniverso(uni); setCarregando(false);
+      setDePara(dp); setUniverso(uni); setBase(cb); setCarregando(false);
     });
     return () => { vivo = false; };
   }, [versao]);
@@ -252,6 +259,21 @@ export function ConsumoJuridicoImport() {
   const checkSalvo = (nome: string) => classificado === nome
     ? <span className="text-[11px] font-bold shrink-0" style={{ color: '#166534' }}>✓ salvo</span>
     : null;
+
+  // ── Flag "paga o jurídico direto" — MESMA de EditarClienteModal ──────────────
+  // Uma só verdade: lê de clientes_base e grava por salvarClienteBase (a rota do
+  // modal e da atribuição em lote). Sem campo paralelo, sem cópia — mudar aqui
+  // reflete no modal e vice-versa. NENHUM cálculo lê a flag ainda.
+  const basePorId = useMemo(
+    () => new Map(base.filter(c => c.id_estavel).map(c => [c.id_estavel!, c])),
+    [base]);
+
+  async function alternarForaDoPool(cliente: Cliente, valor: boolean, nomeMonday: string) {
+    await salvarClienteBase({ ...cliente, juridico_fora_do_pool: valor });
+    setClassificado(nomeMonday);
+    setTimeout(() => setClassificado(v => (v === nomeMonday ? null : v)), 2000);
+    setVersao(v => v + 1);   // recarrega a base → checkbox reflete o persistido
+  }
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -418,6 +440,19 @@ export function ConsumoJuridicoImport() {
                   {selectAlvo(m.nome_monday, valorDoAlvo(m))}
                   {checkSalvo(m.nome_monday)}
                 </div>
+                {/* Só para cliente casado: CASA/Externo não têm cadastro onde a flag viva. */}
+                {m.alvo === 'cliente' && m.id_estavel_cliente && (() => {
+                  const cli = basePorId.get(m.id_estavel_cliente!);
+                  if (!cli) return null;
+                  return (
+                    <label className="flex items-center gap-1.5 mt-1.5 text-[11px] cursor-pointer w-fit" style={{ color: '#6b6b8a' }}
+                      title="Marca do cadastro do cliente (a mesma do Perfil → Editar → Configuração): as demandas dele não consomem o pool da Galáticos.">
+                      <input type="checkbox" checked={cli.juridico_fora_do_pool ?? false}
+                        onChange={e => alternarForaDoPool(cli, e.target.checked, m.nome_monday)} />
+                      paga o jurídico direto (fora do pool)
+                    </label>
+                  );
+                })()}
               </div>
             ))}
           </div>
