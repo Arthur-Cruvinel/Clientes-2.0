@@ -542,12 +542,21 @@ function somarPorTipo(custos: CustoIndireto[], tipo: CustoIndireto['tipo_custo']
   return custos.filter(ci => ci.tipo_custo === tipo).reduce((s, ci) => s + ci.valor_mensal, 0);
 }
 
+/** Consumo jurídico MEDIDO do período (Fase 2), denormalizado no snapshot
+ *  consumo_juridico/{periodo} e montado pelo AppContext. `mmPorIdEstavel` traz o
+ *  consumo_mm por cliente; `casaMM` a fatia da própria casa. Ausente/vazio → o
+ *  rateio cai no driver legado (peso_juridico). */
+export interface ConsumoJuridicoPeriodo {
+  mmPorIdEstavel: Map<string, number>;
+  casaMM: number;
+}
+
 /** Rateio dos três pools para um cliente, RETORNADO SEPARADO por tipo.
- *  - geral: pool indireto (5 categorias + institucional + ociosidade).
+ *  - geral: pool indireto (5 categorias + institucional + ociosidade + fatia CASA
+ *    do jurídico quando o driver de consumo está ativo).
  *  - juridico/conciliacao: rateios DIRETOS — o DRE os soma ao custo DEDICADO
  *    do cliente (decisão CFO: Consultoria & Legal é despesa direta), NÃO ao
- *    custo_indireto_rateado. As fórmulas de rateio (peso/volume) são intocadas;
- *    só o destino da soma muda (feito em calcularDRE). */
+ *    custo_indireto_rateado. */
 export function calcularCustosIndiretos(
   cliente: Cliente,
   custoDiretoCliente: number,
@@ -558,10 +567,45 @@ export function calcularCustosIndiretos(
   // pré-computado UMA vez pelo pipeline (calcularCustoInstitucional +
   // calcularOciosidade). Entra no pool geral, mesma regra de rateio.
   poolNaoAlocado: number,
+  // Fase 2: consumo medido do período. Sem isto (ou vazio) → driver legado (peso).
+  consumoJuridico?: ConsumoJuridicoPeriodo,
 ): { geral: number; juridico: number; conciliacao: number } {
-  // Pool geral = itens 'geral' + (institucional + ociosidade). Rateio
-  // proporcional ao custo direto. Pure asset (custo direto = 0) é EXCLUÍDO.
-  const poolGeral = somarPorTipo(custosIndiretos, 'geral') + poolNaoAlocado;
+  const totalJuridico = somarPorTipo(custosIndiretos, 'juridico');
+
+  // ── Jurídico: driver por CONSUMO MEDIDO (Fase 2) com fallback por peso ──────
+  // Recebem TODOS os que consomem o pool — com ou sem utiliza_servico_juridico
+  // (cortesia recebe custo: o DRE fica honesto; a flag vira atributo comercial,
+  // não portão de custo). Ficam FORA: casa (fatia retida abaixo), externos (nem
+  // viram cliente no snapshot) e juridico_fora_do_pool (pagam o jurídico direto).
+  // A fatia da CASA sai do rateio a clientes e vai para o pool GERAL (institucional)
+  // — não evapora do DRE: o dinheiro é gasto, só deixa de ser dedicado de cliente.
+  let parcelaJuridico = 0;
+  let fatiaCasaJuridico = 0;
+  const usaConsumo = !!consumoJuridico && consumoJuridico.mmPorIdEstavel.size > 0;
+  if (usaConsumo) {
+    const cj = consumoJuridico!;
+    const mmDe = (c: Cliente) =>
+      (c.juridico_fora_do_pool || !c.id_estavel) ? 0 : (cj.mmPorIdEstavel.get(c.id_estavel) ?? 0);
+    const base = todosClientes.reduce((s, c) => s + mmDe(c), 0) + cj.casaMM;
+    if (base > 0) {
+      parcelaJuridico = totalJuridico * (mmDe(cliente) / base);
+      fatiaCasaJuridico = totalJuridico * (cj.casaMM / base);
+    }
+  } else if (cliente.utiliza_servico_juridico) {
+    // Legado: rateado por peso_juridico entre clientes com utiliza_servico_juridico.
+    // peso_juridico NÃO foi apagado — é o fallback de período sem snapshot/MM.
+    const totalPesos = todosClientes
+      .filter(c => c.utiliza_servico_juridico)
+      .reduce((s, c) => s + (c.peso_juridico ?? 1.0), 0);
+    if (totalPesos > 0) {
+      parcelaJuridico = totalJuridico * ((cliente.peso_juridico ?? 1.0) / totalPesos);
+    }
+  }
+
+  // Pool geral = itens 'geral' + (institucional + ociosidade) + fatia CASA do
+  // jurídico. Rateio proporcional ao custo direto. Pure asset (custo direto = 0)
+  // é EXCLUÍDO.
+  const poolGeral = somarPorTipo(custosIndiretos, 'geral') + poolNaoAlocado + fatiaCasaJuridico;
 
   const somaCustoDireto = todosClientes.reduce(
     (s, c) => s + Math.max(0, todosCustosDiretos[c.nome_cliente] ?? 0), 0,
@@ -570,18 +614,6 @@ export function calcularCustosIndiretos(
   let parcelaGeral = 0;
   if (custoDiretoCliente > 0 && somaCustoDireto > 0) {
     parcelaGeral = poolGeral * (custoDiretoCliente / somaCustoDireto);
-  }
-
-  // Jurídico: rateado por peso_juridico entre clientes com utiliza_servico_juridico.
-  let parcelaJuridico = 0;
-  if (cliente.utiliza_servico_juridico) {
-    const totalJuridico = somarPorTipo(custosIndiretos, 'juridico');
-    const totalPesos = todosClientes
-      .filter(c => c.utiliza_servico_juridico)
-      .reduce((s, c) => s + (c.peso_juridico ?? 1.0), 0);
-    if (totalPesos > 0) {
-      parcelaJuridico = totalJuridico * ((cliente.peso_juridico ?? 1.0) / totalPesos);
-    }
   }
 
   // Conciliação: rateado por volume_movimentos_mes entre clientes com utiliza_conciliacao.

@@ -18,8 +18,11 @@ import {
   verificarPeriodoVazio,
   buscarPeriodoAnterior,
   copiarPeriodo,
+  buscarPeriodosConsumoJuridico,
+  buscarConsumoClientesJuridico,
 } from '../services/firebase';
 import { processarPeriodo, calcularFolhaColaborador, resolverClientePorPeriodo } from '../utils/financials';
+import type { ConsumoJuridicoPeriodo } from '../utils/financials.custos';
 import { buscarAumPorPeriodo, type AumCliente } from '../services/aumIntegration';
 import { ModalCopiarPeriodo, type ResumoCopia } from '../components/ui/ModalCopiarPeriodo';
 
@@ -254,6 +257,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // propaga para calcularCustoDireto. Vínculo com pct > 0 substitui o
       // fallback de nome no campo do cliente. Como hoje todos os 860 vínculos
       // têm pct=0, o comportamento é idêntico ao legado até Peça 6 popular pct.
+      // ── Consumo jurídico medido do período (Fase 2) ──────────────────────────
+      // Lê o snapshot com a MM já DENORMALIZADA (nada de calcular média móvel na
+      // leitura — o AppContext segue mono-período). Período sem snapshot, ou com
+      // snapshot antigo sem consumo_mm, devolve undefined → o motor cai no driver
+      // legado por peso_juridico e o período não move um centavo.
+      let consumoJuridico: ConsumoJuridicoPeriodo | undefined;
+      try {
+        const [metasCJ, clientesCJ] = await Promise.all([
+          buscarPeriodosConsumoJuridico(),
+          buscarConsumoClientesJuridico(periodo),
+        ]);
+        const metaCJ = metasCJ.find(m => m.periodo === periodo);
+        const comMM = clientesCJ.filter(c => typeof c.consumo_mm === 'number');
+        if (metaCJ && comMM.length > 0) {
+          consumoJuridico = {
+            mmPorIdEstavel: new Map(comMM.map(c => [c.id_estavel_cliente, c.consumo_mm!])),
+            casaMM: metaCJ.casa_mm ?? 0,
+          };
+        }
+      } catch (e) {
+        console.warn('[AppContext] Consumo jurídico indisponível — rateio cai no peso:', e);
+      }
+
       const resultados = processarPeriodo(
         todosClientes,
         colaboradores,
@@ -262,6 +288,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         regimeAtual,
         vinculos,
         { onshore: params.aliquota_rebate_onshore, offshore: params.aliquota_rebate_offshore },
+        consumoJuridico,
       );
 
       // Totais consolidados — calculados uma vez aqui para evitar repetir nos consumidores.

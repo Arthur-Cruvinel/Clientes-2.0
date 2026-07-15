@@ -9,6 +9,7 @@ import type {
 import type { Vinculo } from '../types/vinculo';
 import {
   calcularCustoDireto, calcularCustoInstitucional, somarPctPorColaborador,
+  type ConsumoJuridicoPeriodo,
 } from './financials.custos';
 import { calcularFatorNormalizacao, calcularOciosidade } from './financials.alocacao';
 import { calcularDRE } from './financials.dre';
@@ -27,6 +28,10 @@ export function processarPeriodo(
   // Alíquotas globais de retenção do rebate por perna (parametros/global).
   // Opcional: sem isto, calcularReceita usa os defaults constantes (nunca 0).
   aliquotasRebate?: AliquotasRebate,
+  // Consumo jurídico medido do período (Fase 2 — snapshot consumo_juridico com a MM
+  // denormalizada). Ausente → o rateio jurídico cai no driver legado (peso_juridico),
+  // então período sem snapshot (ex.: 2026-01) não move um centavo.
+  consumoJuridico?: ConsumoJuridicoPeriodo,
   // Retorno é o array de resultados COM a propriedade `deltaFolha` anexada
   // (Commit B — régua de fechamento). deltaFolha = folha − (direto+inst+ociosidade),
   // o Δ da partição que antes só ia para o console.log. Anexar ao array não muda
@@ -58,7 +63,7 @@ export function processarPeriodo(
     const poupanca = poupancaPorNome.get(c.nome_cliente);
     return calcularDRE(
       c, colaboradores, clientes, todosCustosDiretos, custosIndiretos, regime, poupanca, vinculos,
-      fatorNorm, poolNaoAlocado, aliquotasRebate,
+      fatorNorm, poolNaoAlocado, aliquotasRebate, consumoJuridico,
     );
   });
 

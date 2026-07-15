@@ -9,7 +9,7 @@ import type { Vinculo } from '../types/vinculo';
 import { ALIQUOTAS } from './constants';
 import {
   calcularCustoDireto, calcularCustosIndiretos, calcularFatoresEscopo,
-  calcularCustoInstitucional, detalharMaoDeObra,
+  calcularCustoInstitucional, detalharMaoDeObra, type ConsumoJuridicoPeriodo,
 } from './financials.custos';
 import { calcularReceita, type AliquotasRebate } from './financials.receita';
 
@@ -49,6 +49,8 @@ export function calcularDRE(
   // Alíquotas globais de retenção do rebate por perna (parametros/global).
   // Sem isto, calcularReceita cai nos defaults constantes (nunca 0).
   aliquotasRebate?: AliquotasRebate,
+  // Consumo jurídico medido do período (Fase 2). Ausente → rateio jurídico por peso.
+  consumoJuridico?: ConsumoJuridicoPeriodo,
 ): ResultadoCliente {
   const { receita_fee, receita_rebate, receita_bruta } = calcularReceita(cliente, poupanca, aliquotasRebate);
   const perfil = definirPerfil(receita_fee, receita_rebate, cliente.pacote_servico);
@@ -70,7 +72,7 @@ export function calcularDRE(
   // dedicado — decisão CFO); só `geral` é custo_indireto_rateado.
   const rateios = calcularCustosIndiretos(
     cliente, custo_direto, todosClientes, todosCustosDiretos,
-    custosIndiretos, pool,
+    custosIndiretos, pool, consumoJuridico,
   );
 
   const custo_dedicado_contabilidade = cliente.custo_contabilidade_dedicado ?? 0;
