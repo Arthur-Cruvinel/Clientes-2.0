@@ -26,7 +26,7 @@ const CHECKBOXES: { chave: keyof ChecklistManualFechamento; label: string }[] = 
 export function ReguaFechamentoModal(
   { onFechar, onFechado }: { onFechar: () => void; onFechado: (msg: string) => void },
 ) {
-  const { periodoSelecionado, dadosPeriodo, periodoFechado, recarregar } = useApp();
+  const { periodoSelecionado, dadosPeriodo, periodoFechado, statusPeriodo, recarregar } = useApp();
   const { usuario } = useAuth();
 
   // Insumos que exigem leitura (os demais vêm de memória): base master (completa
@@ -36,9 +36,16 @@ export function ReguaFechamentoModal(
   // Snapshot já existe? → é IMUTÁVEL: fechar só atualiza o checklist/status.
   const [temSnapshot, setTemSnapshot] = useState<boolean | null>(null);
   const [erroInsumos, setErroInsumos] = useState<string | null>(null);
-  const [checklist, setChecklist] = useState<ChecklistManualFechamento>({
-    alocacoes_revisadas: false, poupanca_aum_validado: false, custos_dedicados_conferidos: false,
-  });
+  // Pré-carrega o checklist JÁ GRAVADO em periodos_status/{periodo}. Antes nascia
+  // sempre zerado e o save sobrescrevia o histórico — "Atualizar checklist" apagava
+  // as conferências anteriores (visto na prova de imutabilidade de 15/07). Ausente
+  // → false. Inicializador lazy: o modal remonta a cada abertura ({reguaAberta &&}),
+  // então relê o gravado toda vez, sem pisar em edição em curso.
+  const [checklist, setChecklist] = useState<ChecklistManualFechamento>(() => ({
+    alocacoes_revisadas: statusPeriodo?.checklist_manual?.alocacoes_revisadas ?? false,
+    poupanca_aum_validado: statusPeriodo?.checklist_manual?.poupanca_aum_validado ?? false,
+    custos_dedicados_conferidos: statusPeriodo?.checklist_manual?.custos_dedicados_conferidos ?? false,
+  }));
   const [fechando, setFechando] = useState(false);
 
   useEffect(() => {
