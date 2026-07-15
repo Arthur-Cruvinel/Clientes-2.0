@@ -82,9 +82,12 @@ export function ReguaFechamentoModal(
   }, [carregandoInsumos, dadosPeriodo, periodoSelecionado, clientesBase, temCustosDedicados]);
 
   const armada = checks.length > 0 && reguaArmada(checks);
-  const podeFechar = armada && !periodoFechado && !fechando;
   // Snapshot existente = imutável: a ação vira "atualizar checklist", nunca re-gravar.
   const soChecklist = temSnapshot === true;
+  // A flag `fechado` NÃO gateia a ação — quem protege é a subcoleção (guarda em
+  // fecharPeriodo). Com snapshot, salvar só atualiza status/checklist; sem snapshot,
+  // cria o congelamento. Nos dois casos a flag só descreve o estado, não protege.
+  const podeFechar = armada && !fechando;
 
   async function handleFecharMes() {
     if (!podeFechar || !dadosPeriodo) return;
@@ -174,13 +177,11 @@ export function ReguaFechamentoModal(
         {/* Ação */}
         <div className="flex items-center justify-between gap-3 pt-1 border-t" style={{ borderColor: '#e2e2e8' }}>
           <p className="text-xs" style={{ color: '#6b6b8a' }}>
-            {periodoFechado
-              ? 'Período já está fechado.'
-              : armada
-                ? (soChecklist
-                  ? 'Verificações OK — o snapshot existente permanece como está.'
-                  : 'Todas as verificações passaram — pode fechar.')
-                : 'Fechar o mês exige todas as verificações automáticas (exceto a informativa) OK.'}
+            {!armada
+              ? 'Exige todas as verificações automáticas (exceto a informativa) OK.'
+              : soChecklist
+                ? `Verificações OK — o snapshot existente permanece como está.${periodoFechado ? ' Período consta como fechado.' : ' Período consta como reaberto (a flag não afeta o congelamento).'}`
+                : 'Todas as verificações passaram — pode fechar.'}
           </p>
           <button onClick={handleFecharMes} disabled={!podeFechar}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-brand disabled:opacity-40 disabled:cursor-not-allowed shrink-0">

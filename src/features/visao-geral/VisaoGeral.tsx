@@ -1,7 +1,7 @@
 // --- Aba Visão Geral ---
 // DRE consolidado: KPIs globais + tabela com filtros/ordenação + modais de custo.
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Lock, Unlock, ShieldCheck, Copy, Loader2, Trophy, SlidersHorizontal } from 'lucide-react';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
@@ -17,7 +17,7 @@ import { ImpostosModal } from './ImpostosModal';
 import { ExportButton } from '../../components/ui/ExportButton';
 import { exportVisaoGeralExcel } from '../../utils/exporters/exportExcel';
 import { exportVisaoGeralPdf } from '../../utils/exporters/exportPdf';
-import { reabrirPeriodo, buscarClientes, db } from '../../services/firebase';
+import { reabrirPeriodo, buscarClientes, db, periodoTemSnapshotClientes } from '../../services/firebase';
 import { AgenteValidacao } from '../agente/AgenteValidacao';
 import { RankingEmpresariosModal } from './RankingEmpresariosModal';
 import { ReguaFechamentoModal } from './ReguaFechamentoModal';
@@ -56,6 +56,18 @@ export function VisaoGeral() {
   // checks + checkboxes; o fechamento real acontece lá dentro (fecharPeriodo com
   // checklist), não mais direto por confirm().
   const [reguaAberta, setReguaAberta] = useState(false);
+  // A UI do fechamento segue o MESMO critério da guarda de dados (4bf5f82):
+  // snapshot existe = protegido, independente da flag `fechado`. Reabrir só muda a
+  // flag — os docs continuam lá, então continua protegido (Incidente 2026-01).
+  const [temSnapshot, setTemSnapshot] = useState(false);
+  useEffect(() => {
+    if (!periodoSelecionado) { setTemSnapshot(false); return; }
+    let vivo = true;
+    periodoTemSnapshotClientes(periodoSelecionado)
+      .then(v => { if (vivo) setTemSnapshot(v); })
+      .catch(() => { if (vivo) setTemSnapshot(false); });
+    return () => { vivo = false; };
+  }, [periodoSelecionado, periodoFechado]);
 
   const handleReabrirPeriodo = useCallback(async () => {
     if (!periodoSelecionado) return;
@@ -277,11 +289,23 @@ export function VisaoGeral() {
               )}
             </div>
           ) : clientes.length > 0 && (
-            <button onClick={() => setReguaAberta(true)} disabled={fechandoPeriodo}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-gray-100 disabled:opacity-50"
-              style={{ color: '#6b6b8a', border: '1px solid #e2e2e8' }}>
-              <Lock size={11} /> Fechar Período
-            </button>
+            // A PROTEÇÃO é da subcoleção, não da flag: período reaberto COM snapshot
+            // continua protegido (fecharPeriodo não regrava). O rótulo tem de dizer a
+            // verdade — "Fechar Período" aqui prometeria um congelamento que não ocorre.
+            <div className="flex items-center gap-2">
+              <button onClick={() => setReguaAberta(true)} disabled={fechandoPeriodo}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-gray-100 disabled:opacity-50"
+                style={{ color: '#6b6b8a', border: '1px solid #e2e2e8' }}>
+                <Lock size={11} /> {temSnapshot ? 'Atualizar checklist' : 'Fechar Período'}
+              </button>
+              {temSnapshot && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium"
+                  style={{ backgroundColor: '#eff6ff', color: '#1e40af' }}
+                  title="Reaberto só muda a flag: o snapshot de clientes continua congelado e não será regravado.">
+                  <Lock size={10} /> snapshot congelado
+                </span>
+              )}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
