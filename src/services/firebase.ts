@@ -2012,7 +2012,13 @@ export async function buscarUniversoJuridico(): Promise<{ nome: string; id_estav
 // ACUMULADO (Jan→período); o delta mensal sai entre snapshots consecutivos. TUDO
 // relatório — nada disto entra no motor de custo/DRE.
 
-export interface ConsumoClienteDoc { id_estavel_cliente: string; nome_cliente: string; demandas: number; }
+export interface ConsumoClienteDoc {
+  id_estavel_cliente: string; nome_cliente: string; demandas: number;
+  /** Média móvel do consumo MENSAL (deltas), DENORMALIZADA na gravação — o motor lê
+   *  este número pronto; nunca se calcula MM na leitura (AppContext é mono-período).
+   *  Ausente = snapshot gravado antes da MM (motor cai no fallback por peso). */
+  consumo_mm?: number;
+}
 /** Externo: paga o jurídico direto, não é cliente da base → não vira doc em clientes/. */
 export interface ConsumoExternoDoc { nome: string; demandas: number; }
 export interface ConsumoPeriodoDoc {
@@ -2021,28 +2027,101 @@ export interface ConsumoPeriodoDoc {
   // então moram aqui na meta como lista — e, por não virarem doc em clientes/, já ficam
   // naturalmente fora do denominador do custo/demanda. Ausente = snapshot pré-'externo'.
   externos?: ConsumoExternoDoc[]; externos_demandas?: number;
+  /** Agregados da MM (denormalizados junto com os docs de cliente). `mm_n` = quantas
+   *  parcelas entraram na média (meses do acumulado no inaugural; nº de deltas depois). */
+  mm_n?: number; total_mm?: number; casa_mm?: number;
   n_clientes: number; registrado_em: string; registrado_por?: string;
+}
+
+/** Janela da média móvel (MM6). */
+const MM_JANELA = 6;
+
+/** Meses acumulados no snapshot: ele é ACUMULADO Jan→período, então o mês do período
+ *  é o nº de meses cobertos (2026-06 → 6). Mesma convenção do módulo Jurídico. */
+function mesesAcumulados(periodo: string): number {
+  const m = parseInt(periodo.split('-')[1] ?? '', 10);
+  return Number.isFinite(m) && m > 0 ? m : 1;
+}
+
+/** Snapshots ANTERIORES ao período (até MM_JANELA), com as contagens acumuladas por
+ *  cliente — insumo dos deltas. Leitura pura. */
+async function lerHistoricoConsumo(periodoAtual: string): Promise<{ periodo: string; porId: Map<string, number>; casa: number }[]> {
+  const metas = await getDocs(collection(db, 'consumo_juridico'));
+  const anteriores = metas.docs
+    .map(d => d.data() as ConsumoPeriodoDoc)
+    .filter(m => m.periodo && m.periodo < periodoAtual)
+    .sort((a, b) => a.periodo.localeCompare(b.periodo))
+    .slice(-MM_JANELA);
+  const out: { periodo: string; porId: Map<string, number>; casa: number }[] = [];
+  for (const m of anteriores) {
+    const snap = await getDocs(collection(db, 'consumo_juridico', m.periodo, 'clientes'));
+    const porId = new Map<string, number>();
+    for (const d of snap.docs) {
+      const c = d.data() as ConsumoClienteDoc;
+      porId.set(c.id_estavel_cliente, c.demandas);
+    }
+    out.push({ periodo: m.periodo, porId, casa: m.casa_demandas ?? 0 });
+  }
+  return out;
 }
 
 /** Grava (idempotente) o snapshot do período: apaga clientes que saíram, reescreve os
  *  atuais e a meta. Reimportar o mesmo período substitui — não acumula lixo.
- *  `total_demandas` = o board INTEIRO (clientes + casa + externos). */
+ *  `total_demandas` = o board INTEIRO (clientes + casa + externos).
+ *
+ *  MM (fase 2): calcula e DENORMALIZA `consumo_mm` por cliente + `total_mm`/`casa_mm`/
+ *  `mm_n` na meta. Regra: sem snapshot anterior (inaugural) o acumulado É a soma dos N
+ *  meses cobertos → MM = acumulado ÷ meses. Com histórico, MM = média dos últimos
+ *  MM_JANELA deltas entre snapshots consecutivos. Reimportar recalcula. */
 export async function salvarSnapshotConsumoJuridico(
   periodo: string, clientes: ConsumoClienteDoc[], casaDemandas: number,
   externos: ConsumoExternoDoc[] = [], registrador?: string,
 ): Promise<void> {
+  const historico = await lerHistoricoConsumo(periodo);
+  const atual = { porId: new Map(clientes.map(c => [c.id_estavel_cliente, c.demandas])), casa: casaDemandas };
+  const serie = [...historico, { periodo, ...atual }];
+
+  const mmPorId = new Map<string, number>();
+  let casaMM = 0;
+  let mmN: number;
+  if (serie.length === 1) {
+    // Inaugural: o acumulado já é a soma de `meses` meses → média mensal = ÷ meses.
+    const meses = mesesAcumulados(periodo);
+    mmN = meses;
+    for (const c of clientes) mmPorId.set(c.id_estavel_cliente, c.demandas / meses);
+    casaMM = casaDemandas / meses;
+  } else {
+    const ids = new Set<string>(serie.flatMap(s => [...s.porId.keys()]));
+    const deltas = new Map<string, number[]>();
+    const deltasCasa: number[] = [];
+    for (let i = 1; i < serie.length; i++) {
+      for (const id of ids) {
+        const d = Math.max(0, (serie[i].porId.get(id) ?? 0) - (serie[i - 1].porId.get(id) ?? 0));
+        const arr = deltas.get(id) ?? []; arr.push(d); deltas.set(id, arr);
+      }
+      deltasCasa.push(Math.max(0, serie[i].casa - serie[i - 1].casa));
+    }
+    const media = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0);
+    mmN = Math.min(MM_JANELA, serie.length - 1);
+    for (const c of clientes) mmPorId.set(c.id_estavel_cliente, media((deltas.get(c.id_estavel_cliente) ?? []).slice(-MM_JANELA)));
+    casaMM = media(deltasCasa.slice(-MM_JANELA));
+  }
+
+  const clientesComMM: ConsumoClienteDoc[] = clientes.map(c => ({ ...c, consumo_mm: mmPorId.get(c.id_estavel_cliente) ?? 0 }));
+
   const col = collection(db, 'consumo_juridico', periodo, 'clientes');
   const existentes = await getDocs(col);
   const novosIds = new Set(clientes.map(c => c.id_estavel_cliente));
   const batch = writeBatch(db);
   for (const d of existentes.docs) if (!novosIds.has(d.id)) batch.delete(d.ref);
-  for (const c of clientes) batch.set(doc(col, c.id_estavel_cliente), c);
+  for (const c of clientesComMM) batch.set(doc(col, c.id_estavel_cliente), c);
   const totalNaoCasa = clientes.reduce((s, c) => s + c.demandas, 0);
   const externosDemandas = externos.reduce((s, e) => s + e.demandas, 0);
   batch.set(doc(db, 'consumo_juridico', periodo), {
     periodo, total_demandas: totalNaoCasa + casaDemandas + externosDemandas,
     total_nao_casa: totalNaoCasa, casa_demandas: casaDemandas,
     externos, externos_demandas: externosDemandas,
+    mm_n: mmN, total_mm: clientesComMM.reduce((s, c) => s + (c.consumo_mm ?? 0), 0), casa_mm: casaMM,
     n_clientes: clientes.length, registrado_em: new Date().toISOString(),
     ...(registrador ? { registrado_por: registrador } : {}),
   });
