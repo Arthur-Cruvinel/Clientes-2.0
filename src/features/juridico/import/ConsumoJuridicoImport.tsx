@@ -160,6 +160,7 @@ export function ConsumoJuridicoImport() {
   const registrador = usuario?.nome ?? usuario?.email ?? undefined;
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState<string | null>(null);
+  const [classificado, setClassificado] = useState<string | null>(null);  // flash "✓ salvo" por nome
   const podeSalvar = periodoValido && r.entradas.length > 0 && r.erros.length === 0 && pendentes.length === 0 && !carregando;
   async function salvarSnapshot() {
     setSalvando(true);
@@ -206,6 +207,51 @@ export function ConsumoJuridicoImport() {
   const rotulo = (color: string, bg: string, txt: string) => (
     <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: bg, color }}>{txt}</span>
   );
+
+  // ── Controle ÚNICO de classificação (estado visível = ação) ──────────────────
+  // Um select por nome do board: o valor SELECIONADO é o estado atual; trocar =
+  // classificar. Some a competição badge/botões/picker. Sentinelas fora do espaço
+  // de id_estavel (UUID) para não colidir com um cliente.
+  const VAL_CASA = '__casa__';
+  const VAL_EXTERNO = '__externo__';
+  const valorDoAlvo = (m: EntradaMapeamentoMonday) =>
+    m.alvo === 'casa' ? VAL_CASA : m.alvo === 'externo' ? VAL_EXTERNO : (m.id_estavel_cliente ?? '');
+
+  async function aplicarAlvo(nomeMonday: string, valor: string) {
+    if (!valor) return;
+    if (valor === VAL_CASA) await resolverCasa(nomeMonday);
+    else if (valor === VAL_EXTERNO) await resolverExterno(nomeMonday);
+    else {
+      const c = universo.find(u => u.id_estavel === valor);
+      if (!c) return;
+      await resolverCliente(nomeMonday, c.id_estavel, c.nome);
+    }
+    setClassificado(nomeMonday);
+    setTimeout(() => setClassificado(v => (v === nomeMonday ? null : v)), 2000);
+  }
+
+  /** Função (não componente) — evita remount/perda de foco a cada render. */
+  const selectAlvo = (nome: string, valor: string, candidatos?: ClienteUniverso[]) => (
+    <select value={valor} onChange={ev => aplicarAlvo(nome, ev.target.value)}
+      className="rounded border px-2 py-1 text-xs flex-1 min-w-[240px]"
+      style={{ borderColor: valor ? '#e2e2e8' : '#fbbf24', backgroundColor: valor ? '#fff' : '#fffbeb' }}>
+      {!valor && <option value="" disabled>Classificar este nome…</option>}
+      <option value={VAL_CASA}>CASA (interno Galáticos)</option>
+      <option value={VAL_EXTERNO}>Externo — paga o jurídico direto, não é cliente</option>
+      {candidatos && candidatos.length > 0 && (
+        <optgroup label="Candidatos prováveis">
+          {candidatos.map(c => <option key={`cand-${c.id_estavel}`} value={c.id_estavel}>{c.nome}</option>)}
+        </optgroup>
+      )}
+      <optgroup label="Todos os clientes">
+        {universoOrdenado.map(c => <option key={c.id_estavel} value={c.id_estavel}>{c.nome}</option>)}
+      </optgroup>
+    </select>
+  );
+
+  const checkSalvo = (nome: string) => classificado === nome
+    ? <span className="text-[11px] font-bold shrink-0" style={{ color: '#166534' }}>✓ salvo</span>
+    : null;
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -304,30 +350,30 @@ export function ConsumoJuridicoImport() {
         </div>
       )}
 
-      {/* Quarentena — 3 saídas, memoriza a resolução */}
+      {/* Quarentena — MESMO select único do dicionário, só que sem valor (pendência) */}
       {pendentes.length > 0 && (
         <div className="rounded-lg border p-3" style={{ borderColor: '#fde68a', backgroundColor: '#fffbeb' }}>
-          <p className="text-xs font-bold mb-2" style={{ color: '#b45309' }}>Quarentena — {pendentes.length} nome(s) a resolver (uma vez; o de-para memoriza)</p>
+          <p className="text-xs font-bold" style={{ color: '#b45309' }}>Nomes sem classificação — {pendentes.length} a resolver</p>
+          <p className="text-[11px] mt-1 mb-2" style={{ color: '#6b6b8a' }}>
+            Classifique cada nome uma vez: a escolha entra no dicionário e vale para todos os imports.
+          </p>
           <div className="space-y-2">
             {pendentes.map((e, i) => (
-              <div key={`q-${e.nome}-${i}`} className="rounded-lg bg-white border p-2" style={{ borderColor: '#e2e2e8' }}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-bold" style={{ color: '#160F41' }}>{e.nome} <span className="text-[11px] font-normal" style={{ color: '#6b6b8a' }}>· {e.contagem} demandas · {e.res.tipo === 'ambiguo' ? 'candidatos: ' + e.res.candidatos.map(c => c.nome).join(', ') : 'nenhum candidato'}</span></span>
+              <div key={`q-${e.nome}-${i}`} className="rounded-lg bg-white border p-2" style={{ borderColor: '#fbbf24' }}>
+                <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                  <span className="text-sm font-bold" style={{ color: '#160F41' }}>{e.nome}</span>
+                  <span className="text-[11px]" style={{ color: '#6b6b8a' }}>
+                    {e.contagem} demandas · {e.res.tipo === 'ambiguo' ? `${e.res.candidatos.length} candidatos prováveis` : 'nenhum candidato automático'}
+                  </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <select defaultValue="" onChange={ev => { const c = universo.find(u => u.id_estavel === ev.target.value); if (c) resolverCliente(e.nome, c.id_estavel, c.nome); }}
-                    className="rounded border px-2 py-1 text-xs" style={{ borderColor: '#e2e2e8' }}>
-                    <option value="" disabled>Casar com cliente…</option>
-                    {e.res.tipo === 'ambiguo' && <optgroup label="candidatos">{e.res.candidatos.map(c => <option key={c.id_estavel} value={c.id_estavel}>{c.nome}</option>)}</optgroup>}
-                    <optgroup label="todos os clientes">{universoOrdenado.map(c => <option key={c.id_estavel} value={c.id_estavel}>{c.nome}</option>)}</optgroup>
-                  </select>
+                  {selectAlvo(e.nome, '', e.res.tipo === 'ambiguo' ? e.res.candidatos : undefined)}
+                  {checkSalvo(e.nome)}
                   <button type="button" onClick={() => setCadastrarPara(e.nome)} disabled={!periodoSelecionado}
-                    className="px-2 py-1 rounded text-xs font-medium border disabled:opacity-40" style={{ borderColor: '#0065FF', color: '#0065FF' }}
-                    title={periodoSelecionado ? undefined : 'Selecione um período no topo da plataforma para cadastrar'}>Cadastrar novo</button>
-                  <button type="button" onClick={() => resolverCasa(e.nome)} className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: '#f3f4f6', color: '#6b6b8a' }}>Marcar CASA</button>
-                  <button type="button" onClick={() => resolverExterno(e.nome)}
-                    className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: '#eef2ff', color: '#3730a3' }}
-                    title="Paga o jurídico diretamente e não é cliente da base — fica fora do pool (não entra em rateio nem em cortesia)">Externo (fora do pool)</button>
+                    className="text-[11px] underline disabled:opacity-40 shrink-0" style={{ color: '#0065FF' }}
+                    title={periodoSelecionado ? 'Criar um cliente novo na base para este nome' : 'Selecione um período no topo da plataforma para cadastrar'}>
+                    cadastrar novo cliente
+                  </button>
                 </div>
               </div>
             ))}
@@ -348,44 +394,29 @@ export function ConsumoJuridicoImport() {
         </div>
       )}
 
-      {/* MAPEAMENTOS GRAVADOS — emenda de alvo (o de-para resolve antes da quarentena,
-          então nome já mapeado não reaparece sozinho para escolha). Sem exclusão aqui. */}
+      {/* DICIONÁRIO DE NOMES — o select mostra o estado atual E é a ação de trocar. */}
       {mapeamentosOrdenados.length > 0 && (
         <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
-          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>
-            Mapeamentos gravados ({mapeamentosOrdenados.length}) — reclassificar
+          <p className="text-sm font-bold" style={{ color: '#160F41' }}>
+            Dicionário de nomes do board <span className="text-[11px] font-normal" style={{ color: '#6b6b8a' }}>· {mapeamentosOrdenados.length} nomes</span>
           </p>
           <p className="text-[11px] mt-1 mb-2" style={{ color: '#6b6b8a' }}>
-            O de-para resolve <strong>antes</strong> da quarentena: um nome já mapeado nunca volta a
-            perguntar. Troque o alvo aqui — vale já no próximo parse, sem recarregar a página.
+            Cada nome do relatório do jurídico aponta para um cliente, para a casa ou para um pagante
+            externo. A classificação vale para todos os imports.
           </p>
           <div className="space-y-1.5">
             {mapeamentosOrdenados.map(m => (
               <div key={m.nome_monday} className="rounded-lg bg-white border p-2" style={{ borderColor: '#e2e2e8' }}>
                 <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                   <span className="text-sm font-bold" style={{ color: '#160F41' }}>{m.nome_monday}</span>
-                  <span className="flex items-center gap-2">
-                    {m.alvo === 'casa'
-                      ? rotulo('#6b6b8a', '#f3f4f6', 'CASA')
-                      : m.alvo === 'externo'
-                        ? rotulo('#3730a3', '#eef2ff', 'EXTERNO (fora do pool)')
-                        : rotulo('#166534', '#f0fdf4', m.nome_cliente_canonico ?? 'cliente')}
-                    <span className="text-[10px]" style={{ color: '#9ca3af' }}>
-                      {m.registrado_em ? new Date(m.registrado_em).toLocaleDateString('pt-BR') : '—'}
-                    </span>
+                  <span className="text-[10px]" style={{ color: '#9ca3af' }}>
+                    {m.registrado_em ? new Date(m.registrado_em).toLocaleDateString('pt-BR') : '—'}
+                    {m.registrado_por ? ` · ${m.registrado_por}` : ''}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <select value="" onChange={ev => { const c = universo.find(u => u.id_estavel === ev.target.value); if (c) resolverCliente(m.nome_monday, c.id_estavel, c.nome); }}
-                    className="rounded border px-2 py-1 text-xs" style={{ borderColor: '#e2e2e8' }}>
-                    <option value="" disabled>Casar com cliente…</option>
-                    {universoOrdenado.map(c => <option key={c.id_estavel} value={c.id_estavel}>{c.nome}</option>)}
-                  </select>
-                  <button type="button" onClick={() => resolverCasa(m.nome_monday)} disabled={m.alvo === 'casa'}
-                    className="px-2 py-1 rounded text-xs font-medium disabled:opacity-40" style={{ backgroundColor: '#f3f4f6', color: '#6b6b8a' }}>CASA</button>
-                  <button type="button" onClick={() => resolverExterno(m.nome_monday)} disabled={m.alvo === 'externo'}
-                    className="px-2 py-1 rounded text-xs font-medium disabled:opacity-40" style={{ backgroundColor: '#eef2ff', color: '#3730a3' }}
-                    title="Paga o jurídico direto e não é cliente da base — fora do pool">Externo (fora do pool)</button>
+                  {selectAlvo(m.nome_monday, valorDoAlvo(m))}
+                  {checkSalvo(m.nome_monday)}
                 </div>
               </div>
             ))}
