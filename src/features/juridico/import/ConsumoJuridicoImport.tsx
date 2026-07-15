@@ -135,6 +135,11 @@ export function ConsumoJuridicoImport() {
     return m;
   }, [dePara]);
   const universoOrdenado = useMemo(() => [...universo].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [universo]);
+  // Mapeamentos JÁ gravados — o de-para resolve antes da quarentena, então nome mapeado
+  // nunca reaparece para escolha; esta lista é o único caminho de emenda do alvo.
+  const mapeamentosOrdenados = useMemo(
+    () => Object.values(dePara).sort((a, b) => a.nome_monday.localeCompare(b.nome_monday, 'pt-BR')),
+    [dePara]);
 
   // Resolve cada entrada: de-para (memória) → match único → quarentena (ambíguo/não casado).
   // tipo 'externo' = paga o jurídico direto, não é cliente da base (fora do pool).
@@ -340,6 +345,51 @@ export function ConsumoJuridicoImport() {
             className="px-3 py-1.5 rounded-md text-sm font-medium text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg,#0065FF,#D000BB)' }}>
             {salvando ? 'Salvando…' : salvo === periodo ? 'Salvar de novo (substitui)' : 'Salvar snapshot'}
           </button>
+        </div>
+      )}
+
+      {/* MAPEAMENTOS GRAVADOS — emenda de alvo (o de-para resolve antes da quarentena,
+          então nome já mapeado não reaparece sozinho para escolha). Sem exclusão aqui. */}
+      {mapeamentosOrdenados.length > 0 && (
+        <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>
+            Mapeamentos gravados ({mapeamentosOrdenados.length}) — reclassificar
+          </p>
+          <p className="text-[11px] mt-1 mb-2" style={{ color: '#6b6b8a' }}>
+            O de-para resolve <strong>antes</strong> da quarentena: um nome já mapeado nunca volta a
+            perguntar. Troque o alvo aqui — vale já no próximo parse, sem recarregar a página.
+          </p>
+          <div className="space-y-1.5">
+            {mapeamentosOrdenados.map(m => (
+              <div key={m.nome_monday} className="rounded-lg bg-white border p-2" style={{ borderColor: '#e2e2e8' }}>
+                <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                  <span className="text-sm font-bold" style={{ color: '#160F41' }}>{m.nome_monday}</span>
+                  <span className="flex items-center gap-2">
+                    {m.alvo === 'casa'
+                      ? rotulo('#6b6b8a', '#f3f4f6', 'CASA')
+                      : m.alvo === 'externo'
+                        ? rotulo('#3730a3', '#eef2ff', 'EXTERNO (fora do pool)')
+                        : rotulo('#166534', '#f0fdf4', m.nome_cliente_canonico ?? 'cliente')}
+                    <span className="text-[10px]" style={{ color: '#9ca3af' }}>
+                      {m.registrado_em ? new Date(m.registrado_em).toLocaleDateString('pt-BR') : '—'}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select value="" onChange={ev => { const c = universo.find(u => u.id_estavel === ev.target.value); if (c) resolverCliente(m.nome_monday, c.id_estavel, c.nome); }}
+                    className="rounded border px-2 py-1 text-xs" style={{ borderColor: '#e2e2e8' }}>
+                    <option value="" disabled>Casar com cliente…</option>
+                    {universoOrdenado.map(c => <option key={c.id_estavel} value={c.id_estavel}>{c.nome}</option>)}
+                  </select>
+                  <button type="button" onClick={() => resolverCasa(m.nome_monday)} disabled={m.alvo === 'casa'}
+                    className="px-2 py-1 rounded text-xs font-medium disabled:opacity-40" style={{ backgroundColor: '#f3f4f6', color: '#6b6b8a' }}>CASA</button>
+                  <button type="button" onClick={() => resolverExterno(m.nome_monday)} disabled={m.alvo === 'externo'}
+                    className="px-2 py-1 rounded text-xs font-medium disabled:opacity-40" style={{ backgroundColor: '#eef2ff', color: '#3730a3' }}
+                    title="Paga o jurídico direto e não é cliente da base — fora do pool">Externo (fora do pool)</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
