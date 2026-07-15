@@ -1,8 +1,9 @@
-// --- Import de consumo jurídico: ENTRADA ASSISTIDA + DE-PARA (Commits 1-2) ---
-// O relatório do Monday é PDF-imagem (parse morto por prova). O operador COLA as contagens;
-// parse determinístico (Commit 1) → de-para nome→cliente canônico com QUARENTENA (Commit 2).
-// Ambiguidade (2+ candidatos) nunca desempata em silêncio → quarentena com 3 saídas
-// (casar / cadastrar novo / marcar CASA), resolução memorizada. Save do consumo é Commit 3.
+// --- Import de consumo jurídico: ENTRADA ASSISTIDA + DE-PARA + SNAPSHOT ---
+// O relatório do Monday é PDF-imagem: o operador cola as contagens (ou extrai o texto do
+// PDF via claude-proxy). Parse determinístico → de-para nome→cliente canônico, com
+// classificação em 4 saídas (cliente / CASA / externo fora do pool / cadastrar novo).
+// Ambiguidade (2+ candidatos) nunca desempata em silêncio → vai para pendências.
+// Resolução memorizada no dicionário; o save grava o snapshot do período.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../../state/AppContext';
@@ -167,8 +168,19 @@ export function ConsumoJuridicoImport() {
   const registrador = usuario?.nome ?? usuario?.email ?? undefined;
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState<string | null>(null);
+  const [salvoResumo, setSalvoResumo] = useState<
+    { periodo: string; nClientes: number; total: number; casa: number; externos: number } | null>(null);
   const [classificado, setClassificado] = useState<string | null>(null);  // flash "✓ salvo" por nome
-  const podeSalvar = periodoValido && r.entradas.length > 0 && r.erros.length === 0 && pendentes.length === 0 && !carregando;
+  // O bloco de salvar NÃO some mais em silêncio: quando algo trava, o botão aparece
+  // desabilitado com o MOTIVO. Antes era um gate all-or-nothing ({podeSalvar && …}) e
+  // o usuário não tinha como saber o que faltava (tipicamente o período do relatório).
+  const motivoBloqueio: string | null =
+    !periodoValido ? 'Informe o período do relatório (AAAA-MM) no campo acima — é o período DESTE relatório, não o do topo da plataforma.'
+    : r.erros.length > 0 ? `${r.erros.length} linha(s) não reconhecida(s) — corrija o texto colado antes de salvar.`
+    : pendentes.length > 0 ? `${pendentes.length} nome(s) sem classificação — resolva a lista de pendências acima.`
+    : carregando ? 'Carregando o dicionário de nomes…'
+    : null;
+  const podeSalvar = r.entradas.length > 0 && !motivoBloqueio;
   async function salvarSnapshot() {
     setSalvando(true);
     try {
@@ -194,6 +206,10 @@ export function ConsumoJuridicoImport() {
       const externos = [...porExterno].map(([nome, demandas]) => ({ nome, demandas }));
       await salvarSnapshotConsumoJuridico(periodo, clientes, casa, externos, registrador);
       setSalvo(periodo);
+      // Feedback do que FOI gravado (aditivo — não muda o que se persiste).
+      const naoCasa = clientes.reduce((s, c) => s + c.demandas, 0);
+      const externosDem = externos.reduce((s, e) => s + e.demandas, 0);
+      setSalvoResumo({ periodo, nClientes: clientes.length, total: naoCasa + casa + externosDem, casa, externos: externosDem });
     } finally { setSalvando(false); }
   }
 
@@ -367,7 +383,7 @@ export function ConsumoJuridicoImport() {
             </table>
           </div>
           <p className="text-[11px] mt-2" style={{ color: '#6b6b8a' }}>
-            Confira o <strong>Total</strong> contra a soma do PDF. Save do consumo é Commit 3.
+            Confira o total e as âncoras contra o PDF antes de salvar.
           </p>
         </div>
       )}
@@ -403,16 +419,33 @@ export function ConsumoJuridicoImport() {
         </div>
       )}
 
-      {podeSalvar && (
-        <div className="rounded-lg p-3 flex items-center justify-between gap-3" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-          <span className="text-[12px]" style={{ color: '#166534' }}>
-            ✓ {periodo}: {r.entradas.length} clientes resolvidos, 0 em quarentena, {r.total} demandas.
-            {salvo === periodo && ' · snapshot salvo ✓'}
+      {/* SALVAR — aparece assim que há algo colado; se algo trava, mostra o motivo. */}
+      {r.entradas.length > 0 && (
+        <div className="rounded-lg p-3 flex items-center justify-between gap-3 flex-wrap"
+          style={podeSalvar
+            ? { backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }
+            : { backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}>
+          <span className="text-[12px]" style={{ color: podeSalvar ? '#166534' : '#b45309' }}>
+            {podeSalvar
+              ? <>✓ Pronto para salvar {periodo}: {r.entradas.length} nomes, {r.total} demandas.</>
+              : <>Não dá para salvar ainda — {motivoBloqueio}</>}
           </span>
-          <button type="button" onClick={salvarSnapshot} disabled={salvando}
-            className="px-3 py-1.5 rounded-md text-sm font-medium text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg,#0065FF,#D000BB)' }}>
-            {salvando ? 'Salvando…' : salvo === periodo ? 'Salvar de novo (substitui)' : 'Salvar snapshot'}
+          <button type="button" onClick={salvarSnapshot} disabled={!podeSalvar || salvando}
+            title={podeSalvar ? undefined : motivoBloqueio ?? undefined}
+            className="px-3 py-1.5 rounded-md text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            style={{ background: 'linear-gradient(135deg,#0065FF,#D000BB)' }}>
+            {salvando ? 'Salvando…' : salvo === periodo ? 'Salvar de novo (substitui)' : 'Salvar consumo do período'}
           </button>
+        </div>
+      )}
+
+      {/* Feedback do que foi gravado */}
+      {salvoResumo && (
+        <div className="rounded-lg p-3 text-[12px]" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534' }}>
+          ✓ Snapshot de <strong>{salvoResumo.periodo}</strong> gravado: <strong>{salvoResumo.nClientes}</strong> clientes ·
+          {' '}<strong>{salvoResumo.total}</strong> demandas no total · CASA <strong>{salvoResumo.casa}</strong> ·
+          {' '}Externos <strong>{salvoResumo.externos}</strong>.
+          <span style={{ color: '#6b6b8a' }}> Salvar de novo o mesmo período substitui o snapshot.</span>
         </div>
       )}
 
