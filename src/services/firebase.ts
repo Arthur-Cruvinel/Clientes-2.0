@@ -2047,9 +2047,27 @@ export async function salvarEntradaMapeamentoMonday(entrada: EntradaMapeamentoMo
  *  (inclui asset_only / Pure Assets). Leitura pura — não toca período/motor. */
 export async function buscarUniversoJuridico(): Promise<{ nome: string; id_estavel: string }[]> {
   const snap = await getDocs(collection(db, 'clientes_base'));
-  return snap.docs.map(d => d.data() as { nome_cliente?: string; id_estavel?: string })
+  // Dedup por id_estavel — mesmo padrão de buscarClientesBase. Sem isto, um doc
+  // slug legado + o doc UUID canônico (mesmo id_estavel, Bug Arquitetural #1
+  // residual — ex.: VIVIANE LEAL) dobravam no picker do de-para. Preferir o UUID:
+  // ordena UUID antes do slug e o Set mantém o primeiro visto. NÃO apaga doc
+  // (limpeza do dado = BACKLOG #4).
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const docs = snap.docs
+    .map(d => ({ docId: d.id, ...(d.data() as { nome_cliente?: string; id_estavel?: string }) }))
     .filter(c => c.id_estavel && c.nome_cliente)
-    .map(c => ({ nome: c.nome_cliente!, id_estavel: c.id_estavel! }));
+    .sort((a, b) => Number(UUID.test(b.docId)) - Number(UUID.test(a.docId)));  // UUID primeiro
+  const vistos = new Set<string>();
+  const out: { nome: string; id_estavel: string }[] = [];
+  for (const c of docs) {
+    if (vistos.has(c.id_estavel!)) {
+      console.warn(`[buscarUniversoJuridico] doc duplicado por id_estavel — ignorado: ${c.docId} (nome="${c.nome_cliente}")`);
+      continue;
+    }
+    vistos.add(c.id_estavel!);
+    out.push({ nome: c.nome_cliente!, id_estavel: c.id_estavel! });
+  }
+  return out;
 }
 
 // ── Snapshot de consumo jurídico (medição — ramo paralelo, fechamentos intocados) ──
