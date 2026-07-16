@@ -11,7 +11,8 @@ import { useAuth } from '../../../state/AuthContext';
 import {
   buscarMapeamentoMonday, salvarEntradaMapeamentoMonday, buscarUniversoJuridico,
   salvarSnapshotConsumoJuridico, buscarClientesBase, salvarClienteBase,
-  type EntradaMapeamentoMonday,
+  buscarPeriodosConsumoJuridico, buscarConsumoClientesJuridico,
+  type EntradaMapeamentoMonday, type ConsumoPeriodoDoc,
 } from '../../../services/firebase';
 import type { Cliente } from '../../../types';
 import { NovoClienteModal } from '../../perfil/NovoClienteModal';
@@ -54,6 +55,8 @@ export function ConsumoJuridicoImport() {
   const [cadastrarPara, setCadastrarPara] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
   const [erroPdf, setErroPdf] = useState<string | null>(null);
+  const [metasSnapshot, setMetasSnapshot] = useState<ConsumoPeriodoDoc[]>([]);
+  const [carregandoSnapshot, setCarregandoSnapshot] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Import direto do PDF do board: File → base64 (util) → claude-proxy. A resposta
@@ -128,9 +131,9 @@ export function ConsumoJuridicoImport() {
   useEffect(() => {
     let vivo = true;
     setCarregando(true);
-    Promise.all([buscarMapeamentoMonday(), buscarUniversoJuridico(), buscarClientesBase()]).then(([dp, uni, cb]) => {
+    Promise.all([buscarMapeamentoMonday(), buscarUniversoJuridico(), buscarClientesBase(), buscarPeriodosConsumoJuridico()]).then(([dp, uni, cb, metas]) => {
       if (!vivo) return;
-      setDePara(dp); setUniverso(uni); setBase(cb); setCarregando(false);
+      setDePara(dp); setUniverso(uni); setBase(cb); setMetasSnapshot(metas); setCarregando(false);
     });
     return () => { vivo = false; };
   }, [versao]);
@@ -291,6 +294,35 @@ export function ConsumoJuridicoImport() {
     setVersao(v => v + 1);   // recarrega a base → checkbox reflete o persistido
   }
 
+  // ── Recarregar o textarea a partir do snapshot salvo do período ──────────────
+  // Caminho de volta: o snapshot só existia gravado, sem retorno para o campo. Aqui
+  // reconstrói "NOME CONTAGEM" com nomes CANÔNICOS (clientes) + externos + casa, e
+  // setTexto(). O funil segue idêntico: os canônicos re-resolvem via matcher (nome
+  // do próprio cliente), externos/casa via de-para memorizado.
+  const metaDoPeriodo = useMemo(
+    () => metasSnapshot.find(m => m.periodo === periodo),
+    [metasSnapshot, periodo]);
+  // Nome de board mapeado para CASA (se recuperável) para reconstruir a linha da casa.
+  const nomeCasaBoard = useMemo(() => {
+    const e = Object.values(dePara).find(x => x.alvo === 'casa');
+    return e?.nome_monday ?? 'Interno';
+  }, [dePara]);
+
+  async function carregarDoSnapshot() {
+    if (!metaDoPeriodo) return;
+    setCarregandoSnapshot(true);
+    try {
+      const clientes = await buscarConsumoClientesJuridico(periodo);
+      const linhas: string[] = [];
+      for (const c of [...clientes].sort((a, b) => b.demandas - a.demandas)) linhas.push(`${c.nome_cliente} ${c.demandas}`);
+      for (const e of [...(metaDoPeriodo.externos ?? [])].sort((a, b) => b.demandas - a.demandas)) linhas.push(`${e.nome} ${e.demandas}`);
+      if ((metaDoPeriodo.casa_demandas ?? 0) > 0) linhas.push(`${nomeCasaBoard} ${metaDoPeriodo.casa_demandas}`);
+      setTexto(linhas.join('\n'));
+    } finally {
+      setCarregandoSnapshot(false);
+    }
+  }
+
   return (
     <div className="space-y-5 max-w-3xl">
       <div>
@@ -322,7 +354,18 @@ export function ConsumoJuridicoImport() {
             style={{ borderColor: '#0065FF', color: '#0065FF' }}>
             {importando ? 'Extraindo do PDF…' : 'Importar do PDF do board'}
           </button>
-          <span className="text-[11px]" style={{ color: '#6b6b8a' }}>PDF até 4,5MB · a transcrição preenche o campo abaixo (ainda passa pelo de-para)</span>
+          {metaDoPeriodo && (
+            <button type="button" onClick={carregarDoSnapshot} disabled={carregandoSnapshot}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium border disabled:opacity-50"
+              style={{ borderColor: '#166534', color: '#166534' }}
+              title={`Reconstrói o campo abaixo a partir do snapshot salvo de ${periodo} (nomes canônicos).`}>
+              {carregandoSnapshot ? 'Carregando…' : 'Carregar lista salva deste período'}
+            </button>
+          )}
+          <span className="text-[11px]" style={{ color: '#6b6b8a' }}>
+            PDF até 4,5MB · a transcrição preenche o campo abaixo (ainda passa pelo de-para)
+            {metaDoPeriodo && ' · ou recarregue o snapshot deste período — reconstruída do snapshot, nomes canônicos'}
+          </span>
         </div>
         {erroPdf && <p className="text-[11px] mt-1.5" style={{ color: '#991b1b' }}>{erroPdf}</p>}
       </div>
