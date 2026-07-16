@@ -377,9 +377,10 @@ export function VisaoGeral() {
           <KpiCard titulo="Lucro Líquido" valor={formatCurrency(totais.lucro_liquido)}
             subtitulo={`Margem líq.: ${formatPercent((totais.margem_liquida ?? 0) * 100)} · após IRPJ/CSLL`}
             cor={totais.lucro_liquido >= 0 ? 'text-green-700' : 'text-red-700'} />
-          <KpiCard titulo="Clientes Ativos" valor={String(clientesAtivos)} />
+          <KpiCard titulo="Clientes Ativos" valor={String(clientesAtivos)}
+            subtitulo="com receita ou PL no mês" />
           <KpiCard titulo="Jurídico Incluso" valor={String(comJuridico)}
-            subtitulo={`de ${clientes.length} clientes · ${formatPercent(pctJuridico)}`} />
+            subtitulo={`de ${clientes.length} no período · ${formatPercent(pctJuridico)}`} />
         </div>
       )}
 
