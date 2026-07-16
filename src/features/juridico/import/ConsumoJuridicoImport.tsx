@@ -12,7 +12,7 @@ import {
   buscarMapeamentoMonday, salvarEntradaMapeamentoMonday, buscarUniversoJuridico,
   salvarSnapshotConsumoJuridico, buscarClientesBase, salvarClienteBase,
   buscarPeriodosConsumoJuridico, buscarConsumoClientesJuridico,
-  type EntradaMapeamentoMonday, type ConsumoPeriodoDoc,
+  type EntradaMapeamentoMonday, type ConsumoPeriodoDoc, type ConsumoClienteDoc,
 } from '../../../services/firebase';
 import type { Cliente } from '../../../types';
 import { NovoClienteModal } from '../../perfil/NovoClienteModal';
@@ -56,6 +56,7 @@ export function ConsumoJuridicoImport() {
   const [importando, setImportando] = useState(false);
   const [erroPdf, setErroPdf] = useState<string | null>(null);
   const [metasSnapshot, setMetasSnapshot] = useState<ConsumoPeriodoDoc[]>([]);
+  const [snapshotRecenteClientes, setSnapshotRecenteClientes] = useState<ConsumoClienteDoc[]>([]);
   const [carregandoSnapshot, setCarregandoSnapshot] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -131,10 +132,17 @@ export function ConsumoJuridicoImport() {
   useEffect(() => {
     let vivo = true;
     setCarregando(true);
-    Promise.all([buscarMapeamentoMonday(), buscarUniversoJuridico(), buscarClientesBase(), buscarPeriodosConsumoJuridico()]).then(([dp, uni, cb, metas]) => {
+    (async () => {
+      const [dp, uni, cb, metas] = await Promise.all([buscarMapeamentoMonday(), buscarUniversoJuridico(), buscarClientesBase(), buscarPeriodosConsumoJuridico()]);
       if (!vivo) return;
-      setDePara(dp); setUniverso(uni); setBase(cb); setMetasSnapshot(metas); setCarregando(false);
-    });
+      setDePara(dp); setUniverso(uni); setBase(cb); setMetasSnapshot(metas);
+      // Clientes do snapshot MAIS RECENTE (metas vêm ASC) — fonte do grupo "casado por
+      // nome" no dicionário: quem consome mas nunca entrou no de-para (match exato).
+      const recente = metas.length ? metas[metas.length - 1].periodo : null;
+      const cli = recente ? await buscarConsumoClientesJuridico(recente) : [];
+      if (!vivo) return;
+      setSnapshotRecenteClientes(cli); setCarregando(false);
+    })();
     return () => { vivo = false; };
   }, [versao]);
 
@@ -146,11 +154,21 @@ export function ConsumoJuridicoImport() {
     return m;
   }, [dePara]);
   const universoOrdenado = useMemo(() => [...universo].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [universo]);
-  // Mapeamentos JÁ gravados — o de-para resolve antes da quarentena, então nome mapeado
-  // nunca reaparece para escolha; esta lista é o único caminho de emenda do alvo.
-  const mapeamentosOrdenados = useMemo(
-    () => Object.values(dePara).sort((a, b) => a.nome_monday.localeCompare(b.nome_monday, 'pt-BR')),
-    [dePara]);
+  // DICIONÁRIO = união de (a) de-para gravado + (b) clientes do snapshot mais recente
+  // que NÃO têm entrada no de-para (casados AUTOMATICAMENTE por nome exato — nunca entram
+  // em mapeamento_monday, então o checkbox fora-do-pool não os alcançava). Grupo (b) usa
+  // o nome canônico como chave; ao trocar o alvo, os resolvers CRIAM a entrada explícita.
+  type DicItem = EntradaMapeamentoMonday & { casadoPorNome: boolean };
+  const dicionarioOrdenado = useMemo<DicItem[]>(() => {
+    const explicitos = Object.values(dePara);
+    const idsMapeados = new Set(explicitos.filter(e => e.alvo === 'cliente' && e.id_estavel_cliente).map(e => e.id_estavel_cliente!));
+    const nomesMapeados = new Set(explicitos.map(e => normNome(e.nome_monday)));
+    const casadosPorNome: DicItem[] = snapshotRecenteClientes
+      .filter(c => c.id_estavel_cliente && !idsMapeados.has(c.id_estavel_cliente) && !nomesMapeados.has(normNome(c.nome_cliente)))
+      .map(c => ({ nome_monday: c.nome_cliente, alvo: 'cliente', id_estavel_cliente: c.id_estavel_cliente, nome_cliente_canonico: c.nome_cliente, registrado_em: '', casadoPorNome: true }));
+    return [...explicitos.map(e => ({ ...e, casadoPorNome: false })), ...casadosPorNome]
+      .sort((a, b) => a.nome_monday.localeCompare(b.nome_monday, 'pt-BR'));
+  }, [dePara, snapshotRecenteClientes]);
 
   // Resolve cada entrada: de-para (memória) → match único → quarentena (ambíguo/não casado).
   // tipo 'externo' = paga o jurídico direto, não é cliente da base (fora do pool).
@@ -493,24 +511,27 @@ export function ConsumoJuridicoImport() {
       )}
 
       {/* DICIONÁRIO DE NOMES — o select mostra o estado atual E é a ação de trocar. */}
-      {mapeamentosOrdenados.length > 0 && (
+      {dicionarioOrdenado.length > 0 && (
         <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
           <p className="text-sm font-bold" style={{ color: '#160F41' }}>
-            Dicionário de nomes do board <span className="text-[11px] font-normal" style={{ color: '#6b6b8a' }}>· {mapeamentosOrdenados.length} nomes</span>
+            Dicionário de nomes do board <span className="text-[11px] font-normal" style={{ color: '#6b6b8a' }}>· {dicionarioOrdenado.length} nomes</span>
           </p>
           <p className="text-[11px] mt-1 mb-2" style={{ color: '#6b6b8a' }}>
             Cada nome do relatório do jurídico aponta para um cliente, para a casa ou para um pagante
-            externo. A classificação vale para todos os imports.
+            externo. A classificação vale para todos os imports. Inclui quem casou automaticamente por
+            nome (sem entrada no de-para) — para alcançar o checkbox "fora do pool".
           </p>
           <div className="space-y-1.5">
-            {mapeamentosOrdenados.map(m => (
+            {dicionarioOrdenado.map(m => (
               <div key={m.nome_monday} className="rounded-lg bg-white border p-2" style={{ borderColor: '#e2e2e8' }}>
                 <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                   <span className="text-sm font-bold" style={{ color: '#160F41' }}>{m.nome_monday}</span>
-                  <span className="text-[10px]" style={{ color: '#9ca3af' }}>
-                    {m.registrado_em ? new Date(m.registrado_em).toLocaleDateString('pt-BR') : '—'}
-                    {m.registrado_por ? ` · ${m.registrado_por}` : ''}
-                  </span>
+                  {m.casadoPorNome
+                    ? <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: '#f3f4f6', color: '#6b6b8a' }}>casado por nome</span>
+                    : <span className="text-[10px]" style={{ color: '#9ca3af' }}>
+                        {m.registrado_em ? new Date(m.registrado_em).toLocaleDateString('pt-BR') : '—'}
+                        {m.registrado_por ? ` · ${m.registrado_por}` : ''}
+                      </span>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {selectAlvo(m.nome_monday, valorDoAlvo(m))}
