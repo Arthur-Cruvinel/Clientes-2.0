@@ -56,8 +56,15 @@ aceito pelo CFO.**
 
 **Blindagem aplicada em 15/07:** delete protection **ENABLED**; snapshot existente virou
 **imutável** (`fecharPeriodo` guarda pela subcoleção — ver abaixo); dump local
-`scripts/dump-firestore.mjs`. PITR e backup agendado **exigem plano Blaze** (403 billing)
-— pendentes de decisão.
+`scripts/dump-firestore.mjs`.
+
+**PITR e backup diário ATIVOS em 16/07** (plano Blaze ligado):
+- **Point-in-Time Recovery ENABLED** — janela de retenção **7 dias** (604800s), contra a de
+  1h de antes. Restauro a um instante dentro da janela agora é possível.
+- **Backup agendado DAILY, retenção 14 dias** (schedule `148c0a63-…`). É a rede que o
+  Incidente 2026-01 não teve.
+O dump local (`scripts/dump-firestore.mjs`) segue como paraquedas imediato antes de
+operações destrutivas — PITR/backup cobrem o passado; o dump cobre o "agora mesmo".
 
 > **REGRA OPERACIONAL — rode o dump antes de fechar.** Enquanto o PITR não existir, o
 > único paraquedas é o dump local. **Antes de qualquer fechamento de período** (ou de
