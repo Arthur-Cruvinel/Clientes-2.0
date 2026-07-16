@@ -26,6 +26,40 @@ import type { ConsumoJuridicoPeriodo } from '../utils/financials.custos';
 import { buscarAumPorPeriodo, type AumCliente } from '../services/aumIntegration';
 import { ModalCopiarPeriodo, type ResumoCopia } from '../components/ui/ModalCopiarPeriodo';
 
+// Piso da retroação da MM de consumo jurídico. Períodos ANTERIORES a este usam
+// peso PARA SEMPRE — protege as âncoras re-baselinadas de 2026-01 (Incidente 2026-01):
+// nada abaixo do piso pode se mover por consumo. Comparação por string 'YYYY-MM'.
+const PERIODO_INICIO_RATEIO_CONSUMO = '2026-02';
+
+/** Resolve o ConsumoJuridicoPeriodo para um período (Fase 2 — opção 'a' do CFO).
+ *  Ordem:
+ *    a. snapshot PRÓPRIO com consumo_mm → usa;
+ *    b. período < piso → fallback peso (undefined, fim);
+ *    c. senão: snapshot mais recente ≤ período; não havendo, o MAIS ANTIGO > período
+ *       (ex.: Fev–Mai ← 2026-06, cuja MM6 é a média do semestre que os contém).
+ *  Snapshot SEM consumo_mm (meta sem casa_mm) conta como INEXISTENTE — nada de
+ *  calcular MM na leitura. Sem nenhum snapshot com MM → undefined (peso).
+ *  Custo de leitura: 1 lista de metas (barata) + 1 leitura de clientes do período
+ *  RESOLVIDO — mesmo nº de reads do caso com snapshot próprio. */
+async function resolverConsumoJuridico(periodo: string): Promise<ConsumoJuridicoPeriodo | undefined> {
+  if (periodo < PERIODO_INICIO_RATEIO_CONSUMO) return undefined;                 // (b)
+  const metas = await buscarPeriodosConsumoJuridico();                            // meta docs, ASC
+  const comMM = metas.filter(m => typeof m.casa_mm === 'number');                 // só snapshots com MM denormalizada
+  if (comMM.length === 0) return undefined;
+  const alvo =
+    comMM.find(m => m.periodo === periodo)                                        // (a) próprio
+    ?? [...comMM].reverse().find(m => m.periodo <= periodo)                       // (c) mais recente ≤ período
+    ?? comMM.find(m => m.periodo > periodo);                                      // (c) senão o mais antigo > período
+  if (!alvo) return undefined;
+  const clientesCJ = await buscarConsumoClientesJuridico(alvo.periodo);
+  const comMMcli = clientesCJ.filter(c => typeof c.consumo_mm === 'number');
+  if (comMMcli.length === 0) return undefined;
+  return {
+    mmPorIdEstavel: new Map(comMMcli.map(c => [c.id_estavel_cliente, c.consumo_mm!])),
+    casaMM: alvo.casa_mm ?? 0,
+  };
+}
+
 interface AppState {
   dadosPeriodo: DadosPeriodo | null;
   aumMap: Map<string, AumCliente> | null;
@@ -257,25 +291,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // propaga para calcularCustoDireto. Vínculo com pct > 0 substitui o
       // fallback de nome no campo do cliente. Como hoje todos os 860 vínculos
       // têm pct=0, o comportamento é idêntico ao legado até Peça 6 popular pct.
-      // ── Consumo jurídico medido do período (Fase 2) ──────────────────────────
-      // Lê o snapshot com a MM já DENORMALIZADA (nada de calcular média móvel na
-      // leitura — o AppContext segue mono-período). Período sem snapshot, ou com
-      // snapshot antigo sem consumo_mm, devolve undefined → o motor cai no driver
-      // legado por peso_juridico e o período não move um centavo.
+      // ── Consumo jurídico medido (Fase 2 + retroação, opção 'a' do CFO) ────────
+      // Resolve a MM do período: própria, OU retroagida do snapshot vizinho a partir
+      // do piso 2026-02 (janeiro fica fora e usa peso PARA SEMPRE — protege as âncoras
+      // re-baselinadas do Incidente 2026-01). A resolução vive AQUI (carregamento); o
+      // motor recebe o mesmo input e não se toca. MM sempre DENORMALIZADA — nada de
+      // calcular média móvel na leitura.
       let consumoJuridico: ConsumoJuridicoPeriodo | undefined;
       try {
-        const [metasCJ, clientesCJ] = await Promise.all([
-          buscarPeriodosConsumoJuridico(),
-          buscarConsumoClientesJuridico(periodo),
-        ]);
-        const metaCJ = metasCJ.find(m => m.periodo === periodo);
-        const comMM = clientesCJ.filter(c => typeof c.consumo_mm === 'number');
-        if (metaCJ && comMM.length > 0) {
-          consumoJuridico = {
-            mmPorIdEstavel: new Map(comMM.map(c => [c.id_estavel_cliente, c.consumo_mm!])),
-            casaMM: metaCJ.casa_mm ?? 0,
-          };
-        }
+        consumoJuridico = await resolverConsumoJuridico(periodo);
       } catch (e) {
         console.warn('[AppContext] Consumo jurídico indisponível — rateio cai no peso:', e);
       }
