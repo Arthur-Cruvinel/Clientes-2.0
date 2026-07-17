@@ -2214,12 +2214,14 @@ export async function buscarConsumoClientesJuridico(periodo: string): Promise<Co
 
 /** Flag de pacote jurídico por id_estavel (clientes_base). Usado pela seção "cortesia"
  *  para cruzar consumo × contratação. Leitura pura — não toca motor. */
-export async function buscarFlagsJuridico(): Promise<Record<string, { jur: boolean; peso: number }>> {
+export async function buscarFlagsJuridico(): Promise<Record<string, { jur: boolean; peso: number; fora: boolean }>> {
   const snap = await getDocs(collection(db, 'clientes_base'));
-  const out: Record<string, { jur: boolean; peso: number }> = {};
+  const out: Record<string, { jur: boolean; peso: number; fora: boolean }> = {};
   for (const d of snap.docs) {
-    const c = d.data() as { id_estavel?: string; utiliza_servico_juridico?: boolean; peso_juridico?: number };
-    if (c.id_estavel) out[c.id_estavel] = { jur: !!c.utiliza_servico_juridico, peso: Number(c.peso_juridico ?? 1) };
+    const c = d.data() as { id_estavel?: string; utiliza_servico_juridico?: boolean; peso_juridico?: number; juridico_fora_do_pool?: boolean };
+    // `fora` = cliente cuja demanda a equipe atende mas que paga o escritório
+    // direto (Galáticos não participa). Alimenta a diluição fora-do-pool do painel.
+    if (c.id_estavel) out[c.id_estavel] = { jur: !!c.utiliza_servico_juridico, peso: Number(c.peso_juridico ?? 1), fora: !!c.juridico_fora_do_pool };
   }
   return out;
 }

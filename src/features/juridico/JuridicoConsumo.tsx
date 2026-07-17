@@ -24,7 +24,7 @@ export function JuridicoConsumo() {
   const [periodos, setPeriodos] = useState<ConsumoPeriodoDoc[]>([]);
   const [sel, setSel] = useState<string>('');
   const [clientes, setClientes] = useState<ConsumoClienteDoc[]>([]);
-  const [flags, setFlags] = useState<Record<string, { jur: boolean; peso: number }>>({});
+  const [flags, setFlags] = useState<Record<string, { jur: boolean; peso: number; fora: boolean }>>({});
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -55,8 +55,40 @@ export function JuridicoConsumo() {
     }));
     const cortesia = linhas.filter(l => !l.jur);
     const vazamento = cortesia.reduce((s, l) => s + l.custoEstimado, 0);
-    return { totalNaoCasa, meses, poolPeriodo, custoPorDemanda, linhas, cortesia, vazamento, entradaMes: meses > 0 ? totalNaoCasa / meses : 0 };
-  }, [clientes, poolMensal, sel, flags]);
+
+    // --- Capacidade da equipe (a–e). PREMISSA (CFO): a equipe do jurídico é UMA só e o board
+    // é UM só — o tempo total dela se divide também entre clientes que pagam DIRETO ao
+    // escritório, valor de que a Galáticos não participa. O pool fixo financia capacidade
+    // parcialmente consumida por terceiros. Este painel torna esse risco mensurável mês a mês.
+    const totalDemandas = meta?.total_demandas ?? (totalNaoCasa + (meta?.casa_demandas ?? 0) + (meta?.externos_demandas ?? 0));
+    const entradaMes = meses > 0 ? totalDemandas / meses : 0;                          // (a) board inteiro ÷ meses
+
+    const concluidasAcum = meta?.demandas_concluidas;                                  // opcional (card do board)
+    const emAndamento = meta?.demandas_em_andamento;                                   // opcional (card do board)
+    const temStatus = concluidasAcum !== undefined && meses > 0;
+    const vazaoMes = temStatus ? concluidasAcum! / meses : undefined;                  // (b) concluídas ÷ meses
+    const filaMeses = (vazaoMes && vazaoMes > 0 && emAndamento !== undefined)
+      ? emAndamento / vazaoMes : undefined;                                            // (c) meses p/ zerar o WIP
+    const custoPorConcluida = (concluidasAcum && concluidasAcum > 0)
+      ? poolPeriodo / concluidasAcum : undefined;                                      // (e) pool do período ÷ concluídas
+
+    // (d) % da capacidade consumida por quem paga o escritório DIRETO. Unidade = MM (média
+    // móvel mensal), consistente no numerador e denominador. Externos não têm MM medida →
+    // proxy pela MM média por demanda do board medido, aplicada às demandas do externo.
+    const mmMedidos = (meta?.total_mm ?? 0) + (meta?.casa_mm ?? 0);
+    const demandasMedidas = totalNaoCasa + (meta?.casa_demandas ?? 0);
+    const mmPorDemanda = demandasMedidas > 0 ? mmMedidos / demandasMedidas : 0;
+    const externosMM = (meta?.externos_demandas ?? 0) * mmPorDemanda;
+    const foraMM = clientes.reduce((s, c) => s + (flags[c.id_estavel_cliente]?.fora ? (c.consumo_mm ?? 0) : 0), 0);
+    const mmBoard = mmMedidos + externosMM;
+    const temMM = mmBoard > 0;
+    const pctForaPool = temMM ? (foraMM + externosMM) / mmBoard : undefined;           // (d)
+
+    return {
+      totalNaoCasa, meses, poolPeriodo, custoPorDemanda, linhas, cortesia, vazamento,
+      entradaMes, vazaoMes, filaMeses, custoPorConcluida, pctForaPool, temStatus, temMM,
+    };
+  }, [clientes, poolMensal, sel, flags, meta]);
 
   if (carregando && !meta) return <p className="text-sm" style={{ color: '#6b6b8a' }}>Carregando consumo…</p>;
   if (!periodos.length) return (
@@ -91,10 +123,30 @@ export function JuridicoConsumo() {
         <KpiReal label={`Demandas (acum. ${dados.meses}m)`} valor={String(dados.totalNaoCasa)} />
         <KpiReal label="Entrada / mês (média)" valor={dados.entradaMes.toFixed(1)} />
       </div>
-      <p className="text-[10px]" style={{ color: '#9ca3af' }}>
-        Vazão e fila do gargalo dependem de status por demanda (concluída/andamento) — não vêm da
-        contagem colada; entram quando o import trouxer o status linha-a-linha.
-      </p>
+
+      {/* Painel de capacidade — entrada, vazão, fila, diluição fora-do-pool. Só leitura
+          analítica: nada aqui entra no motor/DRE. Os KPIs de vazão/fila/custo-por-concluída
+          ficam OCULTOS quando o board não trouxe o card de "concluídas" no import. */}
+      <div className="rounded-lg border p-3" style={{ borderColor: '#e2e2e8' }}>
+        <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#160F41' }}>Capacidade da equipe</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {dados.temStatus && <KpiReal label="Vazão / mês (concluídas)" valor={dados.vazaoMes!.toFixed(1)} />}
+          {dados.temStatus && <KpiReal label="Fila estimada (meses)" valor={dados.filaMeses !== undefined ? dados.filaMeses.toFixed(1) : '—'} />}
+          {dados.temStatus && <KpiReal label="Custo / demanda concluída" valor={poolIndefinido || dados.custoPorConcluida === undefined ? '—' : formatCurrency(dados.custoPorConcluida)} />}
+          <KpiReal label="% capacidade fora do pool" valor={dados.pctForaPool !== undefined ? `${(dados.pctForaPool * 100).toFixed(1)}%` : '—'} />
+        </div>
+        <p className="text-[10px] mt-2" style={{ color: '#9ca3af' }}>
+          <strong>% capacidade fora do pool:</strong> parcela da capacidade da equipe consumida por
+          quem paga o escritório diretamente (clientes marcados fora-do-pool + externos).
+          {!dados.temMM && ' Sem MM no snapshot — indisponível neste período.'}
+        </p>
+        {!dados.temStatus && (
+          <p className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>
+            Vazão, fila e custo por concluída aparecem quando o import trouxer os cards de status do
+            board (demandas em andamento / concluídas) deste período.
+          </p>
+        )}
+      </div>
 
       {/* Consumo por cliente */}
       <div className="rounded-lg border overflow-hidden" style={{ borderColor: '#e2e2e8' }}>
