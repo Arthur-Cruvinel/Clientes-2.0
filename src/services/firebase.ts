@@ -2093,6 +2093,10 @@ export interface ConsumoPeriodoDoc {
   /** Agregados da MM (denormalizados junto com os docs de cliente). `mm_n` = quantas
    *  parcelas entraram na média (meses do acumulado no inaugural; nº de deltas depois). */
   mm_n?: number; total_mm?: number; casa_mm?: number;
+  /** Cards de STATUS que o board imprime (opcionais — o operador digita no import).
+   *  Alimentam o painel de capacidade (vazão/fila/custo por concluída). Ausentes em
+   *  snapshots pré-captura → o painel oculta os KPIs que dependem deles. */
+  demandas_em_andamento?: number; demandas_concluidas?: number;
   n_clientes: number; registrado_em: string; registrado_por?: string;
 }
 
@@ -2139,6 +2143,8 @@ async function lerHistoricoConsumo(periodoAtual: string): Promise<{ periodo: str
 export async function salvarSnapshotConsumoJuridico(
   periodo: string, clientes: ConsumoClienteDoc[], casaDemandas: number,
   externos: ConsumoExternoDoc[] = [], registrador?: string,
+  // Cards de status do board (opcionais). undefined → campo omitido no doc (não bloqueia).
+  status?: { demandas_em_andamento?: number; demandas_concluidas?: number },
 ): Promise<void> {
   const historico = await lerHistoricoConsumo(periodo);
   const atual = { porId: new Map(clientes.map(c => [c.id_estavel_cliente, c.demandas])), casa: casaDemandas };
@@ -2185,6 +2191,8 @@ export async function salvarSnapshotConsumoJuridico(
     total_nao_casa: totalNaoCasa, casa_demandas: casaDemandas,
     externos, externos_demandas: externosDemandas,
     mm_n: mmN, total_mm: clientesComMM.reduce((s, c) => s + (c.consumo_mm ?? 0), 0), casa_mm: casaMM,
+    ...(status?.demandas_em_andamento !== undefined ? { demandas_em_andamento: status.demandas_em_andamento } : {}),
+    ...(status?.demandas_concluidas !== undefined ? { demandas_concluidas: status.demandas_concluidas } : {}),
     n_clientes: clientes.length, registrado_em: new Date().toISOString(),
     ...(registrador ? { registrado_por: registrador } : {}),
   });

@@ -58,6 +58,13 @@ export function ConsumoJuridicoImport() {
   const [metasSnapshot, setMetasSnapshot] = useState<ConsumoPeriodoDoc[]>([]);
   const [snapshotRecenteClientes, setSnapshotRecenteClientes] = useState<ConsumoClienteDoc[]>([]);
   const [carregandoSnapshot, setCarregandoSnapshot] = useState(false);
+  // Cards de STATUS que o board imprime (dois números que o operador digita). Alimentam
+  // o painel de capacidade: a equipe do jurídico é UMA só e o board é UM só — o tempo
+  // total dela se divide também entre clientes que pagam DIRETO ao escritório (valor de
+  // que a Galáticos não participa). O pool fixo financia capacidade parcialmente consumida
+  // por terceiros; medir isso mês a mês é o objetivo do painel. String vazia = ausente.
+  const [emAndamento, setEmAndamento] = useState('');
+  const [concluidas, setConcluidas] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Import direto do PDF do board: File → base64 (util) → claude-proxy. A resposta
@@ -225,7 +232,12 @@ export function ConsumoJuridicoImport() {
       }
       const clientes = [...porId].map(([id, v]) => ({ id_estavel_cliente: id, nome_cliente: v.nome, demandas: v.demandas }));
       const externos = [...porExterno].map(([nome, demandas]) => ({ nome, demandas }));
-      await salvarSnapshotConsumoJuridico(periodo, clientes, casa, externos, registrador);
+      // Status opcional: só envia o número quando o campo tem valor válido (vazio → ausente).
+      const status = {
+        demandas_em_andamento: emAndamento.trim() !== '' && Number.isFinite(Number(emAndamento)) ? Number(emAndamento) : undefined,
+        demandas_concluidas: concluidas.trim() !== '' && Number.isFinite(Number(concluidas)) ? Number(concluidas) : undefined,
+      };
+      await salvarSnapshotConsumoJuridico(periodo, clientes, casa, externos, registrador, status);
       setSalvo(periodo);
       // Feedback do que FOI gravado (aditivo — não muda o que se persiste).
       const naoCasa = clientes.reduce((s, c) => s + c.demandas, 0);
@@ -336,6 +348,9 @@ export function ConsumoJuridicoImport() {
       for (const e of [...(metaDoPeriodo.externos ?? [])].sort((a, b) => b.demandas - a.demandas)) linhas.push(`${e.nome} ${e.demandas}`);
       if ((metaDoPeriodo.casa_demandas ?? 0) > 0) linhas.push(`${nomeCasaBoard} ${metaDoPeriodo.casa_demandas}`);
       setTexto(linhas.join('\n'));
+      // Recarrega também os status salvos — senão um re-save sem redigitar os zeraria.
+      setEmAndamento(metaDoPeriodo.demandas_em_andamento !== undefined ? String(metaDoPeriodo.demandas_em_andamento) : '');
+      setConcluidas(metaDoPeriodo.demandas_concluidas !== undefined ? String(metaDoPeriodo.demandas_concluidas) : '');
     } finally {
       setCarregandoSnapshot(false);
     }
@@ -359,6 +374,23 @@ export function ConsumoJuridicoImport() {
           className="mt-1 block w-40 rounded-lg border px-3 py-2 text-sm"
           style={{ borderColor: periodo && !periodoValido ? '#991b1b' : '#e2e2e8' }} />
         {periodo && !periodoValido && <p className="text-[11px] mt-1" style={{ color: '#991b1b' }}>Formato AAAA-MM (ex.: 2026-06).</p>}
+      </div>
+
+      {/* Status do board — OPCIONAIS. Não bloqueiam o save; alimentam o painel de capacidade
+          (entrada/vazão/fila). Ausentes → o painel oculta os KPIs que dependem deles. */}
+      <div className="flex flex-wrap gap-4">
+        <div>
+          <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Demandas em andamento (board)</label>
+          <input value={emAndamento} onChange={e => setEmAndamento(e.target.value.replace(/[^\d]/g, ''))}
+            inputMode="numeric" placeholder="opcional"
+            className="mt-1 block w-44 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#e2e2e8' }} />
+        </div>
+        <div>
+          <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6b6b8a' }}>Demandas concluídas (board)</label>
+          <input value={concluidas} onChange={e => setConcluidas(e.target.value.replace(/[^\d]/g, ''))}
+            inputMode="numeric" placeholder="opcional"
+            className="mt-1 block w-44 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#e2e2e8' }} />
+        </div>
       </div>
 
       {/* Import direto do PDF do board (via claude-proxy). Preenche o textarea abaixo. */}
