@@ -46,15 +46,34 @@ export function JuridicoConsumo() {
     const totalNaoCasa = clientes.reduce((s, c) => s + c.demandas, 0);
     const meses = sel ? parseInt(sel.split('-')[1], 10) : 0;   // acumulado Jan→período
     const poolPeriodo = poolMensal * meses;
-    const custoPorDemanda = totalNaoCasa > 0 ? poolPeriodo / totalNaoCasa : 0;
+
+    // Custo por cliente ALINHADO AO MOTOR (financials.custos.ts:585-593): o rateio
+    // jurídico da Fase 2 distribui o pool por MM (consumo medido), NÃO por demandas.
+    // `mmDe` zera quem paga o escritório direto (juridico_fora_do_pool) — idêntico ao
+    // motor; a casa entra via casaMM. Este é o custo_dedicado real, não a fórmula
+    // antiga (poolPeriodo ÷ todas as demandas = R$807/dem), que o CFO apontou divergente.
+    const casaMM = meta?.casa_mm ?? 0;
+    const mmDe = (c: ConsumoClienteDoc) => (flags[c.id_estavel_cliente]?.fora ? 0 : (c.consumo_mm ?? 0));
+    const baseMM = clientes.reduce((s, c) => s + mmDe(c), 0) + casaMM;
+    const custoMotorDe = (c: ConsumoClienteDoc) => baseMM > 0 ? poolPeriodo * (mmDe(c) / baseMM) : 0;
+
+    // Custo real / demanda: pool do período ÷ demandas que REALMENTE entram no pool
+    // (exclui quem paga o escritório direto). Sobe quando fora-do-pool sai do denominador.
+    const demandasNoPool = clientes.reduce((s, c) => s + (flags[c.id_estavel_cliente]?.fora ? 0 : c.demandas), 0);
+    const custoPorDemanda = demandasNoPool > 0 ? poolPeriodo / demandasNoPool : 0;
+
     const linhas = [...clientes].sort((a, b) => b.demandas - a.demandas).map(c => ({
       ...c,
       jur: flags[c.id_estavel_cliente]?.jur ?? false,
+      fora: flags[c.id_estavel_cliente]?.fora ?? false,
       participacao: totalNaoCasa > 0 ? c.demandas / totalNaoCasa : 0,
-      custoEstimado: c.demandas * custoPorDemanda,
+      custoMotor: custoMotorDe(c),
     }));
-    const cortesia = linhas.filter(l => !l.jur);
-    const vazamento = cortesia.reduce((s, l) => s + l.custoEstimado, 0);
+    // Cortesia = consomem o pool SEM pacote jurídico E dentro do pool (exclui fora-do-pool).
+    const cortesia = linhas.filter(l => !l.jur && !l.fora);
+    const cortesiaCusto = cortesia.reduce((s, l) => s + l.custoMotor, 0);
+    // Fora-do-pool: clientes da base que pagam o escritório direto (custo Galáticos = 0).
+    const foraDoPool = linhas.filter(l => l.fora);
 
     // --- Capacidade da equipe (a–e). PREMISSA (CFO): a equipe do jurídico é UMA só e o board
     // é UM só — o tempo total dela se divide também entre clientes que pagam DIRETO ao
@@ -85,7 +104,7 @@ export function JuridicoConsumo() {
     const pctForaPool = temMM ? (foraMM + externosMM) / mmBoard : undefined;           // (d)
 
     return {
-      totalNaoCasa, meses, poolPeriodo, custoPorDemanda, linhas, cortesia, vazamento,
+      totalNaoCasa, meses, poolPeriodo, custoPorDemanda, linhas, cortesia, cortesiaCusto, foraDoPool,
       entradaMes, vazaoMes, filaMeses, custoPorConcluida, pctForaPool, temStatus, temMM,
     };
   }, [clientes, poolMensal, sel, flags, meta]);
@@ -162,27 +181,30 @@ export function JuridicoConsumo() {
           </thead>
           <tbody className="divide-y" style={{ borderColor: '#e2e2e8' }}>
             {dados.linhas.map(c => (
-              <tr key={c.id_estavel_cliente} style={c.jur ? undefined : { backgroundColor: '#fffbeb' }}>
+              <tr key={c.id_estavel_cliente} style={c.fora ? { backgroundColor: '#eef2ff' } : c.jur ? undefined : { backgroundColor: '#fffbeb' }}>
                 <td className="px-3 py-1.5" style={{ color: '#160F41' }}>{c.nome_cliente}</td>
                 <td className="px-3 py-1.5 text-right font-medium" style={{ color: '#160F41' }}>{c.demandas}</td>
                 <td className="px-3 py-1.5 text-right" style={{ color: '#6b6b8a' }}>{(c.participacao * 100).toFixed(1)}%</td>
-                <td className="px-3 py-1.5 text-center">{c.jur
+                <td className="px-3 py-1.5 text-center">{c.fora
+                  ? <span className="text-[10px] font-bold" style={{ color: '#3730a3' }}>fora do pool</span>
+                  : c.jur
                   ? <span className="text-[10px] font-bold" style={{ color: '#166534' }}>sim</span>
                   : <span className="text-[10px] font-bold" style={{ color: '#b45309' }}>cortesia</span>}</td>
-                <td className="px-3 py-1.5 text-right" style={{ color: '#160F41' }}>{poolIndefinido ? '—' : formatCurrency(c.custoEstimado)}</td>
+                <td className="px-3 py-1.5 text-right" style={{ color: '#160F41' }}>{poolIndefinido ? '—' : formatCurrency(c.custoMotor)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* CORTESIA — consomem sem pacote jurídico (a lista comercial) */}
+      {/* CORTESIA — consomem o pool sem pacote jurídico. NÃO inclui fora-do-pool (esses
+          pagam o escritório direto → seção própria abaixo). Custo alinhado ao motor. */}
       {dados.cortesia.length > 0 && (
         <div className="rounded-lg border p-3" style={{ borderColor: '#fde68a', backgroundColor: '#fffbeb' }}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#b45309' }}>Consomem sem pacote — lista comercial</p>
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#b45309' }}>Cortesia — consomem o pool sem pacote</p>
             <span className="text-sm font-bold" style={{ color: '#b45309' }}>
-              Vazamento: {poolIndefinido ? '—' : formatCurrency(dados.vazamento)}
+              {poolIndefinido ? '—' : formatCurrency(dados.cortesiaCusto)}
               <span className="text-[11px] font-normal"> · {dados.cortesia.length} clientes</span>
             </span>
           </div>
@@ -190,52 +212,60 @@ export function JuridicoConsumo() {
             <thead><tr>
               <th className="px-3 py-1 text-left text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Cliente</th>
               <th className="px-3 py-1 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Demandas</th>
-              <th className="px-3 py-1 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Custo estimado</th>
+              <th className="px-3 py-1 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Custo (rateio)</th>
             </tr></thead>
             <tbody className="divide-y" style={{ borderColor: '#fde68a' }}>
               {dados.cortesia.map(c => (
                 <tr key={c.id_estavel_cliente}>
                   <td className="px-3 py-1 font-medium" style={{ color: '#160F41' }}>{c.nome_cliente}</td>
                   <td className="px-3 py-1 text-right" style={{ color: '#160F41' }}>{c.demandas}</td>
-                  <td className="px-3 py-1 text-right font-bold" style={{ color: '#b45309' }}>{poolIndefinido ? '—' : formatCurrency(c.custoEstimado)}</td>
+                  <td className="px-3 py-1 text-right font-bold" style={{ color: '#b45309' }}>{poolIndefinido ? '—' : formatCurrency(c.custoMotor)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="text-[10px] mt-2" style={{ color: '#6b6b8a' }}>
-            Consumo jurídico de clientes sem <code>utiliza_servico_juridico</code> — o rateio por
-            consumo (fase 2, frente própria) ataca este vazamento. Aqui é só o retrato comercial.
+            Clientes sem <code>utiliza_servico_juridico</code> que consomem o pool — o custo é o
+            do rateio real (mesma base MM do <code>custo_dedicado</code>). Parte pode virar decisão
+            comercial (cobrar, migrar de pacote), não é necessariamente erro.
           </p>
         </div>
       )}
 
-      {/* EXTERNOS — pagam o jurídico direto, não são clientes da base (fora do pool) */}
-      {(meta?.externos?.length ?? 0) > 0 && (
+      {/* PAGAM O ESCRITÓRIO DIRETAMENTE (fora do pool) — clientes da base marcados
+          juridico_fora_do_pool + externos do board. SEM custo: não é despesa da Galáticos. */}
+      {(dados.foraDoPool.length + (meta?.externos?.length ?? 0)) > 0 && (
         <div className="rounded-lg border p-3" style={{ borderColor: '#c7d2fe', backgroundColor: '#eef2ff' }}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3730a3' }}>Externos — fora do pool</p>
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3730a3' }}>Pagam o escritório diretamente (fora do pool)</p>
             <span className="text-sm font-bold" style={{ color: '#3730a3' }}>
-              {meta?.externos_demandas ?? 0} demandas
-              <span className="text-[11px] font-normal"> · {meta?.externos?.length ?? 0} externos</span>
+              {dados.foraDoPool.reduce((s, c) => s + c.demandas, 0) + (meta?.externos_demandas ?? 0)} demandas
+              <span className="text-[11px] font-normal"> · {dados.foraDoPool.length + (meta?.externos?.length ?? 0)} nomes</span>
             </span>
           </div>
           <table className="min-w-full text-sm">
             <thead><tr>
-              <th className="px-3 py-1 text-left text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Nome (board)</th>
+              <th className="px-3 py-1 text-left text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Nome</th>
               <th className="px-3 py-1 text-right text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Demandas</th>
+              <th className="px-3 py-1 text-left text-[10px] uppercase font-bold" style={{ color: '#6b6b8a' }}>Origem</th>
             </tr></thead>
             <tbody className="divide-y" style={{ borderColor: '#c7d2fe' }}>
-              {[...(meta?.externos ?? [])].sort((a, b) => b.demandas - a.demandas).map(e => (
-                <tr key={e.nome}>
-                  <td className="px-3 py-1 font-medium" style={{ color: '#160F41' }}>{e.nome}</td>
-                  <td className="px-3 py-1 text-right" style={{ color: '#160F41' }}>{e.demandas}</td>
+              {[
+                ...dados.foraDoPool.map(c => ({ nome: c.nome_cliente, demandas: c.demandas, origem: 'cliente da base' })),
+                ...(meta?.externos ?? []).map(e => ({ nome: e.nome, demandas: e.demandas, origem: 'externo (board)' })),
+              ].sort((a, b) => b.demandas - a.demandas).map(l => (
+                <tr key={`${l.origem}:${l.nome}`}>
+                  <td className="px-3 py-1 font-medium" style={{ color: '#160F41' }}>{l.nome}</td>
+                  <td className="px-3 py-1 text-right" style={{ color: '#160F41' }}>{l.demandas}</td>
+                  <td className="px-3 py-1 text-[11px]" style={{ color: '#6b6b8a' }}>{l.origem}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="text-[10px] mt-2" style={{ color: '#6b6b8a' }}>
-            Pagam o jurídico DIRETAMENTE e não são clientes da base — a medição grava o board
-            inteiro, mas estes ficam fora do denominador do custo/demanda, do rateio e da cortesia.
+            Consomem a equipe mas pagam o escritório DIRETAMENTE — a Galáticos não participa desse
+            valor. O motor já os exclui do rateio: ficam fora do denominador do custo/demanda, da
+            cortesia e do pool. Listados por transparência, sem custo (não é despesa da Galáticos).
           </p>
         </div>
       )}
