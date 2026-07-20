@@ -572,13 +572,50 @@ interface CustoIndireto {
   // 'geral'       → rateado entre clientes com custo_direto > 0
   //                  clientes pure asset (receita_fee = 0) são EXCLUÍDOS
   //                  base: proporcional ao custo direto
-  // 'juridico'    → rateado entre clientes com utiliza_servico_juridico = true
-  //                  base: campo peso_juridico (default 1.0, editável)
+  // 'juridico'    → DIRETO (compõe o custo_dedicado). Driver por CONSUMO MEDIDO
+  //                  (consumo_mm/MM6) nos períodos com snapshot; peso_juridico é o
+  //                  FALLBACK. Regra crítica + fonte: ver "Driver do rateio
+  //                  jurídico (Fase 2)" logo abaixo.
   // 'conciliacao' → rateado entre clientes com utiliza_conciliacao = true
   //                  E volume_movimentos_mes > 0
   //                  base: proporcional a volume_movimentos_mes
 }
 ```
+
+### Driver do rateio jurídico (Fase 2)
+
+O pool jurídico (`CustoIndireto` tipo `'juridico'`) é rateado como custo
+**DIRETO** — compõe o `custo_dedicado` do cliente no DRE, **não** o pool geral
+nem a partição de folha. O DRIVER é **period-dependent**:
+
+- **CONSUMO medido (`consumo_mm` / MM6)** — driver **VIGENTE** nos períodos com
+  snapshot `consumo_juridico/{periodo}` (hoje **2026-02..2026-06**). Base:
+  **todos que consomem**, proporcional a `consumo_mm`, **EXCETO** casa, externos
+  e clientes `juridico_fora_do_pool`. A fatia da **CASA** sai do rateio a
+  clientes e vai ao **pool geral** (institucional) — não evapora do DRE.
+- **PESO (`peso_juridico`)** — **FALLBACK** dos períodos SEM snapshot ou abaixo
+  do piso de retroação `PERIODO_INICIO_RATEIO_CONSUMO='2026-02'` (ex.: **2026-01**
+  fica em peso para sempre). Base: só clientes `utiliza_servico_juridico = true`,
+  proporcional a `peso_juridico` (default 1,0). Período sem snapshot **não move
+  um centavo** vs. o legado (`pipeline.ts:33`).
+
+**REGRA CRÍTICA — `juridico_fora_do_pool` é load-bearing.** No regime de
+CONSUMO, **cortesia É cobrada**: o rateio dá custo a QUEM CONSOME, com ou sem
+`utiliza_servico_juridico` (a flag de pacote virou atributo comercial, **não**
+portão de custo). Portanto `utiliza_servico_juridico = false` **NÃO protege** o
+cliente de receber custo jurídico no consumo. A **ÚNICA** proteção contra
+cobrança no consumo é **`juridico_fora_do_pool = true`** (quem paga o escritório
+diretamente — ex.: Rede Ronaldo, Ronaldo PF). **Não remover nem "simplificar"
+essa flag**: desmarcá-la faz o motor cobrar o cliente (mm × pool) no consumo. No
+fallback por peso a flag é irrelevante porque o gate `utiliza_servico_juridico`
+já exclui — mas isso é coincidência do período de peso, não uma segunda proteção.
+
+**Fonte.** Motor: `financials.custos.ts:575-603` (`calcularCustosIndiretos`,
+ramos consumo e peso). Snapshot/MM: `firebase.ts`
+(`salvarSnapshotConsumoJuridico`, meta `consumo_juridico/{periodo}` +
+subcoleção `clientes/`). Commits: `ab2fee6` (swap peso→consumo),
+`2e5039b` (MM6 denormalizada no snapshot), `9012ae8` (retroação, piso 2026-02,
+janeiro intocável). Diagnósticos: `audit-results/juridico-fase2-*.md`.
 
 ### Interface Vinculo (Fase 2.5 — Peça 1)
 

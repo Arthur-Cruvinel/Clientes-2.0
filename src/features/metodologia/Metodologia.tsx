@@ -64,13 +64,14 @@ Pró-labore (sem 13º/férias):
       formula:
 `Geral (INDIRETO)         → proporcional ao custo_direto
                            pure_asset excluído (custo_direto = 0)
-Consultoria & Legal      → proporcional ao peso_juridico (default 1,0)
-(Jurídico) [DIRETO]        apenas clientes com utiliza_servico_juridico = true
+Consultoria & Legal      → proporcional ao consumo_mm medido (MM6) do período
+(Jurídico) [DIRETO]        todos que consomem, EXCETO casa, externos e fora_do_pool
+                           fallback: peso_juridico nos períodos sem snapshot (ex.: 2026-01)
                            rateio compõe o CUSTO DEDICADO do cliente
 Conciliação [DIRETO]     → proporcional ao volume_movimentos_mes
                            apenas clientes com utiliza_conciliacao = true
                            rateio compõe o CUSTO DEDICADO do cliente`,
-      vigencia: 'Desde a implementação inicial',
+      vigencia: 'Driver por consumo (MM6) desde 07/2026; antes: peso_juridico',
     },
     {
       titulo: 'Custo Institucional dos Colaboradores',
