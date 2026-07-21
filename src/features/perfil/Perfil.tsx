@@ -300,7 +300,7 @@ function ConfigTab({ c }: { c: import('../../types').DadosCliente }) {
   return (
     <div>
       <Par label="Pacote de serviço" valor={c.pacote_servico} />
-      <Par label="Peso jurídico" valor={(c.peso_juridico ?? 1.0).toFixed(1)} />
+      <Par label="Rateio jurídico" valor={formatCurrency(c.custo_direto_detalhe?.juridico ?? 0)} />
       <Par label="Volume movimentos/mês" valor={String(c.volume_movimentos_mes ?? 0)} />
       <Par label="Utiliza serviço jurídico" valor={c.utiliza_servico_juridico ? 'Sim' : 'Não'} />
       <Par label="Utiliza conciliação" valor={c.utiliza_conciliacao ? 'Sim' : 'Não'} />

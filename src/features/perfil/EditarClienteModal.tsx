@@ -333,8 +333,11 @@ export function EditarClienteModal({ cliente, poupanca, colaboradores, bankers, 
 
         {aba === 'Configuração' && (
           <>
+            {/* peso_juridico saiu da UI: o rateio jurídico agora é read-only
+                (aba Configuração do Perfil + modal de Custos Dedicados). O valor
+                SEGUE carregado no form (:183) e reenviado no save (:243) — só não
+                é mais editável aqui; o import Excel continua podendo setá-lo. */}
             {[
-              ['peso_juridico', 'Peso jurídico', 0.1],
               ['volume_movimentos_mes', 'Volume movimentos/mês', 1],
             ].map(([k, label, step]) => (
               <div key={k as string} className="space-y-1">

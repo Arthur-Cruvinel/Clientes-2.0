@@ -107,7 +107,7 @@ export function CustoDiretoModal({ cliente, tipo, onFechar }: Props) {
                     {d.juridico > 0 && (
                       <tr>
                         <td className={TD}>Consultoria & Legal (Jurídico)</td>
-                        <td className={TD} style={{ color: '#6b6b8a' }}>Peso {(cliente.peso_juridico ?? 1.0).toFixed(1)}</td>
+                        <td className={TD} style={{ color: '#6b6b8a' }}>Rateio jurídico do período</td>
                         <td className={`${TD} text-right font-medium`}>{formatCurrency(d.juridico)}</td>
                       </tr>
                     )}
